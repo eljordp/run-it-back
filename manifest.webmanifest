@@ -1,0 +1,18 @@
+{
+  "name": "Run It Back",
+  "short_name": "Run It Back",
+  "description": "A life simulator. Spawn point, family, and luck are rolled. Everything else is yours.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e1115",
+  "theme_color": "#181c20",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22><rect width=%22512%22 height=%22512%22 fill=%22%23181c20%22/><text x=%22256%22 y=%22320%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-size=%22320%22 fill=%22%23e07a3a%22>R</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

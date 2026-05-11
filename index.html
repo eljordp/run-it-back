@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#181c20" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%23181c20'/><text x='256' y='320' text-anchor='middle' font-family='Georgia,serif' font-size='320' fill='%23e07a3a'>R</text></svg>" />
+    <title>Run It Back</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700;800;900&display=swap" />
+    <link rel="stylesheet" href="styles.css?v=run-it-back-1" />
+  </head>
+  <body>
+    <div class="title-cinematic" id="titleCinematic" aria-hidden="true">
+      <div class="title-cinematic-inner">
+        <svg class="title-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="100" cy="100" r="92" fill="none" stroke="#e07a3a" stroke-width="3" />
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#e07a3a" stroke-width="1.5" opacity="0.45" />
+          <path d="M 60 130 L 100 60 L 140 130 Z" fill="none" stroke="#e07a3a" stroke-width="3" stroke-linejoin="round" />
+          <circle cx="100" cy="100" r="6" fill="#e07a3a" />
+        </svg>
+        <p class="title-kicker">A life simulator</p>
+        <h1 class="title-big">Run It Back</h1>
+        <p class="title-sub">Spawn anywhere. Live til death. Screenshot it.</p>
+      </div>
+    </div>
+
+    <main class="desktop-game" aria-label="Run It Back game">
+      <header class="game-header">
+        <div>
+          <p id="statusLine">Life simulation game</p>
+          <h1>Run It Back</h1>
+        </div>
+        <div class="header-actions">
+          <button class="ghost" id="howToBtn" type="button" title="How to play" aria-label="How to play">?</button>
+          <button class="ghost" id="resetBtn" type="button" title="Start a new life">New Life</button>
+          <button class="ghost" id="settingsBtn" type="button" title="Settings" aria-label="Settings">⚙</button>
+        </div>
+      </header>
+
+      <dialog id="howToDialog" class="how-to-dialog">
+        <div class="dialog-body">
+          <p class="kicker">How to play</p>
+          <h2>Run a life from birth to death</h2>
+          <ol class="how-to-steps">
+            <li><strong>Pick or roll a character.</strong> Hometown, family, starting class, look. Or click a preset.</li>
+            <li><strong>Spend yearly moves.</strong> Each year you get 2–5 moves. Click an action in any lane. Stats shift. Story builds.</li>
+            <li><strong>Hit Age Up</strong> at the top of the life panel to advance one year. New events fire. NPCs change.</li>
+            <li><strong>Lanes unlock by age.</strong> Little Kid &lt; 8, Teen 12–24, Vices 14+, Politics 18+. Hit "More" to see everything.</li>
+            <li><strong>You'll die.</strong> Old age, OD, jail, crossfire, car accident. The recap screen is the share-worthy moment.</li>
+          </ol>
+          <p class="how-to-tip"><strong>Stuck?</strong> Hover any stat for what it does. Cryptic category? Hover its tile. Want a preset run? Pick one in New Life.</p>
+          <form method="dialog" style="margin-top: 14px;">
+            <button type="submit" class="primary wide">Got it</button>
+          </form>
+        </div>
+      </dialog>
+
+      <div class="first-year-hint" id="firstYearHint" hidden>
+        <p>You're 0 years old. Click any action below to spend a move. Hit <strong>Age Up</strong> when you're ready for next year.</p>
+        <button type="button" class="ghost" id="dismissHint">Got it</button>
+      </div>
+
+      <form class="creator board-card" id="creator">
+        <div class="creator-copy">
+          <h2>New life</h2>
+        </div>
+
+        <div class="creator-stage">
+          <div class="creator-preview">
+            <div class="portrait preview-portrait" id="previewPortrait" aria-hidden="true">
+              <img class="portrait-img" id="previewPortraitImg" alt="" />
+            </div>
+            <button type="button" class="ghost randomize-btn" id="randomizeBtn" title="Randomize appearance">Randomize look</button>
+          </div>
+
+          <div class="creator-cyclers">
+            <div class="cycler" data-input="skinInput">
+              <p class="cycler-label">Skin</p>
+              <div class="cycler-row">
+                <button type="button" class="cycler-arrow" data-dir="-1" aria-label="Previous skin">◀</button>
+                <span class="cycler-value" data-value-for="skinInput">Warm tan</span>
+                <button type="button" class="cycler-arrow" data-dir="1" aria-label="Next skin">▶</button>
+              </div>
+            </div>
+            <div class="cycler" data-input="hairInput">
+              <p class="cycler-label">Hair</p>
+              <div class="cycler-row">
+                <button type="button" class="cycler-arrow" data-dir="-1" aria-label="Previous hair">◀</button>
+                <span class="cycler-value" data-value-for="hairInput">Fade</span>
+                <button type="button" class="cycler-arrow" data-dir="1" aria-label="Next hair">▶</button>
+              </div>
+            </div>
+            <div class="cycler" data-input="hairColorInput">
+              <p class="cycler-label">Hair color</p>
+              <div class="cycler-row">
+                <button type="button" class="cycler-arrow" data-dir="-1" aria-label="Previous hair color">◀</button>
+                <span class="cycler-value" data-value-for="hairColorInput">Black plum</span>
+                <button type="button" class="cycler-arrow" data-dir="1" aria-label="Next hair color">▶</button>
+              </div>
+            </div>
+            <div class="cycler" data-input="outfitInput">
+              <p class="cycler-label">Outfit</p>
+              <div class="cycler-row">
+                <button type="button" class="cycler-arrow" data-dir="-1" aria-label="Previous outfit">◀</button>
+                <span class="cycler-value" data-value-for="outfitInput">Hoodie</span>
+                <button type="button" class="cycler-arrow" data-dir="1" aria-label="Next outfit">▶</button>
+              </div>
+            </div>
+            <div class="cycler" data-input="expressionInput">
+              <p class="cycler-label">Expression</p>
+              <div class="cycler-row">
+                <button type="button" class="cycler-arrow" data-dir="-1" aria-label="Previous expression">◀</button>
+                <span class="cycler-value" data-value-for="expressionInput">Chill</span>
+                <button type="button" class="cycler-arrow" data-dir="1" aria-label="Next expression">▶</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="creator-fields">
+          <label>
+            Name
+            <input id="nameInput" maxlength="18" placeholder="Your name" autocomplete="off" />
+          </label>
+          <label>
+            Hometown
+            <select id="homeInput">
+              <optgroup label="USA">
+                <option>Los Angeles, CA</option>
+                <option>Hollywood, Los Angeles</option>
+                <option>Compton, CA</option>
+                <option>New York City, NY</option>
+                <option>Brooklyn, NY</option>
+                <option>The Bronx, NY</option>
+                <option>Chicago, IL</option>
+                <option>South Side, Chicago</option>
+                <option>Atlanta, GA</option>
+                <option>Miami, FL</option>
+                <option>Houston, TX</option>
+                <option>Las Vegas, NV</option>
+                <option>Skid Row, Los Angeles</option>
+              </optgroup>
+              <optgroup label="Latin America">
+                <option>Mexico City, Mexico</option>
+                <option>Medellín, Colombia</option>
+                <option>Rio de Janeiro, Brazil</option>
+              </optgroup>
+              <optgroup label="Europe">
+                <option>London, UK</option>
+                <option>Paris, France</option>
+              </optgroup>
+              <optgroup label="Asia & Middle East">
+                <option>Tokyo, Japan</option>
+                <option>Seoul, South Korea</option>
+                <option>Dubai, UAE</option>
+              </optgroup>
+            </select>
+          </label>
+          <label>
+            Identity
+            <select id="identityInput">
+              <option>Guy</option>
+              <option>Girl</option>
+              <option>Trans guy</option>
+              <option>Trans girl</option>
+              <option>Nonbinary</option>
+              <option>Genderfluid</option>
+              <option>Figuring it out</option>
+            </select>
+          </label>
+          <label>
+            Starting hand
+            <select id="classInput">
+              <option value="random">Roll the dice</option>
+              <option value="nepo">Silver Spoon (trust fund baby)</option>
+              <option value="comfortable">Comfortable (stable)</option>
+              <option value="working">Working Class (real ones)</option>
+              <option value="struggling">Struggling (broke, tight family)</option>
+              <option value="survival">Survival (no safety net)</option>
+            </select>
+          </label>
+          <label>
+            Starting spark
+            <select id="focusInput">
+              <option value="smarts">Book smart</option>
+              <option value="happiness">Sunny mood</option>
+              <option value="health">Athletic</option>
+              <option value="looks">Good looking</option>
+              <option value="discipline">Disciplined</option>
+            </select>
+          </label>
+        </div>
+
+        <details class="creator-more">
+          <summary>More about your background <span class="more-hint">(optional)</span></summary>
+          <div class="creator-fields creator-fields-more">
+          <label>
+            Faith
+            <select id="religionInput">
+              <option value="none">None / Agnostic</option>
+              <option value="christian">Christian</option>
+              <option value="catholic">Catholic</option>
+              <option value="muslim">Muslim</option>
+              <option value="jewish">Jewish</option>
+              <option value="hindu">Hindu</option>
+              <option value="buddhist">Buddhist</option>
+              <option value="spiritual">Spiritual / Not religious</option>
+              <option value="atheist">Atheist</option>
+            </select>
+          </label>
+          <label>
+            Heritage
+            <select id="heritageInput">
+              <option value="mixed">Mixed / Don't say</option>
+              <option value="black">Black / African-American</option>
+              <option value="latino">Latino / Hispanic</option>
+              <option value="white">White / European</option>
+              <option value="east-asian">East Asian</option>
+              <option value="south-asian">South Asian</option>
+              <option value="middle-eastern">Middle Eastern / Arab</option>
+              <option value="indigenous">Indigenous</option>
+              <option value="caribbean">Caribbean</option>
+              <option value="african">African (first-gen)</option>
+            </select>
+          </label>
+          <label>
+            Mom's work
+            <select id="momJobInput">
+              <option value="random">Roll</option>
+              <option value="teacher">Teacher</option>
+              <option value="nurse">Nurse</option>
+              <option value="lawyer">Lawyer</option>
+              <option value="entrepreneur">Entrepreneur</option>
+              <option value="artist">Artist / Creative</option>
+              <option value="executive">Corporate executive</option>
+              <option value="service">Service worker</option>
+              <option value="stay-home">Stay-at-home</option>
+              <option value="absent">Absent</option>
+            </select>
+          </label>
+          <label>
+            Dad's work
+            <select id="dadJobInput">
+              <option value="random">Roll</option>
+              <option value="laborer">Laborer / Trades</option>
+              <option value="cop">Cop / Military</option>
+              <option value="doctor">Doctor</option>
+              <option value="entrepreneur">Entrepreneur</option>
+              <option value="musician">Musician / Performer</option>
+              <option value="executive">Corporate executive</option>
+              <option value="service">Service worker</option>
+              <option value="hustler">Street hustler</option>
+              <option value="absent">Absent</option>
+            </select>
+          </label>
+          </div>
+        </details>
+
+        <!-- hidden selects mirroring cycler values -->
+        <div class="visually-hidden" aria-hidden="true">
+          <select id="skinInput">
+            <option value="skin-1">Warm tan</option>
+            <option value="skin-2">Deep brown</option>
+            <option value="skin-3">Golden brown</option>
+            <option value="skin-4">Light peach</option>
+            <option value="skin-5">Olive</option>
+          </select>
+          <select id="hairInput">
+            <option value="fade">Fade</option>
+            <option value="curls">Curls</option>
+            <option value="bob">Bob</option>
+            <option value="locs">Locs</option>
+            <option value="buzz">Buzz</option>
+            <option value="waves">Waves</option>
+          </select>
+          <select id="hairColorInput">
+            <option value="#251927">Black plum</option>
+            <option value="#1a1210">Jet black</option>
+            <option value="#6b3f28">Brown</option>
+            <option value="#c8923e">Blonde</option>
+            <option value="#b54657">Red</option>
+            <option value="#6f78ff">Blue</option>
+          </select>
+          <select id="outfitInput">
+            <option value="hoodie">Hoodie</option>
+            <option value="streetwear">Streetwear</option>
+            <option value="preppy">Preppy</option>
+            <option value="goth">Goth</option>
+            <option value="sport">Sport</option>
+            <option value="suit">Suit</option>
+          </select>
+          <select id="expressionInput">
+            <option value="chill">Chill</option>
+            <option value="smile">Smile</option>
+            <option value="smirk">Smirk</option>
+            <option value="serious">Serious</option>
+            <option value="spark">Sparkly</option>
+            <option value="oof">OOF (Roblox)</option>
+            <option value="sigma">Sigma stare</option>
+            <option value="cooked">Cooked</option>
+            <option value="npc">NPC</option>
+            <option value="caught">Caught in 4K</option>
+            <option value="silly">Silly</option>
+            <option value="evil">Evil</option>
+            <option value="ltaken">L taken</option>
+            <option value="sleepy">Sleepy</option>
+          </select>
+        </div>
+
+        <button class="primary wide" type="submit">Begin Life</button>
+      </form>
+
+      <section class="play dashboard" id="play" hidden>
+        <div class="first-life-hint" id="firstLifeHint" hidden>
+          <strong>New here?</strong>
+          <span>You get 5 moves per year. Pick actions from the categories below, then hit <em>Age Up</em>. Click any stat (Health, Smarts, etc.) to filter actions for that lane.</span>
+          <button type="button" class="hint-close" id="firstLifeHintClose" aria-label="Dismiss">×</button>
+        </div>
+        <aside class="board-card character-panel">
+          <section class="identity-card">
+            <div class="portrait" aria-hidden="true">
+              <img class="portrait-img" id="playerPortraitImg" alt="" />
+            </div>
+            <div class="identity-copy">
+              <p class="kicker">Character</p>
+              <h2 id="playerName">New Life</h2>
+              <p id="playerBio">Create a character to begin.</p>
+              <p id="lookDescriptor" class="look-descriptor"></p>
+            </div>
+          </section>
+          <section class="looks-meter" id="looksMeter" aria-label="Looks meter"></section>
+          <div class="mini-stats" id="miniStats"></div>
+          <section class="stat-grid" id="meters" aria-label="Character stats"></section>
+        </aside>
+
+        <section class="board-card life-panel">
+          <div class="location-strip" id="locationStrip">
+            <div class="location-strip-inner">
+              <p class="kicker">Living in</p>
+              <h2 class="location-name" id="locationName">—</h2>
+              <p class="location-vibe" id="locationVibe">—</p>
+            </div>
+            <div class="location-strip-meta" id="locationMeta"></div>
+          </div>
+          <div class="age-strip">
+            <button class="age-button" id="ageBtn" type="button">
+              <span>Age</span>
+              <strong>+</strong>
+            </button>
+            <div>
+              <p class="kicker">Current life</p>
+              <h2 id="chapterTitle">Age 0</h2>
+            </div>
+          </div>
+          <section class="canon-panel">
+            <div class="section-title tight">
+              <p class="kicker">Canon</p>
+              <h2>Big Events</h2>
+            </div>
+            <ol class="canon-log" id="canonLog" aria-label="Big canon events" aria-live="polite"></ol>
+          </section>
+          <ol class="timeline" id="timeline" aria-label="Life timeline" aria-live="polite"></ol>
+        </section>
+
+        <section class="board-card command-panel">
+          <div class="section-title">
+            <p class="kicker">Choose your move</p>
+            <h2>Activities</h2>
+          </div>
+          <section class="ai-chat" aria-label="Life AI chat">
+            <div class="ai-head">
+              <div>
+                <p class="kicker">Life AI</p>
+                <h3>Talk It Out</h3>
+              </div>
+              <span id="aiMood">Profile-aware</span>
+            </div>
+            <div class="ai-log" id="aiLog"></div>
+            <form class="ai-form" id="aiForm">
+              <input id="aiInput" maxlength="120" placeholder="Ask about school, hobbies, gangs, money..." autocomplete="off" />
+              <button class="primary" id="aiSend" type="submit">Send</button>
+            </form>
+          </section>
+          <div class="category-list" id="categoryList" role="tablist" aria-label="Activity categories"></div>
+          <div class="activity-list" id="activityList" role="list" aria-label="Available actions"></div>
+        </section>
+
+        <section class="board-card assets-panel">
+          <div class="section-title">
+            <p class="kicker">Money, property, debt</p>
+            <h2>Assets</h2>
+          </div>
+          <div id="assetsPanel"></div>
+        </section>
+
+        <section class="board-card people-panel">
+          <div class="section-title">
+            <p class="kicker">Family, friends, romance</p>
+            <h2>People</h2>
+          </div>
+          <div class="people-list" id="relationships" role="list" aria-label="People in your life"></div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="choiceDialog">
+      <div class="dialog-body">
+        <p class="kicker" id="eventAge">A new year</p>
+        <h2 id="eventTitle">Something happened</h2>
+        <p id="eventText"></p>
+        <div class="choice-list" id="choiceList"></div>
+      </div>
+    </dialog>
+
+    <dialog id="lifeRecapDialog" class="life-recap">
+      <div class="recap-card" id="recapCard">
+        <div class="recap-header">
+          <p class="recap-kicker">In memory of</p>
+          <h1 class="recap-name" id="recapName">—</h1>
+          <p class="recap-sub" id="recapSub">—</p>
+        </div>
+        <div class="recap-portrait-wrap">
+          <img class="recap-portrait" id="recapPortrait" alt="" />
+        </div>
+        <div class="recap-cause" id="recapCause">—</div>
+        <div class="recap-stats" id="recapStats"></div>
+        <div class="recap-moments">
+          <p class="recap-kicker">The story</p>
+          <ol id="recapMoments"></ol>
+        </div>
+        <div class="recap-whatif" id="recapWhatIf"></div>
+        <div class="recap-achievements" id="recapAchievements"></div>
+        <p class="recap-footer" id="recapFooter">—</p>
+        <div class="recap-brand">
+          <span class="recap-brand-mark">RUN IT BACK</span>
+          <span class="recap-brand-url">run-it-back-omega.vercel.app</span>
+        </div>
+        <div class="recap-actions">
+          <button type="button" class="primary wide" id="recapNewLife">Start a new life</button>
+          <button type="button" class="ghost wide" id="recapContinueLine" hidden>Continue family line →</button>
+          <button type="button" class="ghost wide" id="recapScreenshot">Share recap →</button>
+          <button type="button" class="ghost wide" id="recapShareSeed">Copy "same seed" link →</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="hofDialog" class="npc-dialog">
+      <div class="npc-card-body hof-body">
+        <p class="recap-kicker">Hall of Fame</p>
+        <h2>Past lives</h2>
+        <div id="hofList"></div>
+        <form method="dialog" style="margin-top: 14px;">
+          <button type="submit" class="ghost wide">Close</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="settingsDialog" class="npc-dialog">
+      <div class="npc-card-body">
+        <p class="recap-kicker">Settings</p>
+        <h2>Run It Back</h2>
+
+        <p class="settings-label">Save slots</p>
+        <div class="slot-picker settings-slot-picker">
+          <button class="ghost slot-btn" data-slot="0" type="button" title="Slot 1">L1</button>
+          <button class="ghost slot-btn" data-slot="1" type="button" title="Slot 2">L2</button>
+          <button class="ghost slot-btn" data-slot="2" type="button" title="Slot 3">L3</button>
+        </div>
+
+        <div class="npc-card-actions">
+          <button class="ghost wide" id="hofBtn" type="button">★ Past lives</button>
+          <button class="ghost wide" id="saveBtn" type="button">Save game</button>
+          <button class="ghost wide" id="audioBtn" type="button">Sound: off</button>
+          <button class="ghost wide" id="matureBtn" type="button">Mature: on</button>
+        </div>
+
+        <p class="settings-foot">Mature off filters out parties, drugs, sex, and graphic violence events.</p>
+
+        <form method="dialog" style="margin-top: 14px;">
+          <button type="submit" class="ghost wide">Close</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="npcCardDialog" class="npc-dialog">
+      <div class="npc-card-body">
+        <p class="recap-kicker">Contact</p>
+        <h2 id="npcCardName">—</h2>
+        <p id="npcCardRole" class="npc-card-role">—</p>
+        <p id="npcCardVibe" class="npc-card-vibe">—</p>
+        <p id="npcCardBond" class="npc-card-bond">—</p>
+        <div class="npc-card-actions">
+          <button type="button" class="primary wide" id="npcCardCall">Call</button>
+          <button type="button" class="ghost wide" id="npcCardText">Text</button>
+          <button type="button" class="ghost wide" id="npcCardConfide">Confide in them</button>
+          <button type="button" class="ghost wide" id="npcCardDayone">☆ Mark as day-one</button>
+        </div>
+        <form method="dialog" style="margin-top: 14px;">
+          <button type="submit" class="ghost wide">Close</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="ageGateDialog" class="age-gate">
+      <div class="dialog-body age-gate-body">
+        <p class="kicker">Heads up</p>
+        <h2>This game gets adult.</h2>
+        <p class="age-gate-copy">
+          Run It Back simulates whole lives. That means drugs, parties, sex, violence, money, jail,
+          and the consequences of all of it. Some scenes are graphic. Some get dark.
+          If you're under 18, this isn't for you yet.
+        </p>
+        <div class="age-gate-actions">
+          <button type="button" class="primary wide" id="ageGateConfirm">I'm 18+ — let me in</button>
+          <button type="button" class="ghost wide" id="ageGateDeny">Take me back</button>
+        </div>
+        <p class="age-gate-footer">Choice saves locally. You won't see this every visit.</p>
+      </div>
+    </dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="traits.js?v=run-it-back-traits-1"></script>
+    <script src="app.js?v=run-it-back-2"></script>
+  </body>
+</html>
