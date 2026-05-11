@@ -324,7 +324,7 @@ const spawnClasses = {
       guardian2: { name: pick(["Dad", "Daddy", "Father"]), role: "Father (CEO type)", bond: randomInt(18, 50) },
       extra: { name: pick(["Camille", "Marc", "Helena", "Theo"]), role: "Family lawyer", bond: randomInt(40, 70), type: "ally" }
     }),
-    canonLine: name => `${name} was born with the trust fund already drafted — nannies, private school enrolled in utero, and parents who barely look up from their phones.`,
+    canonLine: name => `${name} was born with the trust fund already drafted. nannies, private school enrolled in utero, and parents who barely look up from their phones.`,
     summary: "Born loaded. Parents are connected. You start with money but family bonds are weaker than they should be."
   },
   comfortable: {
@@ -382,7 +382,7 @@ const spawnClasses = {
       guardian: { name: pick(["Grandma", "Auntie", "Big Sis"]), role: "Whoever stayed", bond: randomInt(40, 75) },
       extra: { name: pick(["Ms. Lopez", "Mr. Ray", "Coach D"]), role: "Caseworker / mentor", bond: randomInt(30, 60), type: "ally" }
     }),
-    canonLine: name => `${name} was born into nothing — no plan, no safety net, no clean version of the story.`,
+    canonLine: name => `${name} was born into nothing. no plan, no safety net, no clean version of the story.`,
     summary: "No safety net. No script. You learn fast or you don't make it. Hardest difficulty."
   }
 };
@@ -485,7 +485,7 @@ function rollDisability() {
 }
 
 // ============================================================
-// CUSTOM SPAWN DATA — religion, heritage, parent occupations
+// CUSTOM SPAWN DATA. religion, heritage, parent occupations
 // ============================================================
 const religionLabels = {
   none: "Not religious",
@@ -908,7 +908,7 @@ function hasAsset(id) {
 }
 
 // ============================================================
-// CALENDAR — each year of life maps to a real calendar year.
+// CALENDAR. each year of life maps to a real calendar year.
 // Spawns are spread across years so different lives feel like
 // different eras. Seasonal events use month + year ranges.
 // ============================================================
@@ -935,9 +935,9 @@ function isLeapYearForPlayer(player = state.player) {
   return (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
 }
 
-// Moves per year by life stage — early/late life are quieter, prime years are loaded
+// Moves per year by life stage. early/late life are quieter, prime years are loaded
 function movesForAge(age) {
-  if (age <= 5) return 2;     // baby/toddler — fewer actions
+  if (age <= 5) return 2;     // baby/toddler. fewer actions
   if (age <= 17) return 3;    // school years
   if (age <= 25) return 5;    // prime young-adult window
   if (age <= 45) return 4;    // adult
@@ -1253,7 +1253,7 @@ function createPlayer() {
   addLog(`${name} was born in ${location}, ${state.player.birthYear}.`, "good");
   addCanonEvent(`${spawn.canonLine(name).replace(/\.$/, "")} The year was ${state.player.birthYear}.`);
   addLog(`Day one in ${origin.short}: ${origin.vibe}.`, "good");
-  addLog(`Hand dealt: ${spawn.label} — ${spawn.summary}`, spawnKey === "survival" || spawnKey === "struggling" ? "bad" : "good");
+  addLog(`Hand dealt: ${spawn.label}. ${spawn.summary}`, spawnKey === "survival" || spawnKey === "struggling" ? "bad" : "good");
   if (state.player.familyStyle === "orphan") {
     addLog("Family: orphaned at birth. Group home through age 5.", "bad");
     addCanonEvent(`${name} was orphaned at birth.`);
@@ -1271,7 +1271,7 @@ function createPlayer() {
     addLog(`Born with ${state.player.disability.label}. The world treats you different.`, "bad");
     addCanonEvent(`${name} was born with ${state.player.disability.label}.`);
   }
-  // --- Trait flavor (innate rolls — height, looks tier, neuro, etc.) ---
+  // --- Trait flavor (innate rolls. height, looks tier, neuro, etc.) ---
   if (state.player.traits && typeof Traits !== "undefined") {
     const t = state.player.traits;
     addLog(`Build: ${Traits.describe(t)}.`, "good");
@@ -1284,7 +1284,7 @@ function createPlayer() {
       flavor.forEach(line => addCanonEvent(`${name}: ${line}`));
     }
   }
-  addLog(`Personality: ${personality.label} — ${personality.tagline}.`, "good");
+  addLog(`Personality: ${personality.label}. ${personality.tagline}.`, "good");
   addCanonEvent(`${name} grew into a ${personality.label}: ${personality.tagline}.`);
   // Custom-life canon: parents + heritage + faith
   const momFlavor = parentOccupationFlavor[state.player.momJob] || `your mom did her own thing`;
@@ -1491,7 +1491,7 @@ function ageUp() {
   if (player.socialPage && player.posts > 0) {
     const growth = randomInt(8, 120) + Math.floor(player.fame * 4) + Math.floor(player.followers * 0.015);
     player.followers += growth;
-    if (chance(8 + Math.floor(player.stats.looks / 20))) {
+    if (chanceFor(player, "viral", 8 + Math.floor(player.stats.looks / 20))) {
       player.viralHits += 1;
       player.followers += randomInt(500, 4200);
       player.fame = clamp(player.fame + randomInt(2, 7));
@@ -1518,7 +1518,7 @@ function ageUp() {
       changeStat("discipline", -2);
     }
   }
-  // Ghosts from prior lives — surface occasionally as descendants/contacts
+  // Ghosts from prior lives. surface occasionally as descendants/contacts
   if (player.age >= 13 && chance(6) && !player.ghostSeededThisYear) {
     const meta = typeof loadMeta === "function" ? loadMeta() : null;
     const ghosts = (meta && meta.ghosts) || [];
@@ -1527,7 +1527,7 @@ function ageUp() {
       const g = pick(candidates);
       let role;
       if (g.arc === "snake") role = `${g.name}'s grandkid (recognizes the name)`;
-      else if (g.arc === "star") role = `${g.name}'s niece — heard the stories`;
+      else if (g.arc === "star") role = `${g.name}'s niece. heard the stories`;
       else role = `Descendant of ${g.fromLife}`;
       player.relationships.push({ id: `ghost-${Date.now()}`, name: g.name, role, bond: g.arc === "snake" ? randomInt(18, 38) : randomInt(54, 76), type: "friend", priorLife: g.fromLife, ghostArc: g.arc });
       addLog(`${g.name} showed up. Same name as somebody from a past life. Genes carry.`, "good");
@@ -1576,15 +1576,15 @@ function ageUp() {
   const milestoneAges = { 1: true, 5: true, 10: true, 13: true, 16: true, 18: true, 21: true, 25: true, 30: true, 40: true, 50: true, 65: true, 80: true };
   if (milestoneAges[player.age]) {
     const ageLines = {
-      1: `${player.name} survived their first year on Earth — and it happened in ${o.short}.`,
+      1: `${player.name} survived their first year on Earth. and it happened in ${o.short}.`,
       5: `${player.name} turned 5. Old enough to remember ${o.short}, young enough to still believe it loves them back.`,
       10: `Hit double digits in ${o.short}. ${player.name} starts noticing how the world treats people.`,
-      13: `Teenager. ${o.short} feels different at 13 — louder, sharper, faster.`,
+      13: `Teenager. ${o.short} feels different at 13. louder, sharper, faster.`,
       16: `16 years old. Old enough to drive, old enough to disappoint.`,
       18: `18. Adult on paper. The world is starting to send the bill.`,
       21: `21. The bar lets you in. The street still doesn't care.`,
       25: `Quarter life in ${o.short}. The game is real now.`,
-      30: `30. You're past being the next big thing — you have to BE the thing.`,
+      30: `30. You're past being the next big thing. you have to BE the thing.`,
       40: `40 hits different. Mirror conversations get longer.`,
       50: `50 in ${o.short}. You've outlasted half the people who said you wouldn't.`,
       65: `65. Officially old. People hold doors for you now.`,
@@ -1663,7 +1663,7 @@ function rollCauseOfDeath(player) {
   const middleAged = player.age >= 35 && player.age < 60;
   const old = player.age >= 60;
 
-  // Old-age peaceful death — ONLY for actually old characters
+  // Old-age peaceful death. ONLY for actually old characters
   if (old) causes.push({ cause: "Old age. Slept and didn't wake up.", weight: 6 + Math.max(0, player.age - 70) });
 
   // Smoking
@@ -1686,7 +1686,7 @@ function rollCauseOfDeath(player) {
   // Disease
   if (player.age >= 45) causes.push({ cause: "Cancer. Fought it for two years.", weight: 3 });
 
-  // Accidents — universal but more common in middle age
+  // Accidents. universal but more common in middle age
   causes.push({ cause: "Car accident on a road they drove a thousand times.", weight: middleAged ? 3 : 2 });
 
   // Personality-flavored young deaths
@@ -1695,14 +1695,14 @@ function rollCauseOfDeath(player) {
     causes.push({ cause: "Bar fight. They picked the wrong night.", weight: 3 });
   }
 
-  // Young default — never "peaceful old age"
+  // Young default. never "peaceful old age"
   if (young && causes.length === 0) {
     causes.push({ cause: "Accident. Twenty seconds the wrong way.", weight: 4 });
     causes.push({ cause: "Random violence. Wrong place, wrong time.", weight: 3 });
     causes.push({ cause: "Undiagnosed condition. Nobody saw it.", weight: 2 });
   }
 
-  // Middle-aged default — never "peaceful old age"
+  // Middle-aged default. never "peaceful old age"
   if (middleAged && causes.length <= 1) {
     causes.push({ cause: "Sudden heart attack. They were 'too young for this.'", weight: 3 });
     causes.push({ cause: "Aggressive cancer. Found late.", weight: 3 });
@@ -1786,7 +1786,7 @@ function classifyDeath(player) {
 }
 
 // ============================================================
-// HALL OF FAME — past lives persist across deaths
+// HALL OF FAME. past lives persist across deaths
 // ============================================================
 const HOF_KEY = "run-it-back-history";
 const HOF_MAX = 12;
@@ -1812,6 +1812,7 @@ function saveHistory(arr) {
 function archiveLife(player) {
   if (!player) return;
   const history = loadHistory();
+  const prevTopScore = history.length ? Math.max(...history.map(lifeScore)) : 0;
   const o = (typeof originOf === "function") ? originOf(player.origin || player.location || "") : { short: "" };
   const summary = {
     name: player.name,
@@ -1831,6 +1832,19 @@ function archiveLife(player) {
   };
   history.unshift(summary);
   saveHistory(history);
+  // Badge if this run beat the previous best
+  const newScore = lifeScore(summary);
+  if (newScore > prevTopScore && prevTopScore > 0) {
+    setTimeout(() => {
+      const recapCard = document.querySelector("#recapCard");
+      if (recapCard && !recapCard.querySelector(".recap-pb-badge")) {
+        const badge = document.createElement("div");
+        badge.className = "recap-pb-badge";
+        badge.innerHTML = `<strong>★ NEW BEST</strong><span>${newScore} pts · beat ${prevTopScore}</span>`;
+        recapCard.prepend(badge);
+      }
+    }, 200);
+  }
 }
 
 function getRecords() {
@@ -1910,7 +1924,7 @@ function showLifeRecap() {
   document.querySelector("#recapPortrait").src = buildAvatarURL(player.avatar || {}, player.name);
   document.querySelector("#recapCause").textContent = player.causeOfDeath || "Cause unknown.";
 
-  // SPINE EVENT — the moment this run was really about
+  // SPINE EVENT. the moment this run was really about
   const spineHost = document.querySelector("#recapSpine") || (() => {
     const card = document.querySelector("#recapCard");
     if (!card) return null;
@@ -1963,7 +1977,7 @@ function showLifeRecap() {
     });
   }
 
-  document.querySelector("#recapFooter").textContent = `"${personality.tagline.charAt(0).toUpperCase() + personality.tagline.slice(1)}." — ${o.short}, ${o.vibe}.`;
+  document.querySelector("#recapFooter").textContent = `"${personality.tagline.charAt(0).toUpperCase() + personality.tagline.slice(1)}.". ${o.short}, ${o.vibe}.`;
 
   // Achievements unlocked this life
   const achEl = document.querySelector("#recapAchievements");
@@ -1987,7 +2001,7 @@ function showLifeRecap() {
     }
   }
 
-  // "What if" alternate ending — generate 2 contextual counterfactuals
+  // "What if" alternate ending. generate 2 contextual counterfactuals
   const whatIfEl = document.querySelector("#recapWhatIf");
   if (whatIfEl) {
     whatIfEl.innerHTML = "";
@@ -2029,7 +2043,7 @@ function generateWhatIfLines(player) {
 
   // Career regrets
   if (player.jobId === "none" && player.age >= 30) {
-    lines.push(`The job offer at ${randomInt(22, 28)} you ignored — it would have changed the trajectory.`);
+    lines.push(`The job offer at ${randomInt(22, 28)} you ignored. it would have changed the trajectory.`);
   }
 
   // Money regrets
@@ -2063,7 +2077,7 @@ function generateWhatIfLines(player) {
     lines.push(`The scholarship at 18, if you'd applied, would have put you in a different tax bracket.`);
   }
   if (player.streetRep > 20 && player.record === 0) {
-    lines.push(`The block respected you. If you'd cashed in earlier — politics, music, business — you'd be remembered.`);
+    lines.push(`The block respected you. If you'd cashed in earlier. politics, music, business. you'd be remembered.`);
   }
 
   // City-not-taken
@@ -2136,21 +2150,49 @@ function relationshipTarget() {
   return pick(state.player.relationships);
 }
 
+function ensureNpcTraits(person) {
+  if (!person || person.traits || typeof Traits === "undefined") return person;
+  // Family share the player's heritage, friends roll heritage-mixed
+  const heritage = (person.type === "family") ? (state.player?.heritage || "mixed") : "mixed";
+  person.traits = Traits.roll({ heritage });
+  return person;
+}
+
 function changeBond(person, amount) {
-  // Perception filter: world reacts to player's visible rolls.
+  if (!person) return;
+  ensureNpcTraits(person);
+  // Perception filter: world reacts to PLAYER's visible rolls.
   // Positive interactions amplify for high-perception, negative soften.
-  // Inverse for low-perception (the dismissed kid has to fight harder).
   if (state.player && state.player.traits && typeof Traits !== "undefined") {
     const d = Traits.perception(state.player); // -30..+30
     if (amount > 0)      amount = amount * (1 + d / 100);
     else if (amount < 0) amount = amount * (1 - d / 80);
-    amount = Math.round(amount);
   }
+  // NPC's own personality also colors how the interaction lands.
+  // High agreeableness = warmer to positives. High neuroticism = sharper to negatives.
+  // Psychopath lean = doesn't really feel friction.
+  if (person.traits && typeof Traits !== "undefined") {
+    const p = person.traits.personality;
+    if (amount > 0) amount *= 0.7 + (p.agreeableness / 100) * 0.6;        // 0.7x..1.3x
+    else if (amount < 0) amount *= 0.7 + (p.neuroticism / 100) * 0.6;     // 0.7x..1.3x
+    if (person.traits.mental.psychopathyLean) amount *= 0.6;
+  }
+  amount = Math.round(amount);
   person.bond = clamp(person.bond + amount);
 }
 
+// Trait-shifted chance roll. Use this instead of chance(N) when an
+// event's odds should reflect innate predispositions.
+//   chanceFor(state.player, "jail", 8)  → true ~8% baseline, shifted by traits.
+function chanceFor(player, event, basePct) {
+  if (!player || !player.traits || typeof Traits === "undefined") return chance(basePct);
+  const m = Traits.predict(player, event);
+  const shifted = Math.max(0, Math.min(100, basePct * m));
+  return chance(shifted);
+}
+
 // ============================================================
-// NPC PERSONALITY ARCS — each NPC has a hidden archetype that
+// NPC PERSONALITY ARCS. each NPC has a hidden archetype that
 // drives multi-year behavior (loyal stays, snake betrays late,
 // spiral declines, ghost disappears, star outgrows you, etc.)
 // ============================================================
@@ -2211,7 +2253,7 @@ function tickNPCArcs(player) {
     } else if (arc === "ghost") {
       if (player.age >= 18 && person.arcYears >= 5 && !person.ghosted && chance(8)) {
         person.ghosted = true;
-        person.role = `Lost touch — ${person.role}`;
+        person.role = `Lost touch. ${person.role}`;
         changeBond(person, -40);
         addLog(`${person.name} just stopped replying. Years will pass.`, "bad");
       }
@@ -2931,7 +2973,7 @@ const events = [
       { label: "Ride the wave hard", run: () => {
         const fol = randomInt(15000, 180000);
         if (!state.player.socialPage) state.player.socialPage = true;
-        addCanonEvent(`Went viral overnight — picked up ${fol.toLocaleString()} followers in 24 hours.`, "good");
+        addCanonEvent(`Went viral overnight. picked up ${fol.toLocaleString()} followers in 24 hours.`, "good");
         applyEffects(`Your phone broke from notifications. ${fol.toLocaleString()} new followers.`, { followers: fol, fame: 22, happiness: 10, discipline: -4 }, "good");
       } },
       { label: "Go private until it dies", run: () => applyEffects(`You went dark. The wave passed without you. Sanity intact.`, { discipline: 8, happiness: -3, fame: -2 }) }
@@ -2966,7 +3008,7 @@ const events = [
       { label: "Step up", run: () => {
         const childName = pick(peopleNames);
         state.player.children.push({ name: childName, age: 0 });
-        addCanonEvent(`Became a parent — ${childName} arrived.`, "good");
+        addCanonEvent(`Became a parent. ${childName} arrived.`, "good");
         applyEffects(`You stepped up. ${childName} is here. Life just changed completely.`, { happiness: 8, discipline: 8, money: -4200, fame: 2 }, "good");
       } },
       { label: "Pay support, stay out", run: () => applyEffects(`You're sending money but not being there. The kid will know one day.`, { money: -6800, happiness: -5, karma: -10, discipline: 2 }, "bad") }
@@ -3027,7 +3069,7 @@ const events = [
           const amount = sanePayout(randomInt(80000, 650000));
           if (state.player.company) state.player.company.runway += amount;
           else state.player.money += amount;
-          addCanonEvent(`Closed a bigger round than expected — ${money(amount)}.`, "good");
+          addCanonEvent(`Closed a bigger round than expected. ${money(amount)}.`, "good");
           applyEffects(`They folded. You closed at ${money(amount)}. Word will spread.`, { money: 0, fame: 18, happiness: 12, smarts: 5 }, "good");
         } else {
           applyEffects("They walked. You're staring at the cap table you ALMOST had.", { happiness: -10, smarts: 5, discipline: 4 }, "bad");
@@ -3162,7 +3204,7 @@ const events = [
   },
 
   // ============================================================
-  // CINEMATIC SCENE LIBRARY (18+ — gated by adult unlock)
+  // CINEMATIC SCENE LIBRARY (18+. gated by adult unlock)
   // ============================================================
 
   {
@@ -3176,7 +3218,7 @@ const events = [
           addCanonEvent(`Survived a college house party where ${state.player.name} got way too loose. Made it home with someone's hoodie.`, "good");
           applyEffects(`You blacked out a little. Woke up with somebody's hoodie and three new contacts. Your phone has memories you don't.`, { happiness: 12, fame: 4, health: -6, discipline: -8, followers: randomInt(40, 600) }, "good");
         } else {
-          applyEffects(`Cops showed up at 3AM. You jumped a fence. Phone screen cracked, ego intact.`, { happiness: 4, health: -3, discipline: -5, record: chance(15) ? 1 : 0, money: -180 });
+          applyEffects(`Cops showed up at 3AM. You jumped a fence. Phone screen cracked, ego intact.`, { happiness: 4, health: -3, discipline: -5, record: chanceFor(state.player, "jail", 15) ? 1 : 0, money: -180 });
         }
       } },
       { label: "Find the back porch", run: () => {
@@ -3546,7 +3588,7 @@ const events = [
 
   {
     title: "Family Estate Drama",
-    text: () => `A relative who barely knew ${state.player.name} died. There's an inheritance, but it's tangled — three cousins want a piece, an attorney wants their cut, and somebody's questioning the will.`,
+    text: () => `A relative who barely knew ${state.player.name} died. There's an inheritance, but it's tangled. three cousins want a piece, an attorney wants their cut, and somebody's questioning the will.`,
     when: p => p.age >= 25 && chance(3),
     choices: [
       { label: "Fight for the full share", run: () => {
@@ -3606,7 +3648,7 @@ const events = [
   },
   {
     title: "El Poblado Money Offer",
-    text: () => `Friend's cousin in El Poblado has people moving money around the city. He says ${state.player.name} could be a courier. Cash for the trip, no questions, no narco — "just paper."`,
+    text: () => `Friend's cousin in El Poblado has people moving money around the city. He says ${state.player.name} could be a courier. Cash for the trip, no questions, no narco. "just paper."`,
     when: p => p.age >= 16 && isAdultUnlocked() && p.location === "Medellín, Colombia" && (p.personality === "hustler" || p.personality === "reckless" || p.spawnClass === "struggling" || p.spawnClass === "survival") && chance(5),
     choices: [
       { label: "One run only", run: () => {
@@ -3793,7 +3835,7 @@ const events = [
   // ---- LAS VEGAS ----
   {
     title: "Mom's Pit Boss",
-    text: () => `${state.player.name}'s mom works the casino floor. She brought home a "friend" — the pit boss — who's been buying you new clothes lately.`,
+    text: () => `${state.player.name}'s mom works the casino floor. She brought home a "friend". the pit boss. who's been buying you new clothes lately.`,
     when: p => p.age >= 10 && p.age <= 18 && p.location === "Las Vegas, NV" && chance(7),
     choices: [
       { label: "Accept the clothes", run: () => applyEffects(`You wore the Foot Lockers. The other kids noticed. Mom was happy. You stayed quiet about the weird parts.`, { looks: 4, money: 0, happiness: 2, karma: -2 }) },
@@ -3829,7 +3871,7 @@ const events = [
   },
 
   // ============================================================
-  // VACATION DESTINATIONS — Cabo / Cancún / Tulum
+  // VACATION DESTINATIONS. Cabo / Cancún / Tulum
   // ============================================================
 
   {
@@ -3889,7 +3931,7 @@ const events = [
   },
 
   // ============================================================
-  // SEASONAL / HOLIDAY EVENTS — fire based on calendar year + age
+  // SEASONAL / HOLIDAY EVENTS. fire based on calendar year + age
   // ============================================================
 
   {
@@ -4104,7 +4146,7 @@ const events = [
   },
 
   // ============================================================
-  // CELEBRITY REGISTRY — fictional but recognizable archetypes
+  // CELEBRITY REGISTRY. fictional but recognizable archetypes
   // ============================================================
 
   {
@@ -4231,12 +4273,12 @@ const events = [
         addCanonEvent(`Got featured in a major magazine.`, "good");
         applyEffects(`Print ran in 14 countries. Your mom bought 8 copies. Career changed.`, { fame: 16, followers: fol, money: randomInt(2000, 18000), happiness: 14, looks: 3 }, "good");
       } },
-      { label: "Decline — control the narrative", run: () => applyEffects(`You said no thanks. The magazine ran a piece about you anyway, less flattering. Trade-offs.`, { discipline: 6, fame: 2, happiness: -2 }) }
+      { label: "Decline. control the narrative", run: () => applyEffects(`You said no thanks. The magazine ran a piece about you anyway, less flattering. Trade-offs.`, { discipline: 6, fame: 2, happiness: -2 }) }
     ]
   },
 
   // ============================================================
-  // CLASS-EXCLUSIVE EVENT PACKS — each spawn class gets life
+  // CLASS-EXCLUSIVE EVENT PACKS. each spawn class gets life
   // moments that ONLY hit if you spawned that way
   // ============================================================
 
@@ -4301,7 +4343,7 @@ const events = [
         addCanonEvent(`Took a board seat through family connections.`, "good");
         applyEffects(`Quarterly meetings, ${money(yearly)}/year. You're officially that guy/girl.`, { money: yearly, fame: 8, happiness: 8, karma: -4 }, "good");
       } },
-      { label: "Pass — earn your own", run: () => applyEffects(`You said no thank you. Godfather called you a fool. Your spine is intact.`, { karma: 12, discipline: 10, smarts: 6 }, "good") }
+      { label: "Pass. earn your own", run: () => applyEffects(`You said no thank you. Godfather called you a fool. Your spine is intact.`, { karma: 12, discipline: 10, smarts: 6 }, "good") }
     ]
   },
 
@@ -4324,7 +4366,7 @@ const events = [
         const amount = randomInt(8000, 45000);
         applyEffects(`${money(amount)} hit. You bought what you needed and saved the rest.`, { money: amount, happiness: 8, discipline: 4 }, "good");
       } },
-      { label: "Refuse — let her keep it", run: () => applyEffects(`You said no. Mom cried. She felt useful. You felt grown.`, { karma: 12, happiness: 4 }, "good") }
+      { label: "Refuse. let her keep it", run: () => applyEffects(`You said no. Mom cried. She felt useful. You felt grown.`, { karma: 12, happiness: 4 }, "good") }
     ]
   },
   {
@@ -4405,7 +4447,7 @@ const events = [
   },
   {
     title: "Union Meeting Pulls You In",
-    text: () => `Work called a union meeting. Steward asked ${state.player.name} to speak — turns out you're respected.`,
+    text: () => `Work called a union meeting. Steward asked ${state.player.name} to speak. turns out you're respected.`,
     when: p => p.age >= 22 && p.age <= 50 && p.spawnClass === "working" && p.jobId !== "none" && chance(15),
     choices: [
       { label: "Stand up and speak", run: () => applyEffects(`The room listened. Floor came to a vote. You're now somebody's "guy." Union representative offered to mentor you.`, { politicalCapital: 8, karma: 8, happiness: 8, discipline: 6 }, "good") },
@@ -4519,7 +4561,7 @@ const events = [
   },
   {
     title: "Scholarship for Foster Kids",
-    text: () => `${state.player.name} got mailed a scholarship pamphlet — full ride to a state school, only for kids who aged out. Deadline next week.`,
+    text: () => `${state.player.name} got mailed a scholarship pamphlet. full ride to a state school, only for kids who aged out. Deadline next week.`,
     when: p => p.age >= 17 && p.age <= 22 && p.spawnClass === "survival" && p.dropout !== true && chance(30),
     choices: [
       { label: "Apply hard", run: () => {
@@ -4550,7 +4592,7 @@ const events = [
   },
 
   // ============================================================
-  // CITY DEPTH PASS — 3-5 more scenes per major city
+  // CITY DEPTH PASS. 3-5 more scenes per major city
   // ============================================================
 
   // ---- TOKYO ----
@@ -4574,7 +4616,7 @@ const events = [
   },
   {
     title: "Salaryman Drinking Night",
-    text: () => `Your boss insisted on nomikai — after-work drinking with the team. The hierarchy is sharper when everyone's drunk.`,
+    text: () => `Your boss insisted on nomikai. after-work drinking with the team. The hierarchy is sharper when everyone's drunk.`,
     when: p => p.age >= 22 && (p.location === "Tokyo, Japan" || p.currentTrip === "Tokyo, Japan") && p.jobId !== "none" && chance(12),
     choices: [
       { label: "Drink, pour, work the room", run: () => applyEffects(`You poured for everyone correctly. Boss nodded. Promotion conversation got mentioned twice.`, { money: -randomInt(40, 220), happiness: 6, discipline: 6, fame: 4 }, "good") },
@@ -4879,7 +4921,7 @@ const events = [
   },
 
   // ============================================================
-  // CITY SCENE DEPTH PASS #2 — Skid Row, Compton, Vegas, Paris,
+  // CITY SCENE DEPTH PASS #2. Skid Row, Compton, Vegas, Paris,
   // Dubai, Rio, Seoul (3 more each = 21 new)
   // ============================================================
 
@@ -4962,7 +5004,7 @@ const events = [
       { label: "Take the gig", run: () => {
         applyEffects(`Six months of cocktail shifts. ${money(randomInt(20000, 65000))} in tips alone. Saw everything. Won't unsee it.`, { money: randomInt(20000, 65000), looks: 3, smarts: 6, health: -3, discipline: 4 }, "good");
       } },
-      { label: "Pass — not your scene", run: () => applyEffects(`You smiled, declined. He pressed his card on you anyway.`, { discipline: 4, karma: 2 }) }
+      { label: "Pass. not your scene", run: () => applyEffects(`You smiled, declined. He pressed his card on you anyway.`, { discipline: 4, karma: 2 }) }
     ]
   },
   {
@@ -5004,7 +5046,7 @@ const events = [
     ]
   },
   {
-    title: "Grève — Strike Day",
+    title: "Grève. Strike Day",
     text: () => `Metro is down. RER is down. Half the city is walking. ${state.player.name} is across town from where they need to be.`,
     when: p => p.location === "Paris, France" && p.age >= 12 && chance(13),
     choices: [
@@ -5113,7 +5155,7 @@ const events = [
   },
 
   // ============================================================
-  // CAREER ARCS — multi-stage storylines (music, sports, politics)
+  // CAREER ARCS. multi-stage storylines (music, sports, politics)
   // Stage tracking: player.musicCareer / sportsCareer / politicsCareer
   // ============================================================
 
@@ -5153,13 +5195,13 @@ const events = [
     text: () => `The label sent the contract. 360 deal. They own everything for 5 years. You'd get a $30K advance.`,
     when: p => p.age >= 18 && p.musicCareer?.stage === 2 && chance(60),
     choices: [
-      { label: "Sign — take the advance", run: () => {
+      { label: "Sign. take the advance", run: () => {
         state.player.musicCareer.stage = 3;
         state.player.musicCareer.signed = true;
         addCanonEvent(`Signed a major-label deal. The advance was ${money(30000)}.`, "good");
         applyEffects(`Pen down. $30K hit. You're an artist on paper now. Lawyer should've reviewed it.`, { money: 30000, fame: 12, happiness: 14, karma: -4, discipline: -2 }, "good");
       } },
-      { label: "Counter — keep masters", run: () => {
+      { label: "Counter. keep masters", run: () => {
         if (chance(40 + Math.floor(state.player.stats.smarts / 6))) {
           state.player.musicCareer.stage = 3;
           state.player.musicCareer.signed = true;
@@ -5228,7 +5270,7 @@ const events = [
           applyEffects(`You smiled when they read the other name. Still won the night. Every label rep wanted your number.`, { fame: 22, followers: randomInt(15000, 120000), happiness: 14 }, "good");
         }
       } },
-      { label: "Skip — make a statement", run: () => {
+      { label: "Skip. make a statement", run: () => {
         state.player.musicCareer.grammyNom = true;
         applyEffects(`You didn't show. The internet had Opinions. Your real fans loved it.`, { fame: 12, karma: 6, discipline: 8, happiness: 6 }, "good");
       } }
@@ -5238,7 +5280,7 @@ const events = [
   // ---- SPORTS CAREER ----
   {
     title: "High School Varsity Tryout",
-    text: () => `Tryouts for the varsity ${pick(["basketball", "football", "track", "soccer", "baseball"])} team. ${state.player.name} can make the cut — or watch from the stands.`,
+    text: () => `Tryouts for the varsity ${pick(["basketball", "football", "track", "soccer", "baseball"])} team. ${state.player.name} can make the cut. or watch from the stands.`,
     when: p => p.age >= 14 && p.age <= 17 && p.stats.health >= 55 && !p.sportsCareer && chance(15),
     choices: [
       { label: "Try out hard", run: () => {
@@ -5284,7 +5326,7 @@ const events = [
         addCanonEvent(`Drafted in round ${round}. Signed for ${money(sign)}.`, "good");
         applyEffects(`Round ${round} pick. ${money(sign)} signing bonus. Cameras everywhere. Family on the floor.`, { money: sign, fame: round === 1 ? 30 : 15, followers: randomInt(20000, 400000), happiness: 25 }, "good");
       } },
-      { label: "Withdraw — go back to school", run: () => applyEffects(`You pulled out of the draft. Coach was confused. You finished your degree. Different life.`, { smarts: 12, discipline: 12, fame: -4, happiness: 4 }) }
+      { label: "Withdraw. go back to school", run: () => applyEffects(`You pulled out of the draft. Coach was confused. You finished your degree. Different life.`, { smarts: 12, discipline: 12, fame: -4, happiness: 4 }) }
     ]
   },
   {
@@ -5301,7 +5343,7 @@ const events = [
           applyEffects(`The body never came back fully. You played 2 more seasons at 70%.`, { discipline: 8, fame: -6, health: -6, happiness: -8 }, "bad");
         }
       } },
-      { label: "Retire — take the buyout", run: () => {
+      { label: "Retire. take the buyout", run: () => {
         state.player.sportsCareer.injured = true;
         state.player.sportsCareer.retired = true;
         const buyout = randomInt(800000, 6000000);
@@ -5379,7 +5421,7 @@ const events = [
           applyEffects(`Lost statewide. Concession was televised. Career on hold for 4 years.`, { politicalCapital: 8, fame: 4, money: -randomInt(40000, 250000), happiness: -12 }, "bad");
         }
       } },
-      { label: "Stay local — finish what you started", run: () => applyEffects(`You stayed council. Passed three real bills. Constituents loved you.`, { politicalCapital: 12, karma: 10, happiness: 8 }, "good") }
+      { label: "Stay local. finish what you started", run: () => applyEffects(`You stayed council. Passed three real bills. Constituents loved you.`, { politicalCapital: 12, karma: 10, happiness: 8 }, "good") }
     ]
   },
   {
@@ -5387,7 +5429,7 @@ const events = [
     text: () => `Tabloid has a story dropping Friday. ${pick(["Old tweets", "An affair", "A donor connection", "A misuse of funds"])}. ${state.player.name}'s team is in the war room at 9PM.`,
     when: p => p.politicsCareer?.stage >= 3 && !p.politicsCareer?.scandal && chance(25),
     choices: [
-      { label: "Get ahead of it — full transparency", run: () => {
+      { label: "Get ahead of it. full transparency", run: () => {
         state.player.politicsCareer.scandal = true;
         if (chance(50 + Math.floor(state.player.stats.smarts / 6))) {
           addCanonEvent(`Survived a scandal by getting in front of it.`, "good");
@@ -5422,13 +5464,13 @@ const events = [
           applyEffects(`Lost the race. 8% margin. National name recognition though. Speaking circuit is yours forever.`, { politicalCapital: 15, fame: 35, money: randomInt(50000, 500000), happiness: -6 }, "good");
         }
       } },
-      { label: "Decline — endorse someone else", run: () => applyEffects(`You backed someone younger. Your endorsement made their career. King-maker status.`, { politicalCapital: 22, karma: 14, fame: 12, happiness: 12 }, "good") }
+      { label: "Decline. endorse someone else", run: () => applyEffects(`You backed someone younger. Your endorsement made their career. King-maker status.`, { politicalCapital: 22, karma: 14, fame: 12, happiness: 12 }, "good") }
     ]
   },
 
   // ============================================================
   // DECADE-SPECIFIC HISTORICAL EVENTS
-  // Tied to currentYear() — each life feels of its era
+  // Tied to currentYear(). each life feels of its era
   // ============================================================
 
   {
@@ -5602,7 +5644,7 @@ const events = [
           applyEffects(`Rug pull. Coin went to zero in 4 hours. You learned about smart contracts.`, { money: 0, smarts: 8, happiness: -8 }, "bad");
         }
       } },
-      { label: "Pass — it's a bubble", run: () => applyEffects(`You stayed out. Watched friends moon and crash. Slept better than them.`, { discipline: 8, smarts: 4 }) }
+      { label: "Pass. it's a bubble", run: () => applyEffects(`You stayed out. Watched friends moon and crash. Slept better than them.`, { discipline: 8, smarts: 4 }) }
     ]
   },
 
@@ -5626,7 +5668,7 @@ const events = [
   },
 
   // ============================================================
-  // CHILDREN ARCS — kids grow up, hit milestones, become people
+  // CHILDREN ARCS. kids grow up, hit milestones, become people
   // Each event finds the player's youngest qualifying child
   // ============================================================
 
@@ -5772,7 +5814,7 @@ const events = [
         if (rel) changeBond(rel, 10);
         applyEffects(`You wrote the check for deposit + first month. They tried to refuse. You insisted.`, { money: -randomInt(2000, 6000), happiness: 10, karma: 10 }, "good");
       } },
-      { label: "Tough love — figure it out", run: () => {
+      { label: "Tough love. figure it out", run: () => {
         const kid = state.player.children.find(c => c.age >= 18 && c.age <= 22 && !c.milestonesReached?.movedOut);
         if (kid) (kid.milestonesReached = kid.milestonesReached || {}).movedOut = true;
         applyEffects(`You said "you'll figure it out." They did. Six months later they called to say thanks.`, { discipline: 8, happiness: 4 }, "good");
@@ -5803,7 +5845,7 @@ const events = [
   },
 
   // ============================================================
-  // FAMILY TREE — grandparents, parents aging, cousins, in-laws
+  // FAMILY TREE. grandparents, parents aging, cousins, in-laws
   // ============================================================
 
   {
@@ -5911,7 +5953,7 @@ const events = [
     title: "Sibling Asks for Money",
     text: () => {
       const sib = state.player.relationships.find(r => r.role === "Sibling" || r.id === "sibling");
-      return `${sib?.name || "Your sibling"} needs ${money(randomInt(2000, 25000))}. They're in something — eviction / medical / debt / business.`;
+      return `${sib?.name || "Your sibling"} needs ${money(randomInt(2000, 25000))}. They're in something. eviction / medical / debt / business.`;
     },
     when: p => p.age >= 22 && p.relationships.some(r => r.id === "sibling") && p.money >= 3000 && chance(10),
     choices: [
@@ -5936,13 +5978,13 @@ const events = [
   },
 
   // ============================================================
-  // HEALTH / ADDICTION ARCS — chronic conditions, recovery cycles
+  // HEALTH / ADDICTION ARCS. chronic conditions, recovery cycles
   // ============================================================
 
   {
     title: "Depression Spiral",
     text: () => `Something's been off for months. ${state.player.name} can't get out of bed some days. Showers feel optional. Work suffers.`,
-    when: p => p.age >= 16 && p.stats.happiness < 35 && !p.depressionPhase && chance(15),
+    when: p => p.age >= 16 && p.stats.happiness < 35 && !p.depressionPhase && chanceFor(p, "depression", 15),
     choices: [
       { label: "Therapy + medication", run: () => {
         state.player.depressionPhase = "treating";
@@ -6011,7 +6053,7 @@ const events = [
     text: () => `${state.player.name} hasn't had a drink in 30 days. Friends are asking. It's the longest stretch since college.`,
     when: p => p.age >= 22 && p.risksTaken >= 3 && !p.sober && chance(15),
     choices: [
-      { label: "Keep going — make it a year", run: () => {
+      { label: "Keep going. make it a year", run: () => {
         state.player.sober = true;
         addCanonEvent(`Got sober. Hardest year of their life.`, "good");
         applyEffects(`365 days. AA meetings. Two friends got weird. Three friends got closer. Body and mind reset.`, { health: 16, discipline: 18, happiness: 14, looks: 4 }, "good");
@@ -6054,7 +6096,7 @@ const events = [
         state.player.anxietyAcknowledged = true;
         applyEffects(`Three months of CBT. You named the pattern. The attacks shrank from monthly to yearly.`, { money: -randomInt(1500, 6000), happiness: 12, smarts: 8, discipline: 8 }, "good");
       } },
-      { label: "Tough it out — don't tell anyone", run: () => {
+      { label: "Tough it out. don't tell anyone", run: () => {
         state.player.anxietyAcknowledged = true;
         applyEffects(`You pretended it didn't happen. It kept happening. You learned to function around it.`, { discipline: 6, happiness: -8, smarts: 2 }) }
       },
@@ -6283,7 +6325,7 @@ const events = [
   },
 
   // ============================================================
-  // CLIMATE DISASTERS — fire by city
+  // CLIMATE DISASTERS. fire by city
   // ============================================================
   {
     title: "California Wildfire",
@@ -6335,7 +6377,7 @@ const events = [
         addCanonEvent(`Enlisted at ${state.player.age}.`, "good");
         applyEffects(`Basic training in 6 weeks. Your body changed. Your mind changed. The bank account got a signing bonus.`, { money: randomInt(8000, 35000), discipline: 18, health: 14, happiness: 6 }, "good");
       } },
-      { label: "Pass — you've got plans", run: () => applyEffects(`You said no thank you. Recruiter kept calling for 3 years. You stayed your course.`, { discipline: 4, smarts: 4 }) }
+      { label: "Pass. you've got plans", run: () => applyEffects(`You said no thank you. Recruiter kept calling for 3 years. You stayed your course.`, { discipline: 4, smarts: 4 }) }
     ]
   },
   {
@@ -6389,7 +6431,7 @@ const events = [
   },
 
   // ============================================================
-  // TEXT FROM X — random NPCs hit your phone
+  // TEXT FROM X. random NPCs hit your phone
   // ============================================================
   {
     title: () => {
@@ -6460,7 +6502,7 @@ const events = [
   },
 
   // ============================================================
-  // NPC LIFE EVENTS — friends' lives update around you
+  // NPC LIFE EVENTS. friends' lives update around you
   // ============================================================
   {
     title: () => {
@@ -6500,7 +6542,7 @@ const events = [
     text: () => {
       const p = pickActiveNpc();
       const where = pick(["Tulum", "Charleston", "Italy", "the courthouse", "their backyard"]);
-      return p ? `${p.name} is getting married. ${pick(["RSVP due Friday.", "It's destination — " + where + ".", "Just the courthouse + dinner."])}` : `Wedding invite came in the mail.`;
+      return p ? `${p.name} is getting married. ${pick(["RSVP due Friday.", "It's destination. " + where + ".", "Just the courthouse + dinner."])}` : `Wedding invite came in the mail.`;
     },
     when: p => p.age >= 22 && p.age <= 45 && p.relationships?.length >= 2 && chance(9),
     choices: [
@@ -6648,7 +6690,7 @@ const events = [
   },
 
   // ============================================================
-  // TEXT FROM X — random NPCs hit your phone
+  // TEXT FROM X. random NPCs hit your phone
   // ============================================================
   {
     title: () => {
@@ -6792,7 +6834,7 @@ const events = [
     },
     text: () => {
       const p = pickArcNpc("snake");
-      return p ? `${p.name}: "yo random q — what's the actual deal with [${pick(["that thing you posted", "your money situation", "you and " + (pickActiveNpc()?.name || "them"), "the new project"])}]?"` : `Someone's fishing for info.`;
+      return p ? `${p.name}: "yo random q. what's the actual deal with [${pick(["that thing you posted", "your money situation", "you and " + (pickActiveNpc()?.name || "them"), "the new project"])}]?"` : `Someone's fishing for info.`;
     },
     when: p => p.age >= 16 && p.relationships.some(r => r.arc === "snake" && r.bond >= 30) && chance(8),
     cooldown: 4,
@@ -6902,7 +6944,7 @@ const events = [
     text: () => {
       const p = pickArcNpc("builder");
       const idea = pick(["a delivery thing for our city", "a content studio", "an app for our scene", "a pop-up shop, six weeks", "a podcast network"]);
-      return p ? `${p.name}: "ok hear me out — ${idea}. need a partner. low equity to start. you in?"` : `Someone's pitching you a build.`;
+      return p ? `${p.name}: "ok hear me out. ${idea}. need a partner. low equity to start. you in?"` : `Someone's pitching you a build.`;
     },
     when: p => p.age >= 18 && p.relationships.some(r => r.arc === "builder") && chance(7),
     cooldown: 5,
@@ -6990,7 +7032,7 @@ const events = [
   },
 
   {
-    title: "Random number — link tonight?",
+    title: "Random number. link tonight?",
     text: () => {
       const handle = pick(["someone from the party", "the bartender from Friday", "your ex's friend", "that DM you slid into in March"]);
       return `Random number: "yooo it's me from ${handle}. link tonight?"`;
@@ -7002,7 +7044,7 @@ const events = [
       { label: "Pull up", run: () => {
         applyEffects(`Date became a night became a story you tell selectively. Worth it.`, { happiness: 9, looks: 1, karma: -1, money: -randomInt(40, 180) }, "good");
       } },
-      { label: "\"Who's this?\" — make them work", run: () => {
+      { label: "\"Who's this?\". make them work", run: () => {
         applyEffects(`Banter for an hour. They earned the meet-up next weekend.`, { happiness: 5, smarts: 2 });
       } },
       { label: "Don't reply", run: () => {
@@ -7038,7 +7080,7 @@ const events = [
   },
 
   // ============================================================
-  // NPC LIFE EVENTS — extra (famous, divorce)
+  // NPC LIFE EVENTS. extra (famous, divorce)
   // ============================================================
   {
     title: () => {
@@ -7102,7 +7144,7 @@ const events = [
   },
 
   // ============================================================
-  // FRIEND FUNERAL EVENTS — day-one + parent
+  // FRIEND FUNERAL EVENTS. day-one + parent
   // ============================================================
   {
     title: () => {
@@ -7186,7 +7228,7 @@ const events = [
   },
 
   // ============================================================
-  // MEMORY-REFERENCING EVENTS — they bring up your canon
+  // MEMORY-REFERENCING EVENTS. they bring up your canon
   // ============================================================
   {
     title: "Someone brings up that thing",
@@ -7291,7 +7333,7 @@ const events = [
   },
 
   // ============================================================
-  // DAY-ONE / CREW EVENTS — fire when ≥2 day-ones designated
+  // DAY-ONE / CREW EVENTS. fire when ≥2 day-ones designated
   // ============================================================
   {
     title: "Day-Ones Group Trip",
@@ -7633,7 +7675,7 @@ const eventTagOverrides = {
   "Boxing Match at the MGM": ["money", "party", "fame"],
   "Wedding Chapel Bachelorette": ["party", "romance", "fame"],
   "Sunday Marché": ["city", "family"],
-  "Grève — Strike Day": ["city", "drama"],
+  "Grève. Strike Day": ["city", "drama"],
   "Père Lachaise Wandering": ["city", "drama"],
   "Indoor Ski at Mall of Emirates": ["city", "party"],
   "Marina Yacht Friday": ["money", "party", "fame"],
@@ -7716,7 +7758,7 @@ const eventTagOverrides = {
   "Eating Disorder Confrontation": ["family", "drama"],
   "Burnout Wall": ["business", "drama"],
   // Day-one / friend events (note: these use function titles, so the tag system
-  // wraps them differently — Codex's pickLifeEvent treats untitled events at base weight)
+  // wraps them differently. Codex's pickLifeEvent treats untitled events at base weight)
   "Day-Ones Group Trip": ["party", "family"],
   "Day-One in Crisis": ["family", "drama"],
   "Day-One's Wedding": ["family", "romance"],
@@ -7729,7 +7771,7 @@ const eventTagOverrides = {
   "Old crew runs into you": ["street", "drama"],
   // Text-from-X events with string titles
   "Group chat: heavy news": ["family", "drama"],
-  "Random number — link tonight?": ["romance", "party"],
+  "Random number. link tonight?": ["romance", "party"],
   "Family thread: old photo": ["family"]
 };
 events.forEach(event => {
@@ -7982,7 +8024,7 @@ function skipClassWithFriends() {
       happiness: -5,
       discipline: -3,
       smarts: -1,
-      record: chance(8) ? 1 : 0
+      record: chanceFor(state.player, "jail", 8) ? 1 : 0
     }, "bad");
   }
 }
@@ -8223,7 +8265,7 @@ function crewLoyaltyTest() {
   } else {
     player.gangHeat += 4;
     applyEffects(`The loyalty test went sideways. Now school, family, and the block are all tense.`, {
-      record: chance(28) ? 1 : 0,
+      record: chanceFor(state.player, "jail", 28) ? 1 : 0,
       health: -8,
       happiness: -9,
       streetRep: 2,
@@ -8510,7 +8552,7 @@ function housePartyTeen() {
   } else if (roll <= 80) {
     applyEffects("You blacked out in the bathroom. Somebody drew on your face.", { happiness: -3, health: -3, fame: 2, discipline: -2 }, "bad");
   } else {
-    applyEffects("Cops broke it up. Everybody ran. You hid in the bushes.", { record: chance(20) ? 1 : 0, happiness: 4, fame: 3, streetRep: 1 }, "bad");
+    applyEffects("Cops broke it up. Everybody ran. You hid in the bushes.", { record: chanceFor(state.player, "jail", 20) ? 1 : 0, happiness: 4, fame: 3, streetRep: 1 }, "bad");
   }
 }
 
@@ -8612,7 +8654,7 @@ function seniorPranks() {
   if (chance(58)) {
     applyEffects("The class prank made the local news. Principal called it 'creative.'", { happiness: 12, fame: 4, discipline: -2 }, "good");
   } else {
-    applyEffects("Caught. Suspended. Walking the stage was a maybe for a minute.", { happiness: -8, record: chance(15) ? 1 : 0, discipline: 1 }, "bad");
+    applyEffects("Caught. Suspended. Walking the stage was a maybe for a minute.", { happiness: -8, record: chanceFor(state.player, "jail", 15) ? 1 : 0, discipline: 1 }, "bad");
   }
 }
 
@@ -9570,7 +9612,7 @@ const activityCategories = [
       { name: "Get Boat License", text: "Captain a 26-footer legally.", available: p => p.age >= 18 && !p.licenses.includes("boat"), run: () => getLicense("boat", 480) },
       { name: "Roadtrip", text: "Pack the car. Go nowhere on purpose.", available: p => p.age >= 18 && hasAsset("car"), run: roadTrip },
       { name: "Camping Trip", text: "Tent, fire, no signal.", available: p => p.age >= 14, run: campingTrip },
-      { name: "Festival Run", text: "Coachella, EDC, AfroPunk, Carnaval — pick a flag.", available: p => p.age >= 18 && p.money >= 800, run: festivalRun },
+      { name: "Festival Run", text: "Coachella, EDC, AfroPunk, Carnaval. pick a flag.", available: p => p.age >= 18 && p.money >= 800, run: festivalRun },
       { name: "Cruise", text: "Seven days, all-inclusive, awkward strangers.", available: p => p.age >= 16 && p.money >= 1200, run: cruiseTrip },
       { name: "Spring Break", text: "Cabo or Miami. Mistakes guaranteed.", risky: true, available: p => p.age >= 18 && p.money >= 800, run: springBreak },
       { name: "Couch In Europe", text: "Hostels, trains, two months no plan.", available: p => p.age >= 19 && p.money >= 2200, run: europeBackpack },
@@ -10253,7 +10295,7 @@ function giftShopRun() {
 }
 
 // ============================================================
-// MICRO-SCENES — random follow-ups on otherwise-flat activities
+// MICRO-SCENES. random follow-ups on otherwise-flat activities
 // ============================================================
 const microScenes = {
   gym: () => ({
@@ -10275,7 +10317,7 @@ const microScenes = {
 
   therapy: () => ({
     title: "Therapist's Question",
-    text: () => `Halfway through the session, she asked: "What would you say to the version of ${state.player.name} who needed someone to step up — and nobody did?"`,
+    text: () => `Halfway through the session, she asked: "What would you say to the version of ${state.player.name} who needed someone to step up. and nobody did?"`,
     choices: [
       { label: "Answer honestly", run: () => applyEffects(`You sat with it for forty seconds. Then you talked. Then you cried. The week felt different after.`, { happiness: 14, smarts: 5, discipline: 4 }, "good") },
       { label: "Deflect with a joke", run: () => applyEffects(`You made her laugh. The question stayed open. You'll bring it up in six months. Or you won't.`, { happiness: -2, smarts: 2 }) }
@@ -10675,7 +10717,7 @@ function attendProtest() {
   if (chance(72)) {
     applyEffects("You marched all afternoon. Met three real organizers.", { happiness: 7, karma: 8, politicalCapital: 3, smarts: 3 }, "good");
   } else {
-    applyEffects("Cops kettled the march. You got pepper sprayed.", { health: -4, happiness: -4, karma: 4, record: chance(15) ? 1 : 0, politicalCapital: 4 }, "bad");
+    applyEffects("Cops kettled the march. You got pepper sprayed.", { health: -4, happiness: -4, karma: 4, record: chanceFor(state.player, "jail", 15) ? 1 : 0, politicalCapital: 4 }, "bad");
   }
 }
 
@@ -10891,7 +10933,11 @@ function cigarLounge() {
 function quitSmoking() {
   const player = state.player;
   player.quitAttempts += 1;
-  const odds = 24 + Math.floor(player.stats.discipline / 2) + player.recovery * 7 - player.smokingLevel * 11;
+  let odds = 24 + Math.floor(player.stats.discipline / 2) + player.recovery * 7 - player.smokingLevel * 11;
+  // Addiction predisposition makes quitting harder.
+  if (player.traits && typeof Traits !== "undefined") {
+    odds = odds / Traits.predict(player, "addiction");
+  }
   if (chance(odds)) {
     player.smokingLevel = 0;
     applyEffects("You quit smoking. The cravings were loud, but your body started forgiving you.", {
@@ -11097,7 +11143,7 @@ function afterHoursSpot() {
   if (chance(58)) {
     applyEffects("The 4 AM spot opened the door for you. DJ went till 9.", { money: -200, happiness: 10, fame: 2, health: -3, discipline: -3 }, "good");
   } else {
-    applyEffects("Vice raid mid-set. Everyone scattered. You ran the alley.", { money: -200, record: chance(20) ? 1 : 0, happiness: -4 }, "bad");
+    applyEffects("Vice raid mid-set. Everyone scattered. You ran the alley.", { money: -200, record: chanceFor(state.player, "jail", 20) ? 1 : 0, happiness: -4 }, "bad");
   }
 }
 
@@ -11408,7 +11454,7 @@ function acquireRival() {
     applyEffects("The acquisition turned into legal bills, culture drama, and confused customers.", {
       businessReputation: -5,
       happiness: -9,
-      record: chance(18) ? 1 : 0
+      record: chanceFor(state.player, "jail", 18) ? 1 : 0
     }, "bad");
   }
 }
@@ -12059,7 +12105,7 @@ function bachelorParty() {
   if (chance(64)) {
     applyEffects(`${destination} weekend with the guys/girls. Photos exist. Most are fine.`, { money: -cost, happiness: 16, fame: 3, looks: 1, discipline: -3 }, "good");
   } else {
-    applyEffects(`${destination} got out of hand. Someone got arrested. Everyone made it home.`, { money: -cost, happiness: 8, record: chance(15) ? 1 : 0, fame: 4 }, "bad");
+    applyEffects(`${destination} got out of hand. Someone got arrested. Everyone made it home.`, { money: -cost, happiness: 8, record: chanceFor(state.player, "jail", 15) ? 1 : 0, fame: 4 }, "bad");
   }
 }
 
@@ -12425,7 +12471,7 @@ function bookTrip() {
     .sort((a, b) => a[1].cost[0] - b[1].cost[0])
     .slice(0, Math.min(6, options.length));
   const choices = offerings.map(([city, data]) => ({
-    label: `${city} — ${money(data.cost[0])}+`,
+    label: `${city}. ${money(data.cost[0])}+`,
     run: () => goOnTrip(city, data)
   }));
   choices.push({ label: "Cancel", run: () => applyEffects("You looked at flights, closed the tab.", {}) });
@@ -12531,7 +12577,7 @@ function springBreak() {
   if (chance(58)) {
     applyEffects(`${place} was everything they said. Beach, club, sunburn, stories.`, { money: -cost, happiness: 14, fame: 3, health: -3, discipline: -3 }, "good");
   } else {
-    applyEffects(`${place} went sideways. Lost wallet, food poisoning, friend got arrested.`, { money: -cost, happiness: -10, health: -8, record: chance(40) ? 1 : 0 }, "bad");
+    applyEffects(`${place} went sideways. Lost wallet, food poisoning, friend got arrested.`, { money: -cost, happiness: -10, health: -8, record: chanceFor(state.player, "jail", 40) ? 1 : 0 }, "bad");
   }
 }
 
@@ -14057,11 +14103,11 @@ function render() {
 }
 
 const statTooltips = {
-  health: "Health — affects death rolls, job stamina, athletic events. Low health = early death.",
-  happiness: "Happiness — affects depression events, decision quality, suicide risk under 20.",
-  smarts: "Smarts — affects college, job hiring, negotiation outcomes, investment gains.",
-  looks: "Looks — affects hiring odds, salary, romance success, follower growth, brand deals.",
-  discipline: "Discipline — affects long-term wins (career ladder, sobriety, recovery). Low discipline = spiral risk."
+  health: "Health. affects death rolls, job stamina, athletic events. Low health = early death.",
+  happiness: "Happiness. affects depression events, decision quality, suicide risk under 20.",
+  smarts: "Smarts. affects college, job hiring, negotiation outcomes, investment gains.",
+  looks: "Looks. affects hiring odds, salary, romance success, follower growth, brand deals.",
+  discipline: "Discipline. affects long-term wins (career ladder, sobriety, recovery). Low discipline = spiral risk."
 };
 
 function renderMeters() {
@@ -14086,7 +14132,7 @@ function renderMeters() {
   });
 }
 
-// Hometown look biases — character defaults reflect where they're from.
+// Hometown look biases. character defaults reflect where they're from.
 // Skin codes map to avataaarsMap.skin (skin-1 light → skin-2 deep).
 // Hair codes map to avataaarsMap.hair. Hair color hex is used directly.
 const hometownLookBias = {
@@ -14472,7 +14518,7 @@ function renderActivities() {
     button.type = "button";
     button.role = "tab";
     button.setAttribute("aria-selected", state.activeCategory === category.id ? "true" : "false");
-    button.title = `${category.name} — ${category.hint}`;
+    button.title = `${category.name}. ${category.hint}`;
     button.setAttribute("aria-label", `${category.name}: ${category.hint}`);
     button.innerHTML = `<strong>${category.name}</strong><span>${category.hint}</span>`;
     button.addEventListener("click", () => {
@@ -14564,14 +14610,14 @@ function lifeAiReply(input) {
 
   // Travel/trip awareness
   if (player.currentTrip) {
-    return `You're in ${player.currentTrip} right now. Don't waste the trip — go to the spots only locals know. Scenes unlock faster when you say yes to the weird invite.`;
+    return `You're in ${player.currentTrip} right now. Don't waste the trip. go to the spots only locals know. Scenes unlock faster when you say yes to the weird invite.`;
   }
 
   if (text.includes("gang") || text.includes("crew")) {
     if (player.gang) return `You're tied to ${player.gang.name}. Loyalty ${player.gang.loyalty}, heat ${player.gangHeat}. Heat over 12 = move different. Loyalty under 40 = you can leave clean, but only with the right move.`;
     return player.streetRep > 10
       ? `${o.short} street rep is ${player.streetRep}. A crew would respect you fast. Just know: clean career doors close once you're in. Worth it for the right ones.`
-      : "Crew stuff doesn't fire random. Build street rep first — neighborhood choices, hood time, friends in motion. Then offers come naturally.";
+      : "Crew stuff doesn't fire random. Build street rep first. neighborhood choices, hood time, friends in motion. Then offers come naturally.";
   }
   if (text.includes("celeb") || text.includes("famous")) {
     if (player.fame >= 30) return `${player.fame} fame is real. Celeb DMs start firing at 15+ and stack at 30+. Pull up to events, the rapper/NBA cousin scenes are waiting.`;
@@ -14590,14 +14636,14 @@ function lifeAiReply(input) {
   }
   if (text.includes("money") || text.includes("rich") || text.includes("broke")) {
     if (player.age < 16) return "Too young for real money. Stack smarts, discipline, hobbies. Teen years pay it forward.";
-    if (player.money < 500) return `${money(player.money)} is broke. Apply For Job, Freelance Contract, or Part-Time Shift — every dollar shifts the next event. Big money comes from compounding.`;
+    if (player.money < 500) return `${money(player.money)} is broke. Apply For Job, Freelance Contract, or Part-Time Shift. every dollar shifts the next event. Big money comes from compounding.`;
     if (player.money > 50000) return `${money(player.money)} is real money. Buy Stock Portfolio for passive, Start Company for upside, or Apartment/Condo to stop renting. Don't sit on cash.`;
     return "Stack one stable income with one risky upside: job + content, job + business, job + investing. Two streams = real life.";
   }
   if (text.includes("romance") || text.includes("love") || text.includes("date")) {
     if (partner) return `You're with ${partner.name} (bond ${partner.bond}). Family Day, Spend Time, Give Gift keep it stable. Propose at 80+ bond.`;
     if (player.age < 16) return "Too young for real romance. Crushes are coming. Looks + happiness shape who pulls up.";
-    return `Single. Ask Someone Out (looks-weighted), or wait for a slow-romance roll. Looks ${looksScore()}, happiness ${player.stats.happiness} — that's the bar.`;
+    return `Single. Ask Someone Out (looks-weighted), or wait for a slow-romance roll. Looks ${looksScore()}, happiness ${player.stats.happiness}. that's the bar.`;
   }
   if (text.includes("drug") || text.includes("party") || text.includes("smoke")) {
     if (!isAdultUnlocked()) return "Adult content is gated. Confirm 18+ on the start screen if you want those scenes.";
@@ -14609,28 +14655,28 @@ function lifeAiReply(input) {
     return "Kids need stability: married + age 22+. Surprise Pregnancy can fire if you have a partner. Once you're in, your moves change.";
   }
   if (text.includes("die") || text.includes("death") || text.includes("end")) {
-    if (player.age >= 65) return `${player.age} is in the death window. Health ${player.stats.health} matters now. The recap rolls cause from your actual life — smoke = lungs, low happiness = quiet, gang = crossfire.`;
+    if (player.age >= 65) return `${player.age} is in the death window. Health ${player.stats.health} matters now. The recap rolls cause from your actual life. smoke = lungs, low happiness = quiet, gang = crossfire.`;
     return `Death rolls start at 24 but mostly fire 65+. Cause comes from how you lived. Plan the legacy: kids, books, championships, company.`;
   }
   if (text.includes("year") || text.includes("when") || text.includes("era")) {
-    return `${currentYear(player)} — ${era}. ${o.short}. Tracks from ${era} hit different. Y2K, election years, Carnival, and Super Bowl seasons trigger their own scenes.`;
+    return `${currentYear(player)}. ${era}. ${o.short}. Tracks from ${era} hit different. Y2K, election years, Carnival, and Super Bowl seasons trigger their own scenes.`;
   }
   if (text.includes("travel") || text.includes("trip") || text.includes("vacation")) {
     if (player.age < 18) return "Travel mostly unlocks at 18. 21+ opens Vegas (gambling), Dubai (alcohol), Croatia. Tokyo at 20.";
     return `Book International Trip in Adventure. ${money(player.money)} = ${availableDestinations(player).length} destinations open right now.`;
   }
   if (text.includes("friend") && closeFriend) {
-    return `${closeFriend.name} is the closest. Bond ${closeFriend.bond}. Spend Time, Give Gift, Host Dinner keeps it. Watch for snake archetype — late betrayals happen.`;
+    return `${closeFriend.name} is the closest. Bond ${closeFriend.bond}. Spend Time, Give Gift, Host Dinner keeps it. Watch for snake archetype. late betrayals happen.`;
   }
 
   // Default fallbacks read deepest context
-  if (player.age <= 5) return `Early years POV. ${era} ${o.short} childhood — birthdays, daycare, family functions. Choices now seed personality.`;
+  if (player.age <= 5) return `Early years POV. ${era} ${o.short} childhood. birthdays, daycare, family functions. Choices now seed personality.`;
   if (player.company) return `${player.company.name} (${companyStageName(player.company.stage)}) is the plot. Runway ${money(player.company.runway)}. Launch, pivot, or fundraise.`;
   if (classes.length) return `${classes[0]} is the lane. Game will spawn friends, rivals, clubs, and drama from it for the next 3-5 years.`;
   if (player.streetRep > 5) return `Street rep ${player.streetRep}. Crew offers, hood events, and risky money are queued. Recovery Meeting or Leave the Crew before age 30 if you want a clean adult life.`;
   if (player.gang) return `${player.gang.name} is the active plot. Loyalty ${player.gang.loyalty}, heat ${player.gangHeat}. Watch heat past 10.`;
-  if (player.fame > 25) return `${player.fame} fame brings celebs, brand deals, magazine features. Cancellation also rolls — your old posts can come back.`;
-  return `${personality.label} in ${o.short}, ${era}. Lean into what you already started — ${uniqueInterests.slice(0,2).join(" + ") || "pick a lane"} — and the game will spawn the rest.`;
+  if (player.fame > 25) return `${player.fame} fame brings celebs, brand deals, magazine features. Cancellation also rolls. your old posts can come back.`;
+  return `${personality.label} in ${o.short}, ${era}. Lean into what you already started. ${uniqueInterests.slice(0,2).join(" + ") || "pick a lane"}. and the game will spawn the rest.`;
 }
 
 async function sendAiMessage(event) {
@@ -14761,7 +14807,7 @@ function renderAssets() {
     button.type = "button";
     const canAfford = player.money >= item.cost;
     button.disabled = !player.alive || !canAfford;
-    button.innerHTML = `<strong>Buy ${item.name}</strong><small>${money(item.cost)}${canAfford ? "" : " — short"}</small>`;
+    button.innerHTML = `<strong>Buy ${item.name}</strong><small>${money(item.cost)}${canAfford ? "" : ". short"}</small>`;
     button.addEventListener("click", () => {
       buyAsset(item);
       finishTurn();
@@ -14775,7 +14821,7 @@ function renderAssets() {
     const teaser = document.createElement("article");
     teaser.className = "asset-card";
     teaser.style.opacity = "0.6";
-    teaser.innerHTML = `<strong>Next: ${next.name}</strong><span>Unlocks at age ${next.minAge} — ${money(next.cost)}</span>`;
+    teaser.innerHTML = `<strong>Next: ${next.name}</strong><span>Unlocks at age ${next.minAge}. ${money(next.cost)}</span>`;
     shop.append(teaser);
   }
 }
@@ -14797,7 +14843,7 @@ function dayOneCount(player = state.player) {
 }
 
 function archetypeHint(person) {
-  // Don't reveal arc directly — give a vibe
+  // Don't reveal arc directly. give a vibe
   if (!person.arc) return "—";
   const hints = {
     anchor: "Always shows up",
@@ -14891,7 +14937,7 @@ function callNpc(person) {
         }), 100);
       } },
       { label: "Make it quick", run: () => { changeBond(person, 3); applyEffects(`Five minute call. Both still busy. Fine.`, { happiness: 2 }); } },
-      { label: "Hang up — bad timing", run: () => { changeBond(person, -4); applyEffects(`You bailed. They didn't say it but they noticed.`, { happiness: -2 }); } }
+      { label: "Hang up. bad timing", run: () => { changeBond(person, -4); applyEffects(`You bailed. They didn't say it but they noticed.`, { happiness: -2 }); } }
     ]
   });
 }
@@ -14986,7 +15032,7 @@ function saveGame() {
     if (typeof refreshSlotButtons === "function") refreshSlotButtons();
     if (typeof showSaveToast === "function") showSaveToast("Saved");
   } catch (e) {
-    if (typeof showSaveToast === "function") showSaveToast("Save failed — storage full", true);
+    if (typeof showSaveToast === "function") showSaveToast("Save failed. storage full", true);
   }
 }
 
@@ -15091,7 +15137,7 @@ function loadGame() {
 }
 
 // ============================================================
-// META PROGRESS — persistent across all lives
+// META PROGRESS. persistent across all lives
 // ============================================================
 const META_KEY = "rib_metaProgress_v1";
 function loadMeta() {
@@ -15133,7 +15179,7 @@ function recordLifeForMeta(player) {
   });
   meta.ancestors = meta.ancestors.slice(0, 10);
 
-  // Carry forward NPCs who survived OR mattered (top bond) as "ghosts" — may surface in next life
+  // Carry forward NPCs who survived OR mattered (top bond) as "ghosts". may surface in next life
   meta.ghosts = meta.ghosts || [];
   (player.relationships || [])
     .filter(r => r.type !== "pet" && (r.bond >= 70 || r.arc === "snake" || r.arc === "star"))
@@ -15410,7 +15456,7 @@ function maybeShowHowToOnFirstLoad() {
 setTimeout(maybeShowHowToOnFirstLoad, 600);
 
 // ============================================================
-// CITY AMBIENT AUDIO — procedural Web Audio drones per city.
+// CITY AMBIENT AUDIO. procedural Web Audio drones per city.
 // No files hosted, no API, pure synth. User must toggle on first.
 // ============================================================
 let audioContext = null;
@@ -15513,7 +15559,7 @@ function toggleAudio() {
 if (el.audioBtn) el.audioBtn.addEventListener("click", toggleAudio);
 
 // ============================================================
-// PROCEDURAL SFX — short Web Audio tones for choices, events, death
+// PROCEDURAL SFX. short Web Audio tones for choices, events, death
 // All synthesized, no audio files. Respects audioMuted.
 // ============================================================
 function playTone({ freq = 440, type = "sine", duration = 0.12, gain = 0.08, attack = 0.005, release = 0.06, slideTo = null }) {
@@ -15561,7 +15607,7 @@ function deathSfx() {
 
 
 // ============================================================
-// SAVE SLOTS — 3 parallel lives, switchable from header
+// SAVE SLOTS. 3 parallel lives, switchable from header
 // ============================================================
 function refreshSlotButtons() {
   const active = getActiveSlot();
@@ -15609,7 +15655,7 @@ if ("serviceWorker" in navigator) {
 }
 
 // ============================================================
-// TITLE CINEMATIC — auto-hide after 2.5s, skip on click
+// TITLE CINEMATIC. auto-hide after 2.5s, skip on click
 // ============================================================
 (function initTitleCinematic() {
   const overlay = document.querySelector("#titleCinematic");
@@ -15631,7 +15677,7 @@ if ("serviceWorker" in navigator) {
 })();
 
 // ============================================================
-// UI CLICK SFX — soft tick via Web Audio (no MP3, no autoplay block
+// UI CLICK SFX. soft tick via Web Audio (no MP3, no autoplay block
 // after first user interaction)
 // ============================================================
 let sfxEnabled = true;
@@ -15666,7 +15712,7 @@ document.addEventListener("click", event => {
 }, { capture: true });
 
 // ============================================================
-// NUMBER TICKER — animate stat changes
+// NUMBER TICKER. animate stat changes
 // ============================================================
 function tickElement(el) {
   if (!el) return;
@@ -15706,7 +15752,7 @@ function renderWithTickers() {
 window.render = renderWithTickers;
 
 // ============================================================
-// SAME SEED — shareable URL spawns same city/class/personality/year
+// SAME SEED. shareable URL spawns same city/class/personality/year
 // ============================================================
 let pendingSeedSpawn = null;
 
@@ -15796,7 +15842,7 @@ function copyShareSeed() {
 loadSeedFromURL();
 
 // ============================================================
-// WEBLLM POWER AI — opt-in free in-browser LLM (Phi-3.5-mini)
+// WEBLLM POWER AI. opt-in free in-browser LLM (Phi-3.5-mini)
 // First click downloads ~2GB cached locally. After: offline, free.
 // Requires WebGPU (Chrome/Edge/Safari 17+).
 // ============================================================
@@ -15814,7 +15860,7 @@ The player's character right now:
 - ${player.name}, age ${player.age}, year ${currentYear(player)} (${era})
 - Lives in ${player.location} (${o.vibe})
 - Born ${player.spawnLabel}
-- Personality: ${personality.label} — ${personality.tagline}
+- Personality: ${personality.label}. ${personality.tagline}
 - Money ${money(player.money)}, debt ${money(player.debt)}, fame ${player.fame}, followers ${(player.followers||0).toLocaleString()}
 - Job: ${currentJob(player).title}, school: ${player.school}
 - Stats: health ${player.stats.health}, happiness ${player.stats.happiness}, smarts ${player.stats.smarts}, looks ${looksScore()}, discipline ${player.stats.discipline}
@@ -15854,7 +15900,7 @@ async function loadWebLLM() {
   // `lifeAiReply()` which reads player state and replies contextually
   // without any download. If you want a hosted upgrade later, point this
   // at a serverless endpoint instead.
-  if (typeof addLog === "function") addLog("Advisor is local-only — instant, no download.", "normal");
+  if (typeof addLog === "function") addLog("Advisor is local-only. instant, no download.", "normal");
 }
 
 const powerAiBtn = document.querySelector("#powerAiBtn");
@@ -16009,7 +16055,7 @@ function continueFamilyLine() {
   if (el.homeInput) el.homeInput.value = parent.location;
   if (el.heritageInput) el.heritageInput.value = parent.heritage || "mixed";
   if (el.religionInput) el.religionInput.value = parent.religion || "none";
-  // Hand off — clear current save then reset state
+  // Hand off. clear current save then reset state
   resetGame();
   // Show creator with prefilled hint
   const sub = document.querySelector(".creator-sub");
@@ -16024,7 +16070,7 @@ const recapShareSeedBtn = document.querySelector("#recapShareSeed");
 if (recapShareSeedBtn) {
   recapShareSeedBtn.addEventListener("click", () => {
     const url = copyShareSeed();
-    recapShareSeedBtn.textContent = url ? "Copied ✓ — send it" : "Failed";
+    recapShareSeedBtn.textContent = url ? "Copied ✓. send it" : "Failed";
     setTimeout(() => { recapShareSeedBtn.textContent = "Copy \"same seed\" link →"; }, 2500);
   });
 }
@@ -16048,7 +16094,7 @@ if (el.recapScreenshot) {
       });
       const safeName = (state.player?.name || "life").replace(/[^a-z0-9]/gi, "_");
       const fileName = `run-it-back-${safeName}-${state.player?.deathAge || state.player?.age || "x"}.png`;
-      // Try native share sheet first (great on iOS/Android — IG, Messages, etc.)
+      // Try native share sheet first (great on iOS/Android. IG, Messages, etc.)
       const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
       const file = blob ? new File([blob], fileName, { type: "image/png" }) : null;
       const shareData = file ? { files: [file], title: "Run It Back", text: `Lived ${state.player?.deathAge || state.player?.age} years. Run it back: https://run-it-back-omega.vercel.app` } : null;
@@ -16057,7 +16103,7 @@ if (el.recapScreenshot) {
           await navigator.share(shareData);
           btn.textContent = "Shared ✓";
           return;
-        } catch (e) { /* user cancelled or share unsupported — fall through to download */ }
+        } catch (e) { /* user cancelled or share unsupported. fall through to download */ }
       }
       const dataUrl = canvas.toDataURL("image/png");
       const a = document.createElement("a");
@@ -16066,10 +16112,10 @@ if (el.recapScreenshot) {
       document.body.append(a);
       a.click();
       a.remove();
-      btn.textContent = "Saved ✓ — post it";
+      btn.textContent = "Saved ✓. post it";
     } catch (err) {
       console.error(err);
-      btn.textContent = "Failed — try screenshot instead";
+      btn.textContent = "Failed. try screenshot instead";
     }
     setTimeout(() => {
       btn.textContent = "Share recap →";
@@ -16123,7 +16169,7 @@ render();
   });
 })();
 
-// First-life hint banner — shows once until dismissed
+// First-life hint banner. shows once until dismissed
 (function wireFirstLifeHint() {
   const HINT_KEY = "run-it-back-hint-dismissed";
   const banner = document.querySelector("#firstLifeHint");
@@ -16133,7 +16179,7 @@ render();
   if (dismissed) banner.hidden = true;
   // Show whenever the play screen is visible AND not dismissed
   const reveal = () => { if (!dismissed && state.player) banner.hidden = false; };
-  // Reveal after each render — cheap idempotent toggle
+  // Reveal after each render. cheap idempotent toggle
   const origRender = window.render;
   if (typeof origRender === "function" && !window.__hintReveal) {
     window.__hintReveal = true;
@@ -16145,9 +16191,123 @@ render();
   });
 })();
 
-// Hall of Fame — Lives button
+// ============================================================
+// SHAREABLE LIFE URL — pack a life into a URL, no backend needed
+// ============================================================
+function encodeLifeToUrl(life) {
+  if (!life) return location.origin;
+  const compact = {
+    n: life.name, a: life.age, l: life.location, c: life.cause,
+    m: life.money, f: life.fame, ac: life.achievements,
+    ce: (life.canon || []).slice(0, 3),
+    s: life.skin, h: life.hair, hc: life.hairColor,
+    cl: life.classification
+  };
+  try {
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
+    return `${location.origin}/?life=${b64}`;
+  } catch (e) { return location.origin; }
+}
+
+function decodeLifeFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const raw = params.get("life");
+  if (!raw) return null;
+  try {
+    const json = decodeURIComponent(escape(atob(raw)));
+    const c = JSON.parse(json);
+    return {
+      name: c.n, age: c.a, location: c.l, cause: c.c,
+      money: c.m, fame: c.f, achievements: c.ac,
+      canon: c.ce || [], skin: c.s, hair: c.h, hairColor: c.hc,
+      classification: c.cl || "default"
+    };
+  } catch (e) { return null; }
+}
+
+function renderSharedLife(life) {
+  // Build a read-only recap dialog from a shared URL
+  const dlg = document.querySelector("#lifeRecapDialog");
+  if (!dlg) return;
+  const card = document.querySelector("#recapCard");
+  if (card) {
+    card.classList.remove("recap-tragic", "recap-violent", "recap-peaceful", "recap-legacy", "recap-wild", "recap-default");
+    card.classList.add(`recap-${life.classification}`);
+  }
+  document.querySelector("#recapName").textContent = life.name;
+  document.querySelector("#recapSub").textContent = `${life.location || ""}. Lived ${life.age} years.`;
+  document.querySelector("#recapCause").textContent = life.cause;
+  document.querySelector("#recapStats").innerHTML = `
+    <span>$${(life.money || 0).toLocaleString()}</span>
+    <span>${life.fame || 0} fame</span>
+    <span>${life.achievements || 0} unlocks</span>
+  `;
+  const momentsEl = document.querySelector("#recapMoments");
+  if (momentsEl) momentsEl.innerHTML = (life.canon || []).map(c => `<li>${c}</li>`).join("");
+  document.querySelector("#recapFooter").textContent = "Shared from someone\'s run. Want your own?";
+  // Hide buttons that don't apply to a shared view
+  const hideIds = ["recapContinueLine", "recapShareSeed"];
+  hideIds.forEach(id => { const el = document.querySelector(`#${id}`); if (el) el.hidden = true; });
+  const newLifeBtn = document.querySelector("#recapNewLife");
+  if (newLifeBtn) newLifeBtn.textContent = "Start your own life";
+  // Avatar URL (best-effort with personas)
+  const portrait = document.querySelector("#recapPortrait");
+  if (portrait) {
+    const skinHex = (typeof avataaarsMap !== "undefined" && avataaarsMap.skin[life.skin]) || "f4d6c3";
+    const hairColor = (typeof avataaarsMap !== "undefined" && avataaarsMap.hairColor[life.hairColor]) || "2c1b18";
+    const hair = (typeof avataaarsMap !== "undefined" && avataaarsMap.hair[life.hair]) || "fade";
+    portrait.src = `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(life.name)}&skinColor=${skinHex}&hair=${hair}&hairColor=${hairColor}&backgroundColor=transparent`;
+  }
+  try { dlg.showModal(); } catch (e) {}
+}
+
+// On page load, if ?life=... is present, show that life instead of starting the game
+(function tryShareLifeOnLoad() {
+  const life = decodeLifeFromUrl();
+  if (life) {
+    // Wait for DOM ready
+    document.addEventListener("DOMContentLoaded", () => renderSharedLife(life), { once: true });
+    if (document.readyState !== "loading") setTimeout(() => renderSharedLife(life), 100);
+  }
+})();
+
+
+// Hall of Fame. Lives button
 (function wireHofBtn() {
   const btn = document.querySelector("#hofBtn");
   if (!btn) return;
   btn.addEventListener("click", () => openHallOfFame());
+})();
+
+// Copy-life-link button — shares the just-finished life
+(function wireCopyLifeLink() {
+  const btn = document.querySelector("#recapCopyLifeLink");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    const player = state.player;
+    if (!player) return;
+    const o = (typeof originOf === "function") ? originOf(player.origin || player.location || "") : { short: "" };
+    const life = {
+      name: player.name,
+      age: player.deathAge || player.age,
+      location: o.short || player.location,
+      cause: player.causeOfDeath || "passed",
+      money: Math.round((typeof netWorth === "function") ? netWorth(player) : (player.money || 0)),
+      fame: player.fame || 0,
+      achievements: (player.achievements || []).length,
+      canon: (player.canonEvents || []).slice(0, 3).map(c => c.text),
+      skin: player.avatar?.skin,
+      hair: player.avatar?.hair,
+      hairColor: player.avatar?.hairColor,
+      classification: (typeof classifyDeath === "function") ? classifyDeath(player) : "default"
+    };
+    const url = encodeLifeToUrl(life);
+    try {
+      await navigator.clipboard.writeText(url);
+      btn.textContent = "Copied. send it";
+    } catch (e) {
+      btn.textContent = "Copy failed";
+    }
+    setTimeout(() => { btn.textContent = "Copy this life link"; }, 2500);
+  });
 })();

@@ -2160,7 +2160,7 @@ dialog {
 }
 
 /* ============================================================
-   FINAL THEME OVERRIDE — keeps palette consistent on top of the
+   FINAL THEME OVERRIDE. keeps palette consistent on top of the
    leftover "Color correction" and "Arcade polish pass" blocks.
    ============================================================ */
 
@@ -2394,7 +2394,7 @@ h1, h2 {
 }
 
 /* ============================================================
-   LIFE RECAP POSTER — death screen / share moment
+   LIFE RECAP POSTER. death screen / share moment
    ============================================================ */
 .life-recap::backdrop {
   background: rgba(6, 8, 10, 0.92);
@@ -2634,7 +2634,7 @@ h1, h2 {
 }
 
 /* ============================================================
-   MOBILE RESPONSIVE PASS — phone-first below 768px
+   MOBILE RESPONSIVE PASS. phone-first below 768px
    ============================================================ */
 @media (max-width: 900px) {
   .desktop-game {
@@ -2817,7 +2817,7 @@ h1, h2 {
 }
 
 /* ============================================================
-   TITLE CINEMATIC — first-load fade-in
+   TITLE CINEMATIC. first-load fade-in
    ============================================================ */
 .title-cinematic {
   position: fixed;
@@ -2889,7 +2889,7 @@ h1, h2 {
 @keyframes titleSubIn { to { opacity: 1; } }
 
 /* ============================================================
-   FULL-SCREEN EVENT MODE — cinematic event dialogs
+   FULL-SCREEN EVENT MODE. cinematic event dialogs
    ============================================================ */
 #choiceDialog {
   border: none;
@@ -3329,7 +3329,7 @@ h1, h2 {
 }
 .first-life-hint .hint-close:hover { color: var(--ink); }
 
-/* MOBILE DASHBOARD HARD OVERRIDE — single column on phones, no matter what */
+/* MOBILE DASHBOARD HARD OVERRIDE. single column on phones, no matter what */
 @media (max-width: 720px) {
   .dashboard {
     grid-template-columns: 1fr !important;
@@ -3371,7 +3371,7 @@ h1, h2 {
   .person-card .track { height: 4px; }
 }
 
-/* Mobile gameplay polish — event dialog + floating Age Up + bigger touch targets */
+/* Mobile gameplay polish. event dialog + floating Age Up + bigger touch targets */
 @media (max-width: 720px) {
   /* Event dialog: comfortable padding, scrollable, choices full-width and tall */
   dialog {
@@ -3485,7 +3485,7 @@ h1, h2 {
   }
 }
 
-/* Recap card brand strip — for the IG-shareable screenshot */
+/* Recap card brand strip. for the IG-shareable screenshot */
 .recap-brand {
   margin-top: 18px;
   padding-top: 14px;
@@ -3600,4 +3600,31 @@ h1, h2 {
 .hof-life-score {
   color: var(--orange-2, #e07a3a);
   font-weight: 700;
+}
+
+.recap-pb-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 18px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, rgba(217, 165, 49, 0.22), rgba(217, 165, 49, 0.08));
+  border: 1px solid rgba(217, 165, 49, 0.6);
+  border-radius: 10px;
+  text-align: center;
+}
+.recap-pb-badge strong {
+  font-family: var(--serif, Georgia, serif);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  color: #f4d6c3;
+}
+.recap-pb-badge span {
+  font-family: Inter, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--orange-2, #e07a3a);
 }
