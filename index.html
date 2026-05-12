@@ -146,6 +146,9 @@
                 <option>Skid Row, Los Angeles</option>
                 <option>Oakland, CA</option>
                 <option>San Francisco, CA</option>
+                <option>Berkeley, CA</option>
+                <option>San Jose, CA</option>
+                <option>Vacaville, CA</option>
               </optgroup>
               <optgroup label="Latin America">
                 <option>Mexico City, Mexico</option>
@@ -456,6 +459,7 @@
         <div class="recap-whatif" id="recapWhatIf"></div>
         <div class="recap-achievements" id="recapAchievements"></div>
         <p class="recap-footer" id="recapFooter">—</p>
+        <div id="recapFamilyTree" class="recap-family-tree"></div>
         <div class="recap-brand">
           <span class="recap-brand-mark">RUN IT BACK</span>
           <span class="recap-brand-url">run-it-back-omega.vercel.app</span>
@@ -513,6 +517,199 @@
       <div class="result-toast-deltas" id="resultToastDeltas"></div>
     </div>
 
+    <dialog id="interviewDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title" id="interviewTitle">Interview</span>
+          <button type="button" class="phone-app-close" id="interviewClose" aria-label="Close">✕</button>
+        </div>
+        <div class="interview-body">
+          <div class="interview-progress" id="interviewProgress"></div>
+          <p class="interview-question" id="interviewQuestion"></p>
+          <div class="interview-choices" id="interviewChoices"></div>
+          <div class="interview-result" id="interviewResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="gymDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">Gym set</span>
+          <button type="button" class="phone-app-close" id="gymClose" aria-label="Close">✕</button>
+        </div>
+        <div class="gym-body">
+          <p class="gym-instruction" id="gymInstruction">Tap REP as fast as you can for 8 seconds. Then breathe.</p>
+          <div class="gym-counter">
+            <div class="gym-counter-num" id="gymCounterNum">0</div>
+            <div class="gym-counter-label">reps</div>
+          </div>
+          <div class="gym-timer" id="gymTimer">8.0s</div>
+          <button type="button" class="primary wide gym-rep-btn" id="gymRepBtn">REP</button>
+          <div class="gym-result" id="gymResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="blackjackDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">Blackjack · $100/hand</span>
+          <button type="button" class="phone-app-close" id="bjClose" aria-label="Close">✕</button>
+        </div>
+        <div class="bj-body">
+          <div class="bj-row">
+            <p class="bj-label">Dealer · <span id="bjDealerTotal">?</span></p>
+            <div class="bj-hand" id="bjDealerHand"></div>
+          </div>
+          <div class="bj-row">
+            <p class="bj-label">You · <span id="bjPlayerTotal">0</span></p>
+            <div class="bj-hand" id="bjPlayerHand"></div>
+          </div>
+          <div class="bj-actions">
+            <button type="button" class="primary" id="bjHit">Hit</button>
+            <button type="button" class="ghost" id="bjStand">Stand</button>
+          </div>
+          <div class="bj-result" id="bjResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="auditionDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">Audition</span>
+          <button type="button" class="phone-app-close" id="auditionClose" aria-label="Close">✕</button>
+        </div>
+        <div class="audition-body">
+          <p class="audition-instruction">Hit STOP when the marker is in the green band. Three takes. Best take counts.</p>
+          <div class="audition-meter">
+            <div class="audition-track">
+              <div class="audition-target"></div>
+              <div class="audition-marker" id="auditionMarker"></div>
+            </div>
+          </div>
+          <div class="audition-stats">
+            <span>Take <strong id="auditionTake">1</strong>/3</span>
+            <span>Best score: <strong id="auditionBest">0</strong></span>
+          </div>
+          <button type="button" class="primary wide" id="auditionStopBtn">STOP</button>
+          <div class="audition-result" id="auditionResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="driveDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">Driving Test</span>
+          <button type="button" class="phone-app-close" id="driveClose" aria-label="Close">✕</button>
+        </div>
+        <div class="drive-body">
+          <p class="audition-instruction">Steer with ← / →. Avoid cones. Last 12 seconds.</p>
+          <div class="drive-road" id="driveRoad">
+            <div class="drive-lane-stripe"></div>
+            <div class="drive-car" id="driveCar"></div>
+          </div>
+          <div class="drive-meta">
+            <span>Time: <strong id="driveTime">12.0s</strong></span>
+            <span>Hits: <strong id="driveHits">0</strong></span>
+          </div>
+          <div class="drive-actions">
+            <button type="button" class="ghost" id="driveLeft">←</button>
+            <button type="button" class="primary" id="driveStart">Start</button>
+            <button type="button" class="ghost" id="driveRight">→</button>
+          </div>
+          <div class="drive-result" id="driveResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="micDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">Open Mic Night</span>
+          <button type="button" class="phone-app-close" id="micClose" aria-label="Close">✕</button>
+        </div>
+        <div class="mic-body">
+          <div class="mic-crowd">
+            <span style="font-size:1.6rem">🎤</span>
+            <div class="mic-meter"><div class="mic-meter-fill" id="micMeterFill"></div></div>
+            <span id="micRoom" style="font-size:0.8rem">room: warm</span>
+          </div>
+          <p class="mic-setup" id="micSetup">Tell a joke.</p>
+          <div class="mic-choices" id="micChoices"></div>
+          <div class="mic-result" id="micResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="pokerDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">Poker · $500 buy-in</span>
+          <button type="button" class="phone-app-close" id="pokerClose" aria-label="Close">✕</button>
+        </div>
+        <div class="poker-body">
+          <div class="poker-board">
+            <div class="poker-pot">Pot: <strong id="pokerPot">$0</strong></div>
+            <div class="poker-opponents" id="pokerOpps"></div>
+            <div class="poker-community" id="pokerCommunity"></div>
+          </div>
+          <div class="poker-hand" id="pokerYou"></div>
+          <div class="poker-actions">
+            <button type="button" class="ghost" id="pokerFold">Fold</button>
+            <button type="button" class="primary" id="pokerCall">Call</button>
+            <button type="button" class="primary" id="pokerRaise">Raise</button>
+          </div>
+          <div class="poker-result" id="pokerResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="examDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">Exam</span>
+          <button type="button" class="phone-app-close" id="examClose" aria-label="Close">✕</button>
+        </div>
+        <div class="exam-body">
+          <div class="exam-timer-bar"><div class="exam-timer-fill" id="examTimer"></div></div>
+          <div>
+            <p class="exam-q-num" id="examQNum">Question 1 of 5</p>
+            <p class="exam-question" id="examQ"></p>
+          </div>
+          <div class="exam-choices" id="examChoices"></div>
+          <p class="exam-score">Correct: <strong id="examCorrect">0</strong>/5</p>
+          <div class="exam-result" id="examResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="dayTradeDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">Day Trade · <span id="dtTicker">TSLA</span></span>
+          <button type="button" class="phone-app-close" id="dtClose" aria-label="Close">✕</button>
+        </div>
+        <div class="dt-body">
+          <div class="dt-chart" id="dtChart"></div>
+          <div class="dt-meta">
+            <div>Price: <strong id="dtPrice">$0</strong></div>
+            <div>Tick: <strong id="dtTick">1</strong>/8</div>
+            <div>Cash: <strong id="dtCash">$0</strong></div>
+            <div>Shares: <strong id="dtShares">0</strong></div>
+          </div>
+          <div class="dt-actions">
+            <button type="button" class="primary" id="dtBuy">Buy</button>
+            <button type="button" class="ghost" id="dtSell">Sell</button>
+            <button type="button" class="ghost" id="dtTickBtn">Next tick →</button>
+          </div>
+          <div class="dt-result" id="dtResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
     <dialog id="childChooserDialog" class="npc-dialog">
       <div class="npc-card-body">
         <p class="recap-kicker">Family line</p>
@@ -525,11 +722,24 @@
       </div>
     </dialog>
 
+    <dialog id="trophyDialog" class="npc-dialog">
+      <div class="npc-card-body hof-body">
+        <p class="recap-kicker">Trophies</p>
+        <h2>Achievement gallery</h2>
+        <p class="settings-foot">All-time, across every life you\'ve played.</p>
+        <div id="trophyList"></div>
+        <form method="dialog" style="margin-top: 14px;">
+          <button type="submit" class="ghost wide">Close</button>
+        </form>
+      </div>
+    </dialog>
+
     <dialog id="hofDialog" class="npc-dialog">
       <div class="npc-card-body hof-body">
         <p class="recap-kicker">Hall of Fame</p>
         <h2>Past lives</h2>
         <div id="hofList"></div>
+        <button type="button" class="ghost wide" id="hofShareBtn" style="margin-bottom: 8px;">Share my Hall of Fame</button>
         <form method="dialog" style="margin-top: 14px;">
           <button type="submit" class="ghost wide">Close</button>
         </form>
@@ -550,10 +760,17 @@
 
         <div class="npc-card-actions">
           <button class="ghost wide" id="hofBtn" type="button">★ Past lives</button>
+          <button class="ghost wide" id="trophyBtn" type="button">🏆 Trophies</button>
           <button class="ghost wide" id="dailyBtn" type="button">Today's Daily Seed</button>
           <button class="ghost wide" id="saveBtn" type="button">Save game</button>
           <button class="ghost wide" id="audioBtn" type="button">Sound: off</button>
           <button class="ghost wide" id="matureBtn" type="button">Mature: on</button>
+        </div>
+
+        <p class="settings-label">Custom seed</p>
+        <div class="custom-seed-row">
+          <input type="text" id="customSeedInput" placeholder="anything (e.g. 'westside99')" maxlength="40" />
+          <button class="ghost" id="customSeedApply" type="button">Apply seed</button>
         </div>
         <p class="settings-label">Born in</p>
         <select id="eraSelect" class="era-select">

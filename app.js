@@ -96,6 +96,39 @@ const origins = {
     locals: ["Liang", "Sofia", "Tomás", "Riya", "Caleb"],
     hood: "the City"
   },
+  "Berkeley, CA": {
+    short: "Berkeley",
+    money: [60, 240],
+    costMod: 1.25,
+    fameMod: 1.0,
+    salaryMod: 1.1,
+    vibe: "Sproul Plaza chalk drawings, Telegraph Ave incense, hills that hide millionaires, redwoods you forget are downtown",
+    spawnLine: "born in Berkeley where the politics start in the cafeteria and the hills hold the money",
+    locals: ["Ravi", "Sage", "Yuki", "Theo", "Imani"],
+    hood: "the Flats"
+  },
+  "San Jose, CA": {
+    short: "the South Bay",
+    money: [100, 320],
+    costMod: 1.4,
+    fameMod: 0.95,
+    salaryMod: 1.3,
+    vibe: "strip mall pho, suburban tech wealth, freeway loops, Sharks fans, the quietest part of the Bay",
+    spawnLine: "born in the South Bay where everyone's family works at a campus you've heard of",
+    locals: ["Anh", "Tomás", "Min-jun", "Priya", "Marco"],
+    hood: "the South Bay"
+  },
+  "Vacaville, CA": {
+    short: "Vaca",
+    money: [40, 200],
+    costMod: 0.78,
+    fameMod: 0.7,
+    salaryMod: 0.92,
+    vibe: "I-80 hum, Premium Outlets parking lot, Travis AFB jets overhead, Sac for nights out and the Bay for shows",
+    spawnLine: "born in Vacaville where you're between everywhere and nobody and the outlets are the mall",
+    locals: ["Tyler", "Kelsey", "Brandon", "Lupe", "Hailey"],
+    hood: "Vaca"
+  },
   "Hollywood, Los Angeles": {
     short: "Hollywood",
     money: [80, 280],
@@ -715,6 +748,14 @@ const store = [
 ];
 
 const achievements = [
+  { id: "citizen", text: "Became a US citizen" },
+  { id: "pulitzer", text: "Won the Pulitzer" },
+  { id: "everest", text: "Summited Everest" },
+  { id: "grammy", text: "Won a Grammy" },
+  { id: "oscar", text: "Won the Oscar" },
+  { id: "vogueCover", text: "Landed a Vogue cover" },
+  { id: "michelin", text: "Earned a Michelin star" },
+  { id: "nobel", text: "Won the Nobel Prize" },
   { id: "first_year", text: "First year lived" },
   { id: "graduate", text: "Finished high school" },
   { id: "pro_job", text: "Landed a professional job" },
@@ -1185,6 +1226,29 @@ function checkBucketList(player) {
 }
 
 
+// Twin sibling roll — adds an extra sibling at birth
+function maybeRollTwin(player) {
+  if (!player) return;
+  // Real-world rates: ~3.3% twins, ~0.1% triplets. IVF multiples spike to ~25%.
+  // The IVF check looks at the *parent\'s* fertility journey if this player is the result of IVF.
+  const ivfBoost = player.viaIVF ? true : false;
+  const triplet = chance(ivfBoost ? 5 : 0.5);
+  const twin = chance(ivfBoost ? 25 : 3.3);
+
+  if (triplet) {
+    const a = pick(peopleNames || ["Jordan","Casey","Sam"]);
+    const b = pick((peopleNames || ["Jordan","Casey","Sam"]).filter(n => n !== a));
+    player.relationships.push({ id: `triplet-${Date.now()}-1`, name: a, role: "Triplet", bond: randomInt(70, 90), type: "family", arc: "anchor", twin: true, triplet: true });
+    player.relationships.push({ id: `triplet-${Date.now()}-2`, name: b, role: "Triplet", bond: randomInt(70, 90), type: "family", arc: "anchor", twin: true, triplet: true });
+    if (typeof addCanonEvent === "function") addCanonEvent(`${player.name} was born one of triplets, with ${a} and ${b}.`, "good");
+  } else if (twin) {
+    const twinName = pick(peopleNames || ["Jordan","Casey","Sam"]);
+    player.relationships.push({ id: `twin-${Date.now()}`, name: twinName, role: "Twin", bond: randomInt(70, 90), type: "family", arc: "anchor", twin: true });
+    if (typeof addCanonEvent === "function") addCanonEvent(`${player.name} was born a twin to ${twinName}.`, "good");
+  }
+}
+
+
 function createPlayer() {
   const focus = el.focusInput.value;
   const name = el.nameInput.value.trim() || pick(names);
@@ -1330,6 +1394,7 @@ function createPlayer() {
   };
 
   state.player.familyStyle = rollFamilyStyle(spawnKey);
+  maybeRollTwin(state.player);
 
   // --- Innate traits (replaces standalone rollDisability) ---
   const identityToSex = { "Guy": "M", "Girl": "F", "Trans guy": "F", "Trans girl": "M" };
@@ -1458,10 +1523,50 @@ function createPlayer() {
   if (typeof refreshCityAudio === "function") refreshCityAudio();
 }
 
+// ============================================================
+// ACHIEVEMENT GALLERY — persists unlocks across all lives
+// ============================================================
+const TROPHY_KEY = "run-it-back-trophies";
+
+function loadTrophies() {
+  try { return new Set(JSON.parse(localStorage.getItem(TROPHY_KEY) || "[]")); } catch (e) { return new Set(); }
+}
+
+function saveTrophy(id) {
+  const set = loadTrophies();
+  if (set.has(id)) return;
+  set.add(id);
+  try { localStorage.setItem(TROPHY_KEY, JSON.stringify(Array.from(set))); } catch (e) {}
+}
+
+function renderTrophyGallery() {
+  const wrap = document.querySelector("#trophyList");
+  if (!wrap) return;
+  const unlocked = loadTrophies();
+  const all = (typeof achievements !== "undefined") ? achievements : [];
+  if (!all.length) {
+    wrap.innerHTML = `<p class="hof-empty">No trophy data yet.</p>`;
+    return;
+  }
+  wrap.innerHTML = `<p class="trophy-count">${unlocked.size} / ${all.length} unlocked across all lives</p>` +
+    `<div class="trophy-grid">` +
+    all.map(a => `<div class="trophy-chip ${unlocked.has(a.id) ? "trophy-chip--won" : "trophy-chip--locked"}"><strong>${unlocked.has(a.id) ? "★" : "○"}</strong><span>${unlocked.has(a.id) ? a.text : "???"}</span></div>`).join("") +
+    `</div>`;
+}
+
+function openTrophyGallery() {
+  const dlg = document.querySelector("#trophyDialog");
+  if (!dlg) return;
+  renderTrophyGallery();
+  try { dlg.showModal(); } catch (e) {}
+}
+
+
 function unlock(id, writeLog = true) {
   const player = state.player;
   if (!player || player.achievements.includes(id)) return;
   player.achievements.push(id);
+  if (typeof saveTrophy === "function") saveTrophy(id);
   const item = achievements.find(achievement => achievement.id === id);
   if (writeLog && item) {
     addLog(`Milestone: ${item.text}.`, "good");
@@ -1614,6 +1719,7 @@ function ageUp() {
   });
   tickNPCArcs(player);
   tickLifestyleConsequences(player);
+  if (typeof trackStatsHistory === "function") trackStatsHistory(player);
   player.children = player.children.map(child => {
     if (typeof child === "string") child = { name: child, age: 1 };
     const aged = { ...child, age: (child.age || 0) + 1 };
@@ -2256,6 +2362,7 @@ function showLifeRecap() {
     achEl2.append(chList);
   }
 
+  if (typeof renderFamilyTree === "function") renderFamilyTree(player);
   try { el.lifeRecapDialog.showModal(); } catch (e) {}
 }
 
@@ -2376,6 +2483,53 @@ function applyEffects(text, effects = {}, tone = "normal") {
     else changeStat(key, value);
   });
   addLog(text, tone);
+  if (typeof showResultToast === "function") showResultToast(text, effects, tone);
+}
+
+// ============================================================
+// RESULT TOAST — visible after every action
+// ============================================================
+let _resultToastTimer = null;
+function showResultToast(text, effects = {}, tone = "normal") {
+  const toast = document.querySelector("#resultToast");
+  if (!toast) return;
+  const textEl = document.querySelector("#resultToastText");
+  const deltasEl = document.querySelector("#resultToastDeltas");
+  if (textEl) textEl.textContent = text;
+  if (deltasEl) {
+    deltasEl.innerHTML = "";
+    const pretty = {
+      money: v => ({ label: (v>0?"+":"")+(typeof money==="function"?money(v):`$${v}`), good: v>0 }),
+      health: v => ({ label: `${v>0?"+":""}${v} health`, good: v>0 }),
+      happiness: v => ({ label: `${v>0?"+":""}${v} mood`, good: v>0 }),
+      smarts: v => ({ label: `${v>0?"+":""}${v} smarts`, good: v>0 }),
+      looks: v => ({ label: `${v>0?"+":""}${v} looks`, good: v>0 }),
+      discipline: v => ({ label: `${v>0?"+":""}${v} discipline`, good: v>0 }),
+      fame: v => ({ label: `${v>0?"+":""}${v} fame`, good: v>0 }),
+      followers: v => ({ label: `${v>0?"+":""}${v.toLocaleString()} fol`, good: v>0 }),
+      karma: v => ({ label: `${v>0?"+":""}${v} karma`, good: v>0 }),
+      streetRep: v => ({ label: `${v>0?"+":""}${v} street`, good: v>0 }),
+      record: v => ({ label: `+${v} record`, good: false }),
+      debt: v => ({ label: `${v>0?"+":""}${typeof money==="function"?money(v):v} debt`, good: v<0 }),
+      health: v => ({ label: `${v>0?"+":""}${v} health`, good: v>0 })
+    };
+    Object.entries(effects).forEach(([k, v]) => {
+      if (!v) return;
+      const fmt = pretty[k];
+      const out = fmt ? fmt(v) : { label: `${v>0?"+":""}${v} ${k}`, good: v>0 };
+      const chip = document.createElement("span");
+      chip.className = `result-delta ${out.good ? "good" : "bad"}`;
+      chip.textContent = out.label;
+      deltasEl.appendChild(chip);
+    });
+  }
+  toast.hidden = false;
+  toast.classList.add("show");
+  clearTimeout(_resultToastTimer);
+  _resultToastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => { toast.hidden = true; }, 250);
+  }, 2400);
 }
 
 function relationshipTarget() {
@@ -7436,6 +7590,118 @@ const events = [
       { label: "Get off early, walk the rest", run: () => applyEffects(`You hopped off at Lake Merritt and walked 20 blocks home. Streets were dead quiet. Heard your own footsteps for the first time in weeks.`, { health: 2, happiness: 4 }) }
     ]
   },
+
+  // ---- BERKELEY ----
+  {
+    title: "Sproul Plaza Protest",
+    text: () => `Megaphone in front of Sather Gate. Three groups already arguing, chalk on the bricks, signs being passed out. ${friendName(state.player, ["Ravi", "Sage", "Theo"])} is handing them out.`,
+    when: p => p.location === "Berkeley, CA" && p.age >= 16 && chance(4),
+    choices: [
+      { label: "Grab a sign, stay til dark", run: () => applyEffects(`You marched. Hoarse by 8pm. Met three people who'll text you for the next decade.`, { karma: 10, happiness: 8, politicalCapital: 6, fame: 2 }, "good") },
+      { label: "Take the flier, walk to class", run: () => applyEffects(`You said you'd come next time. You meant it.`, { smarts: 2, discipline: 4 }) },
+      { label: "Counter-protest from the other side", run: () => applyEffects(`You picked the unpopular position out loud. Sproul didn't like it. You learned where you actually stand.`, { discipline: 8, karma: -6, smarts: 4 }) }
+    ]
+  },
+  {
+    title: "Telegraph Ave Bookstore Crawl",
+    text: () => `Moe's then Pegasus then Half Price. ${friendName(state.player, ["Yuki", "Imani", "Sage"])} is hunting a first-edition Baldwin. You're killing four hours either way.`,
+    when: p => p.location === "Berkeley, CA" && p.age >= 14 && chance(4),
+    choices: [
+      { label: "Spend $80 on used books", run: () => applyEffects(`You walked out with a stack. Read three of them. The other two became furniture.`, { smarts: 6, happiness: 6, money: -randomInt(40, 120), books: 1 }, "good") },
+      { label: "Sit in Moe's basement and read for free", run: () => applyEffects(`Three hours, no purchase. The owner gave you a side-eye. Worth it.`, { smarts: 4, happiness: 4 }) }
+    ]
+  },
+
+  // ---- SAN JOSE ----
+  {
+    title: "Caltrain Commute to Mountain View",
+    text: () => `Train pulls into Diridon. Half the car is on Slack already. ${friendName(state.player, ["Anh", "Min-jun", "Priya"])} has the window seat saving it for you.`,
+    when: p => p.location === "San Jose, CA" && p.age >= 22 && chance(4),
+    choices: [
+      { label: "Open the laptop, ship the ticket", run: () => applyEffects(`You committed three PRs before the Palo Alto stop. Manager pinged: "fast turnaround." That's a quarter raise.`, { money: randomInt(2000, 6000), smarts: 4, discipline: 8, happiness: 2 }, "good") },
+      { label: "Read a real book the whole ride", run: () => applyEffects(`You ignored the laptop. Read 80 pages of fiction. Got off the train recharged.`, { smarts: 3, happiness: 8 }) }
+    ]
+  },
+  {
+    title: "Late Night Korean BBQ in Santa Clara",
+    text: () => `${pick(["Ohgane", "Bowl'd", "Daeho", "Stone Korean"])} at 11pm. The smoke alarm goes off twice. ${friendName(state.player, ["Anh", "Min-jun", "Tomás"])} ordered three rounds of brisket "for the table."`,
+    when: p => p.location === "San Jose, CA" && p.age >= 18 && chance(3),
+    choices: [
+      { label: "Eat until you can't move", run: () => applyEffects(`Soju went around twice. You smelled like grill smoke for two days. No regrets.`, { happiness: 14, health: -2, money: -randomInt(45, 90) }, "good") },
+      { label: "Order light, leave early", run: () => applyEffects(`Ate the bare minimum, paid your share, drove home. Sleeping in tomorrow.`, { happiness: 6, money: -randomInt(20, 38), discipline: 4 }) }
+    ]
+  },
+
+  // ---- VACAVILLE ----
+  {
+    title: "Premium Outlets Black Friday",
+    text: () => `4am. Parking lot is a battlefield. ${friendName(state.player, ["Tyler", "Kelsey", "Hailey"])} has been in line at the Coach store since midnight. Coffee shop next door is the only thing open.`,
+    when: p => p.location === "Vacaville, CA" && p.age >= 14 && chance(4),
+    choices: [
+      { label: "Stand in line, hit three stores", run: () => applyEffects(`You scored a ${pick(["Nike fit", "Coach bag", "North Face puffer"])} for half off. Worth the parking lot fight.`, { happiness: 8, looks: 3, money: -randomInt(80, 240) }, "good") },
+      { label: "Drive home, sleep in", run: () => applyEffects(`You bailed when you saw the line. Slept til noon. Felt right.`, { discipline: 4, happiness: 4 }) }
+    ]
+  },
+  {
+    title: "Travis AFB Neighbor PCS",
+    text: () => `The family next door has PCS orders. ${pick(["Germany", "Japan", "Guam", "North Carolina"])}. You watched their kids grow up. Last weekend at the house, they're hosting.`,
+    when: p => p.location === "Vacaville, CA" && p.age >= 8 && chance(3),
+    choices: [
+      { label: "Help them pack the truck", run: () => applyEffects(`Eight hours of boxes and bubble wrap. They hugged you twice. Said you're family.`, { karma: 10, happiness: 8, health: -3 }, "good") },
+      { label: "Stop by, say bye, dip", run: () => applyEffects(`Ten minutes. A real goodbye. They'll Facebook-update you for a few years then go quiet.`, { karma: 4, happiness: 2 }) }
+    ]
+  },
+  {
+    title: "Drive To Sac For The Night",
+    text: () => `Old Sac or Midtown — ${friendName(state.player, ["Tyler", "Brandon", "Lupe"])} is texting. "Pull up, we got a table." 30 minutes on I-80 each way.`,
+    when: p => p.location === "Vacaville, CA" && p.age >= 19 && chance(4),
+    choices: [
+      { label: "Pull up", run: () => applyEffects(`Three hours at the bar, drove back at 2am. State capitol lit up on the drive home.`, { happiness: 10, money: -randomInt(40, 110), health: -2 }, "good") },
+      { label: "Stay home, Netflix", run: () => applyEffects(`You said next time. Watched something old. The hour difference between you and Sac stayed exactly that.`, { happiness: 3, discipline: 2 }) }
+    ]
+  },
+
+  // ---- BAY-WIDE ----
+  {
+    title: "Tech Layoff Wave",
+    text: () => `Slack pings at 6am: "all-hands at 8." ${pick(["Meta", "Google", "Stripe", "Salesforce", "Pinterest"])} just cut 15%. You don't know yet if you're on the list.`,
+    when: p => (p.location === "San Francisco, CA" || p.location === "San Jose, CA" || p.location === "Oakland, CA" || p.location === "Berkeley, CA") && p.age >= 22 && p.jobId === "developer" && chance(4),
+    choices: [
+      { label: "Wait for the meeting", run: () => {
+        if (chance(50)) {
+          state.player.jobId = "none";
+          applyEffects(`You got the calendar invite. 15-minute call, severance package, laptop wiped by EOD. Severance: ${money(randomInt(40000, 90000))}.`, { money: randomInt(40000, 90000), happiness: -14, discipline: 4, smarts: 2 }, "bad");
+        } else {
+          applyEffects(`You're safe. Half your team isn't. Survivor's guilt is heavier than the work.`, { happiness: -8, discipline: 6, smarts: 3 });
+        }
+      } },
+      { label: "Resign before the meeting", run: () => {
+        state.player.jobId = "none";
+        applyEffects(`You quit at 7:45am with no plan. Free coffee for life from the team Slack.`, { happiness: -6, discipline: 8, karma: 4 });
+      } }
+    ]
+  },
+  {
+    title: "Wildfire Smoke Season",
+    text: () => `Air quality hit 250. Sky is orange at noon. ${pick(["the Caldor", "the Kincade", "the Glass", "the Camp"])} fire is two hours away but the smoke is here.`,
+    when: p => (p.location === "Oakland, CA" || p.location === "San Francisco, CA" || p.location === "Berkeley, CA" || p.location === "San Jose, CA" || p.location === "Vacaville, CA") && p.age >= 10 && chance(4),
+    choices: [
+      { label: "Buy an air purifier, stay inside", run: () => applyEffects(`Three days indoors. The purifier ran nonstop. You watched everything in your saved list.`, { health: 1, happiness: -2, money: -randomInt(180, 380) }) },
+      { label: "Drive south til the air clears", run: () => applyEffects(`You drove to ${pick(["Big Sur", "Santa Cruz", "Monterey"])}. Spent two days at a cheap motel. Came back when the smoke broke.`, { happiness: 8, money: -randomInt(400, 900), health: 4 }, "good") },
+      { label: "N95 and live your life", run: () => applyEffects(`You went outside anyway. Your throat hurt for a week. You'll remember it later when the doctor asks.`, { health: -6, discipline: 2 }) }
+    ]
+  },
+  {
+    title: "Earthquake — Mid Shaker",
+    text: () => `Shaking. Two seconds, then six, then eleven. Pictures off the wall, glass on the floor. Your phone screams the alert ten seconds late.`,
+    when: p => (p.location === "Oakland, CA" || p.location === "San Francisco, CA" || p.location === "Berkeley, CA" || p.location === "San Jose, CA" || p.location === "Vacaville, CA") && p.age >= 8 && chance(2),
+    choices: [
+      { label: "Drop, cover, hold on", run: () => applyEffects(`The drills worked. You came out of it with bruises and a story.`, { smarts: 4, discipline: 6, health: -2, happiness: -4 }) },
+      { label: "Run outside (don't actually do this)", run: () => applyEffects(`You ran. Caught a falling planter on the shoulder. Two stitches.`, { health: -10, happiness: -6, smarts: -2 }, "bad") }
+    ]
+  },
+
+  // ---- VEGAS ----
   {
     title: "Casino Cocktail Job Offer",
     text: () => `A manager at ${pick(["Cosmopolitan", "Aria", "Bellagio", "Caesars"])} watched ${state.player.name} hand out drinks at a friend's house party. "We're hiring. Tips are real."`,
@@ -11705,6 +11971,617 @@ const events = [
     ]
   },
 
+  // ============================================================
+  // ACADEMIC CAREER — phd to nobel
+  // ============================================================
+  {
+    title: "PhD program acceptance",
+    text: () => `${pick(["MIT", "Stanford", "Berkeley", "Princeton", "Chicago", "Yale"])} accepted you. Five years funded. Stipend covers rent if you don\'t mind a roommate.`,
+    when: p => p.age >= 21 && p.age <= 30 && !p.academicPath && p.educationRank >= 4 && p.stats.smarts >= 75 && chance(7),
+    cooldown: 99,
+    tags: ["school"],
+    choices: [
+      { label: "Sign. Move to campus.", run: () => {
+        state.player.academicPath = "phd";
+        state.player.educationRank = 5;
+        addCanonEvent(`${state.player.name} started a PhD program.`, "good");
+        applyEffects(`Coursework, lab rotations, the constant existential dread of qualifying exams. The community is small and weird and home.`, { money: -randomInt(2000, 8000), smarts: 16, discipline: 10, happiness: 4, looks: -2 }, "good");
+      } },
+      { label: "Industry instead", run: () => applyEffects(`You took the corporate job. Made 4x what your PhD friends made by year three.`, { money: randomInt(40000, 120000), smarts: 4, discipline: 4 }) }
+    ]
+  },
+  {
+    title: "Dissertation defense",
+    text: () => `Three hours. Four committee members. Your seven years of work in 90 slides.`,
+    when: p => p.academicPath === "phd" && p.age >= 25 && chance(15),
+    cooldown: 99,
+    tags: ["school", "drama"],
+    choices: [
+      { label: "Defend it. Walk in confident.", run: () => {
+        if (chance(70)) {
+          state.player.academicPath = "doctor";
+          addCanonEvent(`${state.player.name} earned their PhD.`, "good");
+          applyEffects(`Passed with minor revisions. Two committee members shook your hand. One nodded.`, { smarts: 12, discipline: 8, happiness: 18, fame: 4 }, "good");
+        } else {
+          applyEffects(`Failed defense. Six more months of revisions. The committee was right but knowing didn\'t help.`, { discipline: 8, happiness: -16, smarts: 6 }, "bad");
+        }
+      } }
+    ]
+  },
+  {
+    title: "Tenure-track offer",
+    text: () => `Top-25 university. Five years to publish or perish. The job is intellectual freedom and Sunday-night anxiety in equal measure.`,
+    when: p => p.academicPath === "doctor" && p.age >= 27 && chance(10),
+    cooldown: 99,
+    tags: ["school", "business"],
+    choices: [
+      { label: "Take it. Build a research program.", run: () => {
+        state.player.academicPath = "tenure-track";
+        state.player.jobId = "professor";
+        applyEffects(`First lab. First grad students. First grant rejection. The whole thing.`, { money: randomInt(80000, 140000), smarts: 8, businessReputation: 6, discipline: 8 }, "good");
+      } },
+      { label: "Industry research lab instead", run: () => {
+        state.player.academicPath = "industry-research";
+        applyEffects(`Better pay. Less freedom on what you study. Calmer nights.`, { money: randomInt(160000, 320000), smarts: 6, businessReputation: 8 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Nobel-tier discovery",
+    text: () => `Twenty years of work. Your team\'s breakthrough is on the front page of three journals. Stockholm has been calling.`,
+    when: p => p.academicPath === "tenure-track" && p.age >= 45 && p.stats.smarts >= 92 && chance(2),
+    cooldown: 99,
+    tags: ["school", "fame"],
+    choices: [
+      { label: "Accept the prize", run: () => {
+        addCanonEvent(`${state.player.name} won the Nobel Prize.`, "good");
+        state.player.achievements = state.player.achievements || [];
+        if (!state.player.achievements.includes("nobel")) state.player.achievements.push("nobel");
+        if (typeof saveTrophy === "function") saveTrophy("nobel");
+        applyEffects(`Stockholm. Tuxedo you didn\'t own a year ago. Your dad wore your medal at thanksgiving for the rest of his life.`, { fame: 80, money: 1100000, happiness: 36, businessReputation: 40, smarts: 14 }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // JOURNALISM CAREER — cub reporter to pulitzer
+  // ============================================================
+  {
+    title: "Newsroom internship",
+    text: () => `${pick(["Local paper", "Alt weekly", "City magazine", "Public radio station"])} took your application. Unpaid summer. Coffee runs and some bylines if you push.`,
+    when: p => p.age >= 18 && p.age <= 28 && !p.journalismPath && p.stats.smarts >= 60 && chance(6),
+    cooldown: 99,
+    tags: ["business"],
+    choices: [
+      { label: "Take it. File five stories before September.", run: () => {
+        state.player.journalismPath = "intern";
+        applyEffects(`Three bylines by August. The editor flagged you as someone who shows up.`, { money: -randomInt(200, 1200), smarts: 8, discipline: 6, fame: 3, businessReputation: 4 }, "good");
+      } },
+      { label: "Pass. Find a paid gig.", run: () => applyEffects(`Bartended instead. Made rent. Wrote in a notebook.`, { money: randomInt(2000, 6000), discipline: 4 }) }
+    ]
+  },
+  {
+    title: "Staff writer offer",
+    text: () => `${pick(["The Atlantic", "The New Yorker", "The LA Times", "The Wall Street Journal", "ProPublica"])} offered staff. $${randomInt(55, 95)}K. Beat is yours to define.`,
+    when: p => p.journalismPath === "intern" && p.age >= 22 && p.stats.smarts >= 70 && chance(8),
+    cooldown: 99,
+    tags: ["business", "fame"],
+    choices: [
+      { label: "Sign. Cover the beat hard.", run: () => {
+        state.player.journalismPath = "staff";
+        state.player.jobId = "journalist";
+        addCanonEvent(`${state.player.name} became a staff writer.`, "good");
+        applyEffects(`First feature ran in October. Got picked up by the wire. Your inbox started filling with sources.`, { money: randomInt(55000, 95000), fame: 12, smarts: 8, businessReputation: 8 }, "good");
+      } },
+      { label: "Go freelance instead", run: () => {
+        state.player.journalismPath = "freelance";
+        applyEffects(`Pitched everywhere. Some hit. Some didn\'t. Bank account looked different month to month.`, { money: randomInt(20000, 70000), discipline: 8, smarts: 6 });
+      } }
+    ]
+  },
+  {
+    title: "Bureau chief role",
+    text: () => `Editor wants you to run the ${pick(["DC", "Tokyo", "Mexico City", "London"])} bureau. Three reporters under you. Move within 6 months.`,
+    when: p => p.journalismPath === "staff" && p.age >= 28 && chance(6),
+    cooldown: 99,
+    tags: ["business", "travel"],
+    choices: [
+      { label: "Take the move", run: () => {
+        state.player.journalismPath = "bureau";
+        const cities = ["Washington, DC", "Tokyo, Japan", "Mexico City, Mexico", "London, UK"];
+        state.player.location = pick(cities);
+        addCanonEvent(`${state.player.name} took over a foreign bureau.`, "good");
+        applyEffects(`Different city. Different beat. The reporters under you became the next generation.`, { money: randomInt(80000, 160000), fame: 18, smarts: 8, businessReputation: 12 }, "good");
+      } },
+      { label: "Stay. Decline the move.", run: () => applyEffects(`Editor respected it. Your trajectory leveled. Your life stayed close to your people.`, { discipline: 4, karma: 4, happiness: 6 }) }
+    ]
+  },
+  {
+    title: "Pulitzer announcement",
+    text: () => `4:32pm Eastern. The committee announced. Your year-long investigation into ${pick(["the housing scheme", "the police union cover-up", "the pharma kickbacks", "the city contracts"])} won.`,
+    when: p => (p.journalismPath === "staff" || p.journalismPath === "bureau") && p.age >= 30 && chance(2),
+    cooldown: 99,
+    tags: ["fame", "business"],
+    choices: [
+      { label: "Accept the prize", run: () => {
+        addCanonEvent(`${state.player.name} won the Pulitzer.`, "good");
+        state.player.achievements = state.player.achievements || [];
+        if (!state.player.achievements.includes("pulitzer")) state.player.achievements.push("pulitzer");
+        if (typeof saveTrophy === "function") saveTrophy("pulitzer");
+        applyEffects(`Phone calls all afternoon. Your editor said the words \"this is what we do this for.\" The plaque now sits on a bookshelf you keep clean.`, { fame: 30, money: randomInt(100000, 400000), happiness: 24, businessReputation: 22 }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // EXTREME SPORTS / MOUNTAIN CLIMBING
+  // ============================================================
+  {
+    title: "First serious peak",
+    text: () => `${pick(["Mount Whitney", "Mount Rainier", "Half Dome cables", "Mount Hood", "Pikes Peak"])}. 14 miles round trip. The training has been six months.`,
+    when: p => p.age >= 18 && !p.climbingPath && p.stats.health >= 65 && chance(5),
+    cooldown: 4,
+    tags: ["adventure", "travel"],
+    choices: [
+      { label: "Go. Summit by sunrise.", run: () => {
+        if (chance(70 + Math.floor(state.player.stats.health / 10))) {
+          state.player.climbingPath = "summited";
+          applyEffects(`Hit the peak at 6:14am. Cried for reasons you couldn\'t name. Drove home a different person.`, { health: 8, discipline: 12, happiness: 18, smarts: 4, money: -randomInt(400, 1800) }, "good");
+        } else {
+          applyEffects(`Weather turned. You turned around at 13,200 feet. Lesson on respect.`, { health: 4, discipline: 8, smarts: 6 });
+        }
+      } },
+      { label: "Backcountry hike instead", run: () => applyEffects(`Two days off-trail. No summit. Better quiet.`, { health: 6, happiness: 8, discipline: 4 }) }
+    ]
+  },
+  {
+    title: "Denali expedition",
+    text: () => `Three weeks on the mountain. Glacier camps. The summit window is 2 days a season. $${randomInt(8, 14)}K to attempt.`,
+    when: p => p.climbingPath === "summited" && p.age >= 22 && p.money >= 8000 && chance(6),
+    cooldown: 99,
+    tags: ["adventure", "drama"],
+    choices: [
+      { label: "Go. Summit attempt.", run: () => {
+        if (chance(45)) {
+          state.player.climbingPath = "denali";
+          addCanonEvent(`${state.player.name} summited Denali.`, "good");
+          applyEffects(`Standing on the highest point in North America at noon, with no oxygen and a windchill of -40. Three weeks back to civilization changed your nervous system.`, { fame: 14, health: -6, discipline: 18, smarts: 8, happiness: 22, money: -randomInt(8000, 14000) }, "good");
+        } else {
+          applyEffects(`Weather window closed. Turned around at high camp. The mountain doesn\'t owe you a summit.`, { discipline: 14, money: -randomInt(8000, 14000), happiness: -8, smarts: 8 }, "bad");
+        }
+      } },
+      { label: "Stick to the lower 48", run: () => applyEffects(`Smarter call. Stayed alive. Climbed 30 more peaks over the years.`, { discipline: 6, health: 4 }) }
+    ]
+  },
+  {
+    title: "Everest invite",
+    text: () => `Sherpa-led commercial expedition. $${randomInt(70, 100)}K. The death rate per attempt is around 1%. The glory rate is whatever you make of it.`,
+    when: p => p.climbingPath === "denali" && p.age >= 30 && p.money >= 70000 && chance(3),
+    cooldown: 99,
+    tags: ["adventure", "fame", "drama"],
+    choices: [
+      { label: "Go. Summit Everest.", run: () => {
+        const cost = randomInt(70000, 100000);
+        if (chance(60)) {
+          if (chance(2)) {
+            // Death on Everest
+            state.player.alive = false;
+            state.player.deathAge = state.player.age;
+            state.player.causeOfDeath = "died on Everest above 8000m";
+            addCanonEvent(`${state.player.name} died on Everest in the death zone.`, "bad");
+            applyEffects(`Pulmonary edema in the death zone. Body stayed where you fell.`, { money: -cost, health: -100 }, "bad");
+          } else {
+            addCanonEvent(`${state.player.name} summited Everest.`, "good");
+            state.player.achievements = state.player.achievements || [];
+            if (!state.player.achievements.includes("everest")) state.player.achievements.push("everest");
+            if (typeof saveTrophy === "function") saveTrophy("everest");
+            applyEffects(`9:42am at the summit. Photo for proof. The descent was harder than the climb. You\'re a different species after.`, { fame: 40, money: -cost, health: -16, discipline: 22, happiness: 30 }, "good");
+          }
+        } else {
+          applyEffects(`Turned around at the South Col when the storm rolled in. Lost a finger to frostbite. You\'re still alive.`, { money: -cost, health: -22, discipline: 14, fame: 8 }, "bad");
+        }
+      } },
+      { label: "Pass. Climb something else.", run: () => applyEffects(`You picked the long-game peaks instead. Climbed 7 of the Seven Summits over the next decade.`, { discipline: 10, health: 4, money: -randomInt(20000, 60000) }, "good") }
+    ]
+  },
+
+  // ============================================================
+  // CHEF — cookbook, TV show, restaurant empire
+  // ============================================================
+  {
+    title: "Cookbook deal",
+    text: () => `Publisher pitched you. Six-figure advance. 18-month deadline. 80 recipes you cook in your sleep already.`,
+    when: p => p.kitchenPath === "owner" && p.age >= 30 && chance(7),
+    cooldown: 99,
+    tags: ["business", "fame"],
+    choices: [
+      { label: "Sign. Test every recipe twice.", run: () => {
+        const advance = randomInt(80000, 240000);
+        addCanonEvent(`${state.player.name} published a cookbook.`, "good");
+        applyEffects(`Bestseller list by month three. Bookstore signings for a year.`, { money: advance, fame: 18, businessReputation: 12, happiness: 10 }, "good");
+        state.player.books = (state.player.books || 0) + 1;
+      } }
+    ]
+  },
+  {
+    title: "Food TV show pitch",
+    text: () => `${pick(["Netflix", "Food Network", "Hulu"])} wants 8 episodes. Travel show. You eat your way through a region with chefs who matter.`,
+    when: p => p.kitchenPath === "owner" && p.fame >= 20 && p.age >= 32 && chance(6),
+    cooldown: 99,
+    tags: ["business", "fame", "travel"],
+    choices: [
+      { label: "Sign. Shoot the season.", run: () => {
+        addCanonEvent(`${state.player.name} got a food TV show.`, "good");
+        applyEffects(`Eight cities. Eight chefs. Six months gone. Your face on Netflix in 190 countries.`, { money: randomInt(300000, 1200000), fame: 32, businessReputation: 14, happiness: 14, health: -6 }, "good");
+      } },
+      { label: "Pass. Stay in the kitchen.", run: () => applyEffects(`The restaurant got better the year you said no.`, { discipline: 8, businessReputation: 6 }) }
+    ]
+  },
+  {
+    title: "Restaurant empire",
+    text: () => `Investor wants to back a 6-restaurant rollout. Your concept, his money. $${randomInt(8, 20)}M raise.`,
+    when: p => p.kitchenPath === "owner" && p.businessReputation >= 30 && p.age >= 35 && chance(5),
+    cooldown: 99,
+    tags: ["business", "money"],
+    choices: [
+      { label: "Take the raise. Open 6 cities.", run: () => {
+        if (chance(50 + Math.floor(state.player.stats.smarts / 8))) {
+          const haul = randomInt(4000000, 18000000);
+          addCanonEvent(`${state.player.name} built a restaurant empire.`, "good");
+          applyEffects(`All 6 opened by year three. Some hit. Some didn\'t. Net was generational.`, { money: haul, fame: 22, businessReputation: 30, happiness: 16 }, "good");
+        } else {
+          applyEffects(`Three of the six lost money. Investor pulled. You closed two of your originals to cover.`, { money: -randomInt(800000, 3000000), happiness: -22, businessReputation: -12 }, "bad");
+        }
+      } },
+      { label: "Stay 1 location. Stay sane.", run: () => applyEffects(`The single spot kept getting better. So did your life.`, { discipline: 8, happiness: 8, money: randomInt(40000, 220000) }) }
+    ]
+  },
+
+  // ============================================================
+  // MEMOIR / AUTOBIOGRAPHY
+  // ============================================================
+  {
+    title: "Write your memoir",
+    text: () => `Your story is interesting enough now. ${pick(["An agent reached out.", "A friend who edits suggested it.", "You started journaling and 30,000 words happened."])} The book wants to exist.`,
+    when: p => p.age >= 35 && (p.fame >= 30 || (p.canonEvents || []).length >= 12) && !p.memoirWritten && chance(5),
+    cooldown: 99,
+    tags: ["fame"],
+    choices: [
+      { label: "Write it. The honest version.", run: () => {
+        state.player.memoirWritten = true;
+        addCanonEvent(`${state.player.name} wrote a memoir.`, "good");
+        applyEffects(`Eighteen months of remembering things you\'d filed away. Six people from your life stopped talking to you. Three started.`, { fame: 14, money: randomInt(20000, 180000), karma: 4, smarts: 12, happiness: 6 }, "good");
+        state.player.books = (state.player.books || 0) + 1;
+      } },
+      { label: "Write the safe version", run: () => {
+        state.player.memoirWritten = "safe";
+        applyEffects(`Sold okay. Didn\'t cost you anyone. Felt like 70% of the truth.`, { money: randomInt(8000, 60000), fame: 6, discipline: 6, karma: 0 });
+        state.player.books = (state.player.books || 0) + 1;
+      } },
+      { label: "Don\'t write it", run: () => applyEffects(`Maybe later. The story stayed yours.`, { discipline: 4 }) }
+    ]
+  },
+  {
+    title: "Memoir miniseries deal",
+    text: () => `${pick(["A24", "HBO", "Netflix"])} wants to adapt the book. Limited series. ${pick(["Six episodes", "Three episodes", "Eight episodes"])}. They want you on as creative consultant.`,
+    when: p => p.memoirWritten === true && p.age >= 38 && chance(4),
+    cooldown: 99,
+    tags: ["fame", "money"],
+    choices: [
+      { label: "Sign. Stay involved.", run: () => {
+        addCanonEvent(`${state.player.name}\'s memoir got a miniseries.`, "good");
+        applyEffects(`Year on set. Watching strangers play your mom and your friends. Cried during the table read. Cashed the checks.`, { money: randomInt(400000, 1800000), fame: 28, happiness: 14, businessReputation: 12 }, "good");
+      } },
+      { label: "Sell rights and walk away", run: () => applyEffects(`Took the money. Didn\'t watch the show. Heard it was good.`, { money: randomInt(120000, 600000), discipline: 6 }) }
+    ]
+  },
+
+  // ============================================================
+  // IMMIGRATION / REFUGEE ARC
+  // ============================================================
+  {
+    title: "Visa lottery hit",
+    text: () => `Years on the list. The email came at 3am your time. Diversity visa approved. You can move to the US within 6 months.`,
+    when: p => p.age >= 18 && p.age <= 50 && !p.location.includes(", CA") && !p.location.includes(", NY") && !p.location.includes(", IL") && !p.location.includes(", GA") && !p.location.includes(", FL") && !p.location.includes(", TX") && !p.location.includes(", NV") && !p.immigrationStatus && chance(3),
+    cooldown: 99,
+    tags: ["travel", "drama"],
+    choices: [
+      { label: "Pack. Move within 6 months.", run: () => {
+        state.player.immigrationStatus = "visa-holder";
+        state.player.location = pick(["New York City, NY", "Los Angeles, CA", "Houston, TX", "Atlanta, GA", "Chicago, IL"]);
+        addCanonEvent(`${state.player.name} immigrated to the US.`, "good");
+        applyEffects(`Two suitcases. Cousin\'s couch in ${state.player.location}. The first winter was harder than you imagined. The work was there.`, { money: -randomInt(2000, 8000), happiness: -6, smarts: 8, discipline: 12, karma: 4 }, "good");
+      } },
+      { label: "Pass. Stay home.", run: () => applyEffects(`Hard call. Family stayed close. Roads stayed familiar.`, { karma: 6, discipline: 4, happiness: 4 }) }
+    ]
+  },
+  {
+    title: "Green card application",
+    text: () => `Five years on the visa. Lawyer says you qualify. $${randomInt(2, 4)}K in fees. 18-month process.`,
+    when: p => p.immigrationStatus === "visa-holder" && p.age >= 22 && chance(15),
+    cooldown: 99,
+    tags: ["business", "drama"],
+    choices: [
+      { label: "Apply. Get the green card.", run: () => {
+        if (chance(85)) {
+          state.player.immigrationStatus = "green-card";
+          addCanonEvent(`${state.player.name} got their green card.`, "good");
+          applyEffects(`Approved. The plastic card felt unreal in your wallet. The fear of being sent back finally lifted.`, { money: -randomInt(2000, 4000), happiness: 18, karma: 8, discipline: 6 }, "good");
+        } else {
+          applyEffects(`Denied for a paperwork issue. Refile or wait it out. Sleep didn\'t come easy that month.`, { money: -randomInt(2000, 4000), happiness: -10 }, "bad");
+        }
+      } }
+    ]
+  },
+  {
+    title: "Naturalization ceremony",
+    text: () => `Federal building. American flag. Forty other immigrants raising their right hand with you.`,
+    when: p => p.immigrationStatus === "green-card" && p.age >= 27 && chance(12),
+    cooldown: 99,
+    tags: ["family", "fame"],
+    choices: [
+      { label: "Take the oath.", run: () => {
+        state.player.immigrationStatus = "citizen";
+        addCanonEvent(`${state.player.name} became a US citizen.`, "good");
+        state.player.achievements = state.player.achievements || [];
+        if (!state.player.achievements.includes("citizen")) state.player.achievements.push("citizen");
+        if (typeof saveTrophy === "function") saveTrophy("citizen");
+        applyEffects(`Cried during the anthem. Your mom watched on a screen from across the world. Voting registration table on the way out.`, { happiness: 24, karma: 14, discipline: 6, fame: 4 }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // REALITY TV STARDOM
+  // ============================================================
+  {
+    title: "Reality show casting call",
+    text: () => `${pick(["Love Island", "The Bachelor", "Survivor", "Big Brother", "Real World", "Selling Sunset adjacent"])}. Producers liked your tape. Final round in LA next week.`,
+    when: p => p.age >= 21 && p.age <= 38 && p.stats.looks >= 65 && !p.realityTv && chance(5),
+    cooldown: 99,
+    tags: ["fame", "drama"],
+    choices: [
+      { label: "Fly out. Crush the casting.", run: () => {
+        if (chance(40 + Math.floor(state.player.stats.looks / 8))) {
+          state.player.realityTv = "cast";
+          addCanonEvent(`${state.player.name} got cast on a reality show.`, "good");
+          applyEffects(`8 weeks shooting. Your face on TV by fall. 60K Instagram followers in week one.`, { money: randomInt(40000, 180000), fame: 28, followers: randomInt(40000, 180000), happiness: 12, looks: 2 }, "good");
+        } else {
+          applyEffects(`Came down to the last 12. Producers went a different direction. The trip itself was a story.`, { fame: 4, money: -randomInt(800, 2400), happiness: -4 });
+        }
+      } },
+      { label: "Decline. Not your scene.", run: () => applyEffects(`You said no for the right reasons. Wondered for years.`, { discipline: 6, karma: 4 }) }
+    ]
+  },
+  {
+    title: "Villain edit",
+    text: () => `Show aired. The producers cut you as the villain. Six clips going viral. Death threats in DMs. Brand deals freeze.`,
+    when: p => p.realityTv === "cast" && chance(20),
+    cooldown: 99,
+    tags: ["fame", "drama"],
+    choices: [
+      { label: "Lean in. Become the heel.", run: () => {
+        state.player.realityTv = "heel";
+        applyEffects(`You went on every podcast. Owned the edit. Built a $${randomInt(40, 200)}K/month brand off being the bad guy.`, { fame: 22, money: randomInt(40000, 240000), karma: -10, happiness: 6 });
+      } },
+      { label: "Hire a PR firm. Apologize tour.", run: () => {
+        applyEffects(`Statements, interviews, charity appearances. Slow rebuild over 18 months.`, { money: -randomInt(20000, 80000), fame: -4, karma: 6, happiness: -6 });
+      } },
+      { label: "Log off. Touch grass for a year.", run: () => {
+        applyEffects(`You disappeared. The internet moved on. You came back smaller and saner.`, { fame: -16, happiness: 12, discipline: 8, karma: 4 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Spinoff offer",
+    text: () => `Producers want to follow YOUR life now. ${pick(["Your wedding", "Your business launch", "You and your day-ones"])}. 8 episodes. Camera crew lives with you for 4 months.`,
+    when: p => (p.realityTv === "cast" || p.realityTv === "heel") && p.fame >= 35 && chance(8),
+    cooldown: 99,
+    tags: ["fame", "money", "family"],
+    choices: [
+      { label: "Sign. Shoot the spinoff.", run: () => {
+        addCanonEvent(`${state.player.name} got their own reality spinoff.`, "good");
+        applyEffects(`Cameras in your kitchen at 7am. Friends acted weird for a year. Net was real money and a permanent first-name brand.`, { money: randomInt(200000, 800000), fame: 32, happiness: -6, karma: -4 }, "good");
+      } },
+      { label: "Pass. Take the audience to your own platform.", run: () => {
+        applyEffects(`Built your own podcast off the audience. Smaller money, all yours.`, { money: randomInt(40000, 200000), fame: 8, businessReputation: 8 });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // POLITICIAN SCANDAL
+  // ============================================================
+  {
+    title: "Sex tape leaked",
+    text: () => `Phone got hacked. Tape circulating. Press calling for comment by 6am. Spouse not picking up.`,
+    when: p => p.fame >= 25 && p.age >= 22 && p.married && !p.scandalSurvived && chance(2),
+    cooldown: 99,
+    tags: ["fame", "drama"],
+    choices: [
+      { label: "Get ahead. Address it head-on.", run: () => {
+        if (chance(50 + Math.floor(state.player.stats.smarts / 8))) {
+          state.player.scandalSurvived = true;
+          applyEffects(`Press conference at 11am. Honest, direct, brief. Took the hit. Sponsorships paused but didn\'t cancel.`, { fame: -4, happiness: -10, money: -randomInt(40000, 200000), karma: 6, smarts: 6, businessReputation: 4 });
+        } else {
+          applyEffects(`Statement read scripted. Press kept digging. Sponsors all dropped. Marriage didn\'t survive.`, { fame: -22, money: -randomInt(200000, 800000), happiness: -22, karma: -6 }, "bad");
+          const sp = (state.player.relationships || []).find(r => r.type === "spouse");
+          if (sp) { changeBond(sp, -60); sp.role = "Ex (left after scandal)"; }
+        }
+      } },
+      { label: "Deny. Lawyer up.", run: () => {
+        applyEffects(`Legal bills compounded. The truth came out anyway in slower drips.`, { money: -randomInt(80000, 300000), fame: -16, karma: -4, happiness: -16 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Corruption charge",
+    text: () => `Federal investigation. Tax filings under review. The kind of news that runs above the fold for a week.`,
+    when: p => (p.jobId === "mayor" || p.jobId === "councilmember" || p.jobId === "ceo" || p.fame >= 40) && p.money >= 200000 && p.age >= 32 && chance(3),
+    cooldown: 99,
+    tags: ["drama", "fame"],
+    choices: [
+      { label: "Cooperate fully. Pay the fine.", run: () => {
+        applyEffects(`You opened the books. Fine was painful. Career took a 3-year hit. You kept your record clean.`, { money: -randomInt(200000, 1500000), fame: -12, happiness: -14, karma: 6 });
+      } },
+      { label: "Fight it in court", run: () => {
+        if (chance(30)) {
+          applyEffects(`Two-year trial. Acquitted on all counts. Triumphant return tour.`, { money: -randomInt(800000, 3000000), fame: 14, happiness: 8, businessReputation: 12 }, "good");
+        } else {
+          applyEffects(`Convicted. 18 months federal prison. Career dead.`, { money: -randomInt(500000, 2500000), fame: -28, record: 3, happiness: -32, karma: -10 }, "bad");
+          state.player.inJail = true;
+        }
+      } }
+    ]
+  },
+
+  // ============================================================
+  // DISABILITY ACQUIRED LATE IN LIFE
+  // ============================================================
+  {
+    title: "Accident with lasting damage",
+    text: () => `${pick(["Car accident on the freeway", "Bike accident at a downhill", "Fall from a ladder", "Brain bleed from a stroke"])}. ICU. Surgery. Rehab. The doctor used the word \"permanent.\"`,
+    when: p => p.age >= 25 && !p.acquiredDisability && chance(2),
+    cooldown: 99,
+    tags: ["drama", "family"],
+    choices: [
+      { label: "Adapt. Work the rehab program every day.", run: () => {
+        state.player.acquiredDisability = true;
+        addCanonEvent(`${state.player.name} acquired a disability.`, "bad");
+        applyEffects(`14 months of physical therapy. Different body. Different relationship to it. The discipline you built carried over.`, { health: -14, looks: -2, happiness: -10, discipline: 18, smarts: 6, money: -randomInt(40000, 200000) }, "bad");
+      } },
+      { label: "Spiral. Pain meds. Withdraw.", run: () => {
+        state.player.acquiredDisability = true;
+        state.player.smokingLevel = (state.player.smokingLevel || 0) + 30;
+        applyEffects(`You stopped doing the exercises. Stopped seeing people. Three years passed inside the same room.`, { health: -22, happiness: -28, karma: -6, money: -randomInt(20000, 100000) }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Advocacy work",
+    text: () => `Local org reached out. They want you to talk at events about your experience. Speaker fees. Real impact on the next person who has to navigate it.`,
+    when: p => p.acquiredDisability && p.age >= 28 && chance(8),
+    cooldown: 5,
+    tags: ["drama", "fame", "family"],
+    choices: [
+      { label: "Take the speaking gigs", run: () => {
+        applyEffects(`12 talks in the first year. Met people who needed to hear what you said. Income started to add up.`, { money: randomInt(20000, 80000), fame: 14, karma: 22, happiness: 12, businessReputation: 8 }, "good");
+      } },
+      { label: "Lobby for policy change", run: () => {
+        applyEffects(`Two years of testifying. The bill passed. Your name in the legislative record.`, { karma: 30, fame: 18, smarts: 12, happiness: 14 }, "good");
+      } },
+      { label: "Stay private. Live your life.", run: () => applyEffects(`Some battles aren\'t yours to fight publicly. Yours was inside the house.`, { karma: 6, discipline: 8, happiness: 8 }) }
+    ]
+  },
+
+  // ============================================================
+  // SEX WORK / OF (real, not exploitative)
+  // ============================================================
+  {
+    title: "OnlyFans temptation",
+    text: () => `Friend in your DMs. They make $${randomInt(8, 60)}K/month. They\'ll help you set up. You\'re looks-end of the bell curve. The math works on paper.`,
+    when: p => p.age >= 21 && p.stats.looks >= 70 && p.money <= 5000 && !p.ofPath && chance(5),
+    cooldown: 99,
+    tags: ["money", "drama"],
+    choices: [
+      { label: "Sign up. Build the page seriously.", run: () => {
+        state.player.ofPath = "creator";
+        const monthly = randomInt(2000, 28000) + Math.floor(state.player.stats.looks * 200);
+        addCanonEvent(`${state.player.name} started doing online sex work.`, "good");
+        applyEffects(`Six months in: $${monthly}/mo. Money you never had. Family found out month nine. Mixed responses.`, { money: monthly, fame: 6, looks: 1, karma: -4, happiness: 4 });
+      } },
+      { label: "Decline. Not for you.", run: () => applyEffects(`Your call. Different door, different cost.`, { discipline: 4, karma: 4 }) }
+    ]
+  },
+  {
+    title: () => state.player.ofPath ? "OF burnout" : "Sex work fatigue",
+    text: () => `Year in. The grind is constant. The clients are demanding. The money is real but the cost is showing.`,
+    when: p => p.ofPath === "creator" && p.age >= 22 && chance(10),
+    cooldown: 5,
+    tags: ["drama", "money"],
+    choices: [
+      { label: "Pivot to a real brand. Modeling/influencing.", run: () => {
+        state.player.ofPath = "pivoted";
+        applyEffects(`Used the audience to launch a clothing line. Different stress, cleaner business.`, { money: randomInt(40000, 200000), businessReputation: 8, fame: 8, karma: 4 }, "good");
+      } },
+      { label: "Stay. Save aggressively.", run: () => {
+        applyEffects(`Two more years. Built a six-figure savings account. Then quit clean.`, { money: randomInt(80000, 400000), discipline: 12, happiness: -4, looks: -2 });
+      } },
+      { label: "Quit immediately. Take the loss.", run: () => {
+        state.player.ofPath = null;
+        applyEffects(`Walked away with what you had. Slept better. Money tighter for a year.`, { happiness: 12, karma: 8, discipline: 8 }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // SLICE-OF-LIFE SHORTS — small flavor moments
+  // ============================================================
+  {
+    title: "Lost in a foreign city",
+    text: () => `Phone died. No data. You\'re in a city you don\'t speak the language in. The street signs don\'t help.`,
+    when: p => p.currentTrip && chance(15),
+    cooldown: 4,
+    tags: ["travel"],
+    choices: [
+      { label: "Ask the nearest local for help", run: () => applyEffects(`A grandmother walked you 8 blocks to your hostel. You learned 3 words of her language.`, { karma: 6, happiness: 8, smarts: 4, looks: 1 }, "good") },
+      { label: "Wander until something familiar", run: () => applyEffects(`Two hours of walking. Found a square you recognized. Story for the trip.`, { discipline: 4, smarts: 2, happiness: 4 }) },
+      { label: "Cry a little, then ask", run: () => applyEffects(`The tears burned the fear off. The asking came easier after.`, { happiness: -2, karma: 4, smarts: 6 }) }
+    ]
+  },
+  {
+    title: "Stranger at the bar said something",
+    text: () => `Older woman next to you turned and said one sentence that made your spine straighten. She left before you could ask her name.`,
+    when: p => p.age >= 19 && chance(8),
+    cooldown: 6,
+    tags: ["drama"],
+    choices: [
+      { label: "Sit with it. Write it down.", run: () => applyEffects(`The sentence stayed in a notebook for years. You re-read it when you needed it.`, { smarts: 8, discipline: 4, happiness: 6 }, "good") },
+      { label: "Buy yourself another drink. Forget it.", run: () => applyEffects(`Whatever it was floated off by morning. Maybe the next stranger.`, { health: -2 }) }
+    ]
+  },
+  {
+    title: "Bumped into someone from years ago",
+    text: () => {
+      const p = pick((state.player.relationships || []).filter(r => r.ghosted || r.bond < 30));
+      return p ? `Saw ${p.name} at the bodega. They saw you back. Time froze for half a second.` : `Someone from a past chapter walked into the same store as you.`;
+    },
+    when: p => (p.relationships || []).some(r => r.ghosted || r.bond < 30) && chance(7),
+    cooldown: 5,
+    tags: ["drama", "family"],
+    choices: [
+      { label: "Say what\'s up. Real.", run: () => {
+        const r = (state.player.relationships || []).find(p => p.ghosted || p.bond < 30);
+        if (r) { changeBond(r, 14); r.ghosted = false; }
+        applyEffects(`Two minutes by the freezer became a real conversation. Both of you walked away lighter.`, { happiness: 8, karma: 6 }, "good");
+      } },
+      { label: "Pretend you didn\'t see them", run: () => applyEffects(`You both pretended. The pretend felt real until the parking lot.`, { happiness: -4, karma: -2 }) }
+    ]
+  },
+  {
+    title: "Lost a pet",
+    text: () => {
+      const pet = (state.player.pets || [])[0] || (state.player.relationships || []).find(r => r.type === "pet");
+      const name = pet?.name || "your dog";
+      return `${name} stopped eating last week. The vet said comfort care now. You held them through it. The house felt different that night.`;
+    },
+    when: p => (p.pets || []).length > 0 && chance(4),
+    cooldown: 99,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Bury them in the yard. Plant a tree.", run: () => {
+        if (state.player.pets?.length) state.player.pets.shift();
+        addCanonEvent(`${state.player.name} lost their pet.`, "bad");
+        applyEffects(`The yard had something to visit now. Grief sits different when you can sit with it.`, { happiness: -16, karma: 8, discipline: 4 }, "bad");
+      } },
+      { label: "Cremation. Keep the urn.", run: () => {
+        if (state.player.pets?.length) state.player.pets.shift();
+        addCanonEvent(`${state.player.name} lost their pet.`, "bad");
+        applyEffects(`The urn sits on the shelf with the photos. Some grief doesn\'t want a yard.`, { happiness: -14, karma: 4, money: -randomInt(200, 600) }, "bad");
+      } }
+    ]
+  },
+
   // DAY-ONE / CREW EVENTS. fire when ≥2 day-ones designated
   // ============================================================
   {
@@ -12981,6 +13858,17 @@ function getFakeID() {
 }
 
 function datingApp() {
+  if (typeof openTinderGame === "function") {
+    openTinderGame();
+    return;
+  }
+  // Fallback if dialog missing
+  const player = state.player;
+  const app = pick(["Hinge", "Tinder", "Bumble"]);
+  applyEffects(`${app} was a wash today.`, { happiness: -2 }, "bad");
+}
+
+function _datingAppFallback() {
   const player = state.player;
   const app = pick(["Hinge", "Tinder", "Bumble", "Raya", "Feeld"]);
   const odds = 42 + Math.floor(player.stats.looks / 4) + Math.floor(player.fame / 6);
@@ -18413,8 +19301,13 @@ function render() {
   el.statusLine.textContent = player.alive ? "Life in progress" : "Life complete";
   el.playerName.textContent = player.name;
   el.playerBio.textContent = `${player.location || player.home} | ${player.school} | ${currentJob().title}`;
-  el.chapterTitle.textContent = player.alive ? `Age ${player.age} | ${player.moves} moves left` : `Ended at age ${player.age}`;
+  // Background atmosphere: tag <body> with current location so CSS can theme.
+  document.body.dataset.location = (player.location || player.home || "")
+    .toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
+  const movesNote = player.moves > 0 && player.alive && player.age >= 4 ? ` · use your moves` : "";
+  el.chapterTitle.textContent = player.alive ? `Age ${player.age} | ${player.moves} moves left${movesNote}` : `Ended at age ${player.age}`;
   el.ageBtn.disabled = !player.alive;
+  el.ageBtn.classList.toggle("age-btn-warn", player.moves > 0 && player.alive && player.age >= 4);
 
   if (el.locationName) {
     const o = originOf(player.location);
@@ -18496,6 +19389,7 @@ function render() {
 
   renderMeters();
   renderBucketLive();
+  if (typeof renderStatsGraph === "function") renderStatsGraph();
   renderTabs();
   renderCanonEvents();
   renderTimeline();
@@ -18797,6 +19691,53 @@ function lookDescriptor(player = state.player) {
   return bits.join(" · ");
 }
 
+// ============================================================
+// STATS HISTORY GRAPH — track stats over years
+// ============================================================
+function trackStatsHistory(player) {
+  if (!player) return;
+  player.statsHistory = player.statsHistory || [];
+  player.statsHistory.push({
+    age: player.age,
+    health: player.stats.health,
+    happiness: player.stats.happiness,
+    smarts: player.stats.smarts,
+    looks: player.stats.looks,
+    discipline: player.stats.discipline
+  });
+  // Keep last 100 (covers a full life with margin)
+  if (player.statsHistory.length > 100) player.statsHistory.shift();
+}
+
+function renderStatsGraph() {
+  const player = state.player;
+  if (!player || !player.statsHistory || player.statsHistory.length < 2) return;
+  let svg = document.querySelector("#statsHistoryGraph");
+  if (!svg) {
+    const host = document.querySelector("#bucketLive") || document.querySelector("#miniStats");
+    if (!host) return;
+    const wrap = document.createElement("section");
+    wrap.className = "stats-graph";
+    wrap.innerHTML = `
+      <p class="stats-graph-kicker">Stats over years</p>
+      <svg id="statsHistoryGraph" viewBox="0 0 200 80" preserveAspectRatio="none"></svg>
+    `;
+    host.parentNode.insertBefore(wrap, host.nextSibling);
+    svg = wrap.querySelector("svg");
+  }
+  const h = player.statsHistory;
+  const colors = { health: "#c92a3f", happiness: "#d9a531", smarts: "#4f7ec7", looks: "#9a5cc4", discipline: "#3aa089" };
+  const w = 200, ht = 80;
+  const xStep = w / Math.max(1, h.length - 1);
+  let paths = "";
+  Object.keys(colors).forEach(stat => {
+    const points = h.map((p, i) => `${(i * xStep).toFixed(1)},${(ht - (p[stat] || 0) * (ht / 100)).toFixed(1)}`);
+    paths += `<polyline fill="none" stroke="${colors[stat]}" stroke-width="1.4" stroke-linejoin="round" points="${points.join(" ")}"/>`;
+  });
+  svg.innerHTML = paths;
+}
+
+
 function renderAvatar() {
   const player = state.player;
   const avatar = ageAwareAvatar(player);
@@ -18975,13 +19916,20 @@ function renderActivities() {
     focus.innerHTML = `<strong>${stat?.[1] || "Stat"} actions</strong><span>Clicked from the profile. Pick a move below or hit More for the full map.</span>`;
     el.activityList.append(focus);
   }
+  const player = state.player;
+  player.uniqueActionsTaken = player.uniqueActionsTaken || [];
+  // Pick a "featured" action for this category — first available action you've never done
+  const firstNever = category.actions.find(a => a.available(player) && !player.uniqueActionsTaken.includes(a.name));
   category.actions.forEach(action => {
-    const available = action.available(state.player);
+    const available = action.available(player);
+    const taken = player.uniqueActionsTaken.includes(action.name);
+    const isFeatured = firstNever && action.name === firstNever.name;
     const button = document.createElement("button");
-    button.className = `action-card ${action.risky ? "risky" : ""}`;
+    button.className = `action-card activity-item ${action.risky ? "risky" : ""} ${isFeatured ? "featured" : ""}`;
     button.type = "button";
-    button.disabled = !state.player.alive || state.player.moves <= 0 || !available;
-    button.innerHTML = `<strong>${action.name}</strong><small>${action.text}</small>`;
+    button.disabled = !player.alive || player.moves <= 0 || !available;
+    const badge = (!taken && available) ? `<span class="first-time-badge">NEW</span>` : "";
+    button.innerHTML = `${badge}<strong>${action.name}</strong><small>${action.text}</small>`;
     button.addEventListener("click", () => runAction(action));
     el.activityList.append(button);
   });
@@ -19814,7 +20762,23 @@ function renderMetaUnlocks() {
 }
 renderMetaUnlocks();
 
-el.ageBtn.addEventListener("click", ageUp);
+el.ageBtn.addEventListener("click", () => {
+  const player = state.player;
+  if (!player || !player.alive) { ageUp(); return; }
+  if (player.moves > 0 && !player.inJail && player.age >= 4) {
+    const msg = `You still have ${player.moves} move${player.moves === 1 ? "" : "s"} left this year. Skip them?`;
+    if (!window.confirm(msg)) return;
+    player.skippedYears = (player.skippedYears || 0) + 1;
+    if (player.skippedYears >= 2) {
+      addLog(`Another empty year. Discipline and mood drift.`, "bad");
+      changeStat("happiness", -3);
+      changeStat("discipline", -2);
+    }
+  } else if (player.moves === 0) {
+    player.skippedYears = 0;
+  }
+  ageUp();
+});
 el.saveBtn.addEventListener("click", saveGame);
 el.resetBtn.addEventListener("click", resetGame);
 
@@ -20763,6 +21727,1222 @@ if (recapChallengeBtn) {
 }
 
 // Mature content header toggle (added 2026-05-11)
+// ============================================================
+// TINDER MINIGAME — swipe deck of 6 real profiles
+// ============================================================
+const _tinderProfileTemplates = [
+  { emoji: "🌹", name: "Rio", bio: "Photographer. Loves dive bars and old film.", tags: ["artsy"], green: ["creative"], looks: 68 },
+  { emoji: "💪", name: "Jordan", bio: "Gym 5x a week. Macro tracking life. Down to spot you.", tags: ["fit"], green: ["disciplined"], looks: 74 },
+  { emoji: "📚", name: "Maya", bio: "Reading the Iliad slowly. Coffee snob. Quiet Sundays.", tags: ["smart"], green: ["calm"], looks: 62 },
+  { emoji: "🎤", name: "K", bio: "Open-mic comic. Mostly working through stuff out loud.", tags: ["funny"], flags: ["broke"], looks: 70 },
+  { emoji: "💼", name: "Carter", bio: "VC associate. Burning Man twice. Adderall energy.", tags: ["money"], flags: ["intense"], looks: 64 },
+  { emoji: "🎨", name: "Eli", bio: "Painter + barback. Lives in their studio. Dog named Ghost.", tags: ["artsy"], green: ["creative"], looks: 66 },
+  { emoji: "🥑", name: "Aspen", bio: "Plant-based. Yoga teacher. Pacific Crest Trail veteran.", tags: ["wellness"], green: ["grounded"], looks: 71 },
+  { emoji: "🎧", name: "Sun", bio: "Producer. Sleeps weird hours. Has a small room with a big sub.", tags: ["music"], looks: 69 },
+  { emoji: "🐶", name: "Mac", bio: "Vet tech. Six dogs at the apartment. Sorry not sorry.", tags: ["sweet"], green: ["caring"], looks: 60 },
+  { emoji: "🍷", name: "Vee", bio: "Wine importer. Just got back from Sicily. Bring a real conversation.", tags: ["bougie"], flags: ["high maintenance"], looks: 76 },
+  { emoji: "🏍️", name: "Dre", bio: "Motorcycle, no helmet pics, three best friends, no chill.", tags: ["wild"], flags: ["red flag"], looks: 78 },
+  { emoji: "👗", name: "Indi", bio: "Stylist. Books out clients in three cities. Lives on a Carry-On.", tags: ["fashion"], looks: 80 },
+  { emoji: "🤖", name: "Quinn", bio: "AI researcher. Two cats. Won't text first.", tags: ["tech"], flags: ["aloof"], looks: 58 },
+  { emoji: "🥷", name: "Ash", bio: "Martial arts gym owner. Tattooed. Reads philosophy.", tags: ["disciplined"], green: ["centered"], looks: 72 },
+  { emoji: "📸", name: "Mira", bio: "Travel photographer. In a different country every three weeks.", tags: ["adventurous"], flags: ["never home"], looks: 74 }
+];
+
+function _buildTinderDeck() {
+  const player = state.player;
+  const used = new Set((player.relationships || []).map(r => r.name));
+  const pool = _tinderProfileTemplates.filter(p => !used.has(p.name));
+  const deck = [];
+  const N = 6;
+  const shuffled = pool.sort(() => Math.random() - 0.5).slice(0, N);
+  shuffled.forEach(p => {
+    const age = randomInt(Math.max(18, player.age - 4), Math.min(50, player.age + 5));
+    deck.push({ ...p, age, _bond: randomInt(30, 70) });
+  });
+  return deck;
+}
+
+let _tinderState = null;
+function openTinderGame() {
+  const dialog = document.querySelector("#tinderDialog");
+  if (!dialog) {
+    _datingAppFallback();
+    return;
+  }
+  _tinderState = {
+    deck: _buildTinderDeck(),
+    index: 0,
+    matches: [],
+    rights: 0,
+    lefts: 0
+  };
+  _renderTinderCard();
+  document.querySelector("#tinderResult").hidden = true;
+  if (dialog.showModal) dialog.showModal();
+  else dialog.setAttribute("open", "true");
+}
+
+function _renderTinderCard() {
+  const deckEl = document.querySelector("#tinderDeck");
+  if (!deckEl || !_tinderState) return;
+  deckEl.innerHTML = "";
+  const card = _tinderState.deck[_tinderState.index];
+  if (!card) {
+    _finishTinderGame();
+    return;
+  }
+  const div = document.createElement("div");
+  div.className = "tinder-card";
+  const tagsHtml = [
+    ...(card.tags || []).map(t => `<span class="tinder-tag">${t}</span>`),
+    ...(card.green || []).map(t => `<span class="tinder-tag green">${t}</span>`),
+    ...(card.flags || []).map(t => `<span class="tinder-tag flag">🚩 ${t}</span>`)
+  ].join("");
+  div.innerHTML = `
+    <div class="tinder-card-portrait"></div>
+    <div class="tinder-card-emoji">${card.emoji}</div>
+    <div class="tinder-card-body">
+      <h3 class="tinder-card-name">${card.name}, ${card.age}</h3>
+      <p class="tinder-card-bio">${card.bio}</p>
+      <div class="tinder-card-tags">${tagsHtml}</div>
+    </div>
+  `;
+  deckEl.appendChild(div);
+}
+
+function _tinderSwipe(direction) {
+  if (!_tinderState) return;
+  const card = _tinderState.deck[_tinderState.index];
+  if (!card) return;
+  const player = state.player;
+  if (direction === "right") {
+    _tinderState.rights += 1;
+    // Match odds based on your looks + their visibility
+    const matchOdds = 24 + Math.floor(player.stats.looks / 3) + Math.floor(player.fame / 6) - (card.flags ? 8 : 0) + (card.green ? 6 : 0);
+    if (chance(matchOdds)) {
+      _tinderState.matches.push(card);
+    }
+  } else {
+    _tinderState.lefts += 1;
+  }
+  _tinderState.index += 1;
+  _renderTinderCard();
+}
+
+function _tinderInfo() {
+  if (!_tinderState) return;
+  const card = _tinderState.deck[_tinderState.index];
+  if (!card) return;
+  const detail = card.flags ? `Heads-up: ${card.flags[0]}.` : card.green ? `Looks solid: ${card.green[0]}.` : `Standard profile.`;
+  showResultToast(`${card.name}: ${detail}`, {}, "normal");
+}
+
+function _finishTinderGame() {
+  if (!_tinderState) return;
+  const player = state.player;
+  const result = document.querySelector("#tinderResult");
+  if (result) {
+    if (_tinderState.matches.length === 0) {
+      result.innerHTML = `<strong>${_tinderState.lefts}</strong> left swipes, <strong>${_tinderState.rights}</strong> right. Zero matches. Brutal.`;
+      applyEffects(`The app was 200 left swipes and ${_tinderState.rights} unrequited right ones.`, { happiness: -5, smarts: 2 }, "bad");
+    } else {
+      const match = _tinderState.matches[0];
+      const exists = player.relationships.some(r => r.name === match.name);
+      if (!exists) {
+        player.relationships.push({ id: `match-${Date.now()}`, name: match.name, role: "Dating-app match", bond: match._bond, type: "partner", flags: match.flags || [], tags: match.tags || [] });
+      }
+      result.innerHTML = `Matched with <strong>${match.name}</strong>${_tinderState.matches.length > 1 ? ` (+${_tinderState.matches.length - 1} more)` : ""}. First date Friday.`;
+      applyEffects(`Matched with ${match.name} on the app. First date Friday.`, { happiness: 10, looks: 1 }, "good");
+    }
+    result.hidden = false;
+  }
+  _tinderState = null;
+  setTimeout(() => {
+    const dialog = document.querySelector("#tinderDialog");
+    if (dialog && dialog.open) dialog.close();
+  }, 2200);
+}
+
+(function wireTinderUI() {
+  const yes = document.querySelector("#tinderYes");
+  const no = document.querySelector("#tinderNo");
+  const info = document.querySelector("#tinderInfo");
+  const closeBtn = document.querySelector("#tinderClose");
+  if (yes) yes.addEventListener("click", () => _tinderSwipe("right"));
+  if (no) no.addEventListener("click", () => _tinderSwipe("left"));
+  if (info) info.addEventListener("click", _tinderInfo);
+  if (closeBtn) closeBtn.addEventListener("click", () => {
+    const dialog = document.querySelector("#tinderDialog");
+    if (dialog) dialog.close();
+    _tinderState = null;
+  });
+})();
+
+// ============================================================
+// INSTAGRAM MINIGAME — photo + caption composer, live engagement
+// ============================================================
+const _igPhotoOptions = [
+  { id: "selfie", emoji: "🤳", label: "Selfie", looksBoost: 10 },
+  { id: "lifestyle", emoji: "🌅", label: "Lifestyle", aestheticBoost: 8 },
+  { id: "food", emoji: "🍝", label: "Food", relatableBoost: 6 },
+  { id: "fit", emoji: "👟", label: "Outfit", looksBoost: 6, aestheticBoost: 4 },
+  { id: "gym", emoji: "💪", label: "Gym", looksBoost: 8 },
+  { id: "city", emoji: "🌆", label: "City", aestheticBoost: 6 },
+  { id: "travel", emoji: "✈️", label: "Travel", aestheticBoost: 12 },
+  { id: "pet", emoji: "🐶", label: "Pet", relatableBoost: 10 },
+  { id: "art", emoji: "🎨", label: "Art", aestheticBoost: 10 }
+];
+
+const _igCaptionTemplates = [
+  { tag: "vibe", text: "no caption.", risk: "low", appeal: 8 },
+  { tag: "real", text: "the real one. been holding this for a while.", risk: "medium", appeal: 12 },
+  { tag: "joke", text: "if you're reading this you owe me $20", risk: "low", appeal: 9 },
+  { tag: "deep", text: "they don't make summers like this anymore", risk: "low", appeal: 10 },
+  { tag: "flex", text: "small day. big year.", risk: "medium", appeal: 14 },
+  { tag: "rant", text: "tired of pretending. you're not built for what you said you wanted.", risk: "high", appeal: 18, controversy: 6 },
+  { tag: "thirst", text: "trying to see who's still up", risk: "high", appeal: 16, controversy: 4 },
+  { tag: "promo", text: "link in bio. real one.", risk: "high", appeal: 7, controversy: 2 }
+];
+
+let _igState = null;
+function openIGGame() {
+  const dialog = document.querySelector("#igDialog");
+  if (!dialog) {
+    if (typeof _postReelFallback === "function") _postReelFallback();
+    return;
+  }
+  _igState = { photo: null, caption: null };
+  // Render photo grid
+  const grid = document.querySelector("#igPhotoGrid");
+  if (grid) {
+    grid.innerHTML = "";
+    _igPhotoOptions.forEach(opt => {
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "ig-photo";
+      cell.dataset.id = opt.id;
+      cell.innerHTML = `<span>${opt.emoji}</span><span class="ig-photo-label">${opt.label}</span>`;
+      cell.addEventListener("click", () => _igPickPhoto(opt));
+      grid.appendChild(cell);
+    });
+  }
+  // Render caption list
+  const captionList = document.querySelector("#igCaptionList");
+  if (captionList) {
+    captionList.innerHTML = "";
+    const shuffled = _igCaptionTemplates.slice().sort(() => Math.random() - 0.5).slice(0, 5);
+    shuffled.forEach(c => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "ig-caption";
+      item.dataset.tag = c.tag;
+      item.innerHTML = `<span class="ig-caption-tag">${c.tag}</span>${c.text}`;
+      item.addEventListener("click", () => _igPickCaption(c, item));
+      captionList.appendChild(item);
+    });
+  }
+  document.querySelector("#igResult").hidden = true;
+  document.querySelector("#igPostBtn").disabled = true;
+  if (dialog.showModal) dialog.showModal();
+  else dialog.setAttribute("open", "true");
+}
+
+function _igPickPhoto(opt) {
+  _igState.photo = opt;
+  document.querySelectorAll(".ig-photo").forEach(el => el.classList.toggle("selected", el.dataset.id === opt.id));
+  _igCheckReady();
+}
+
+function _igPickCaption(c, el) {
+  _igState.caption = c;
+  document.querySelectorAll(".ig-caption").forEach(node => node.classList.toggle("selected", node === el));
+  _igCheckReady();
+}
+
+function _igCheckReady() {
+  const ready = _igState.photo && _igState.caption;
+  document.querySelector("#igPostBtn").disabled = !ready;
+}
+
+(function wireIGUI() {
+  const post = document.querySelector("#igPostBtn");
+  const close = document.querySelector("#igClose");
+  if (post) post.addEventListener("click", _igPost);
+  if (close) close.addEventListener("click", () => {
+    const d = document.querySelector("#igDialog");
+    if (d) d.close();
+    _igState = null;
+  });
+})();
+
+function _igPost() {
+  if (!_igState || !_igState.photo || !_igState.caption) return;
+  const player = state.player;
+  if (!player.socialPage) {
+    player.socialPage = true;
+    player.handle = player.handle || `@${player.name.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+  }
+  player.posts = (player.posts || 0) + 1;
+  const p = _igState.photo;
+  const c = _igState.caption;
+  // Score: base + photo type alignment + caption appeal + player looks/fame
+  let score = 0;
+  score += (p.looksBoost || 0);
+  score += (p.aestheticBoost || 0);
+  score += (p.relatableBoost || 0);
+  score += (c.appeal || 0);
+  score += Math.floor(player.stats.looks / 6);
+  score += Math.floor(player.fame / 6);
+  // Controversy penalty / reward
+  const viralOdds = Math.min(80, 12 + Math.floor(score / 4) + (c.controversy ? c.controversy * 3 : 0));
+  const result = document.querySelector("#igResult");
+  if (chance(viralOdds)) {
+    const gain = randomInt(800, 4000) + score * 60 + (c.controversy ? randomInt(2000, 18000) : 0);
+    player.followers += gain;
+    player.fame = (player.fame || 0) + 3 + (c.controversy ? 4 : 0);
+    if (chance(c.controversy ? 38 : 12)) player.viralHits = (player.viralHits || 0) + 1;
+    if (result) {
+      result.hidden = false;
+      result.innerHTML = `<p class="ig-result-headline">It hit.</p>${gain.toLocaleString()} new followers · ${Math.floor(score * 12 + 200).toLocaleString()} likes`;
+    }
+    applyEffects(`Post hit. ${gain.toLocaleString()} new follows on a ${p.label.toLowerCase()} + ${c.tag} caption.`, { followers: gain, fame: 3 + (c.controversy ? 4 : 0), happiness: 6 }, "good");
+    if (c.controversy && chance(c.controversy * 4)) {
+      // Backlash chance
+      applyEffects("Comments turned. Brand DMs went quiet for a month.", { happiness: -8, businessReputation: -3 }, "bad");
+    }
+  } else {
+    const gain = randomInt(8, 80);
+    player.followers += gain;
+    if (result) {
+      result.hidden = false;
+      result.innerHTML = `Got ${gain} follows and a polite engagement number. Algorithm didn't bite.`;
+    }
+    applyEffects(`Post got ${gain} follows. Not the swing you wanted.`, { followers: gain, happiness: -2, discipline: 1 });
+  }
+  setTimeout(() => {
+    const d = document.querySelector("#igDialog");
+    if (d) d.close();
+    _igState = null;
+  }, 2400);
+}
+
+// Make postReel route through the IG composer when on a social page
+const _origPostReel = (typeof postReel === "function") ? postReel : null;
+function _postReelFallback() {
+  if (_origPostReel) _origPostReel();
+}
+window.postReel = function() {
+  if (!state.player.socialPage) {
+    if (typeof createSocialPage === "function") createSocialPage();
+    return;
+  }
+  openIGGame();
+};
+window.postOnline = function() {
+  if (!state.player.socialPage) {
+    if (typeof createSocialPage === "function") createSocialPage();
+    return;
+  }
+  openIGGame();
+};
+
+// ============================================================
+// FIRST-TIME BADGES on activity buttons
+// ============================================================
+const _origRunAction = (typeof runAction === "function") ? runAction : null;
+if (_origRunAction) {
+  window.runAction = function(action) {
+    const player = state.player;
+    player.uniqueActionsTaken = player.uniqueActionsTaken || [];
+    if (action && action.name && !player.uniqueActionsTaken.includes(action.name)) {
+      player.uniqueActionsTaken.push(action.name);
+    }
+    return _origRunAction(action);
+  };
+}
+
+// ============================================================
+// JOB INTERVIEW MINIGAME
+// ============================================================
+const _interviewQuestions = [
+  { q: "The team is split on a decision. What do you do?", choices: [
+    { t: "Force a vote, move on", good: 1 },
+    { t: "Hear everyone individually first", good: 2 },
+    { t: "Defer to the loudest", good: -1 },
+    { t: "Quietly do what you think is right", good: 0 }
+  ]},
+  { q: "You catch a coworker bending a rule. They're not hurting anybody.", choices: [
+    { t: "Pull them aside, talk it through", good: 2 },
+    { t: "Tell the manager", good: 0 },
+    { t: "Mind your business", good: 0 },
+    { t: "Bend the rule too", good: -2 }
+  ]},
+  { q: "Friday 4:55 PM. A real fire just dropped in your inbox.", choices: [
+    { t: "Stay late and handle it clean", good: 2 },
+    { t: "Loop in your manager immediately", good: 1 },
+    { t: "Punt to Monday with a heads-up", good: 0 },
+    { t: "Punt to Monday silently", good: -2 }
+  ]},
+  { q: "Where do you see yourself in five years?", choices: [
+    { t: "Doing more of what got me here, better", good: 2 },
+    { t: "Running this team", good: 1 },
+    { t: "Honestly? Not sure.", good: 0 },
+    { t: "Somewhere with better PTO", good: -1 }
+  ]},
+  { q: "Tell me about a time you failed.", choices: [
+    { t: "Story with a real lesson", good: 2 },
+    { t: "Story where I was the hero", good: -1 },
+    { t: "Small, polished failure", good: 1 },
+    { t: "I can't think of one", good: -2 }
+  ]}
+];
+
+let _interviewState = null;
+let _interviewCallback = null;
+function openJobInterview(callback) {
+  const dialog = document.querySelector("#interviewDialog");
+  if (!dialog) { callback && callback(0); return; }
+  _interviewCallback = callback;
+  const qs = _interviewQuestions.slice().sort(() => Math.random() - 0.5).slice(0, 4);
+  _interviewState = { questions: qs, index: 0, score: 0 };
+  _renderInterviewQ();
+  document.querySelector("#interviewResult").hidden = true;
+  if (dialog.showModal) dialog.showModal();
+}
+
+function _renderInterviewQ() {
+  const s = _interviewState;
+  if (!s) return;
+  const prog = document.querySelector("#interviewProgress");
+  prog.innerHTML = "";
+  s.questions.forEach((_, i) => {
+    const sp = document.createElement("span");
+    if (i < s.index) sp.className = "done";
+    prog.appendChild(sp);
+  });
+  document.querySelector("#interviewQuestion").textContent = s.questions[s.index].q;
+  const choicesEl = document.querySelector("#interviewChoices");
+  choicesEl.innerHTML = "";
+  s.questions[s.index].choices.forEach(c => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "interview-choice";
+    btn.textContent = c.t;
+    btn.addEventListener("click", () => {
+      s.score += c.good;
+      s.index += 1;
+      if (s.index >= s.questions.length) _finishInterview();
+      else _renderInterviewQ();
+    });
+    choicesEl.appendChild(btn);
+  });
+}
+
+function _finishInterview() {
+  const s = _interviewState;
+  const result = document.querySelector("#interviewResult");
+  result.innerHTML = `Score: <strong>${s.score}</strong>/8`;
+  result.hidden = false;
+  if (_interviewCallback) _interviewCallback(s.score);
+  _interviewCallback = null;
+  _interviewState = null;
+  setTimeout(() => { const d = document.querySelector("#interviewDialog"); if (d && d.open) d.close(); }, 1800);
+}
+
+document.querySelector("#interviewClose")?.addEventListener("click", () => {
+  const d = document.querySelector("#interviewDialog");
+  if (d) d.close();
+  _interviewState = null;
+  _interviewCallback = null;
+});
+
+window.applyForJob = function() {
+  const next = bestAvailableJob();
+  if (!next || next.salary <= currentJob().salary) {
+    applyEffects("No better job came through.", { happiness: -2 });
+    return;
+  }
+  openJobInterview((score) => {
+    const player = state.player;
+    const passed = score >= 4 - (player.officeJobLocked ? 3 : 0);
+    if (passed) {
+      player.jobId = next.id;
+      const salaryMult = lifeBias(player, "salaryMult");
+      player.salaryBonus = Math.round(next.salary * (salaryMult - 1) + score * 800);
+      applyEffects(`Hired as ${withArticle(next.title)}. Interview score ${score}/8.`, { happiness: 6, discipline: 2, businessReputation: score }, "good");
+    } else {
+      applyEffects(`Interview was rough (${score}/8). They passed.`, { happiness: -4, smarts: 3 }, "bad");
+    }
+  });
+};
+
+// ============================================================
+// GYM REP COUNTER MINIGAME
+// ============================================================
+let _gymState = null;
+function openGymGame() {
+  const dialog = document.querySelector("#gymDialog");
+  if (!dialog) return;
+  _gymState = { reps: 0, timeLeft: 8.0, running: false, ended: false };
+  document.querySelector("#gymCounterNum").textContent = "0";
+  document.querySelector("#gymTimer").textContent = "8.0s";
+  document.querySelector("#gymInstruction").textContent = "Tap REP as fast as you can. Starts on first tap.";
+  document.querySelector("#gymResult").hidden = true;
+  const btn = document.querySelector("#gymRepBtn");
+  btn.disabled = false;
+  btn.textContent = "REP";
+  if (dialog.showModal) dialog.showModal();
+}
+
+(function wireGym() {
+  const btn = document.querySelector("#gymRepBtn");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    if (!_gymState || _gymState.ended) return;
+    if (!_gymState.running) {
+      _gymState.running = true;
+      _gymState.startTime = performance.now();
+      _tickGym();
+    }
+    _gymState.reps += 1;
+    document.querySelector("#gymCounterNum").textContent = _gymState.reps;
+  });
+  document.querySelector("#gymClose")?.addEventListener("click", () => {
+    const d = document.querySelector("#gymDialog");
+    if (d) d.close();
+    _gymState = null;
+  });
+})();
+
+function _tickGym() {
+  if (!_gymState || !_gymState.running) return;
+  const elapsed = (performance.now() - _gymState.startTime) / 1000;
+  _gymState.timeLeft = Math.max(0, 8 - elapsed);
+  document.querySelector("#gymTimer").textContent = `${_gymState.timeLeft.toFixed(1)}s`;
+  if (_gymState.timeLeft <= 0) {
+    _gymState.ended = true;
+    document.querySelector("#gymRepBtn").disabled = true;
+    _finishGym();
+    return;
+  }
+  requestAnimationFrame(_tickGym);
+}
+
+function _finishGym() {
+  const reps = _gymState.reps;
+  const intensity = reps >= 60 ? "Pumped." : reps >= 35 ? "Solid set." : "Light work.";
+  const fitGain = Math.floor(reps / 8);
+  const healthGain = Math.floor(reps / 12);
+  const looksGain = reps >= 50 ? 2 : reps >= 30 ? 1 : 0;
+  applyEffects(`${intensity} ${reps} reps in 8 seconds.`, { fitnessLevel: fitGain, health: healthGain, looks: looksGain, discipline: 2, happiness: 3 }, "good");
+  const result = document.querySelector("#gymResult");
+  if (result) {
+    result.hidden = false;
+    result.innerHTML = `<strong>${reps}</strong> reps · <strong>${intensity}</strong>`;
+  }
+  setTimeout(() => { const d = document.querySelector("#gymDialog"); if (d && d.open) d.close(); _gymState = null; }, 1800);
+}
+
+window.liftWeights = function() {
+  if (typeof rememberInterest === "function") rememberInterest("fitness", 2);
+  openGymGame();
+};
+
+// ============================================================
+// BLACKJACK MINIGAME
+// ============================================================
+let _bjState = null;
+function _bjDeal() {
+  const ranks = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+  const suits = ["♠","♥","♦","♣"];
+  const rank = ranks[Math.floor(Math.random() * ranks.length)];
+  const suit = suits[Math.floor(Math.random() * suits.length)];
+  return { rank, suit, red: suit === "♥" || suit === "♦" };
+}
+function _bjValue(hand) {
+  let total = 0; let aces = 0;
+  hand.forEach(c => {
+    if (c.rank === "A") { total += 11; aces++; }
+    else if (["K","Q","J"].includes(c.rank)) total += 10;
+    else total += parseInt(c.rank);
+  });
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  return total;
+}
+function openBlackjackGame() {
+  const dialog = document.querySelector("#blackjackDialog");
+  if (!dialog) return;
+  if (state.player.money < 100) { applyEffects("$100 minimum at the table.", { happiness: -1 }); return; }
+  state.player.money -= 100;
+  _bjState = { player: [_bjDeal(), _bjDeal()], dealer: [_bjDeal(), _bjDeal()], done: false };
+  _renderBJ(true);
+  document.querySelector("#bjResult").hidden = true;
+  document.querySelector("#bjHit").disabled = false;
+  document.querySelector("#bjStand").disabled = false;
+  if (dialog.showModal) dialog.showModal();
+}
+function _renderBJ(hideDealerHole) {
+  const player = _bjState.player;
+  const dealer = _bjState.dealer;
+  const renderHand = (host, hand, hideOne) => {
+    host.innerHTML = "";
+    hand.forEach((c, i) => {
+      const card = document.createElement("div");
+      if (hideOne && i === 0) {
+        card.className = "bj-card back";
+        card.innerHTML = `<span>?</span><span>?</span>`;
+      } else {
+        card.className = `bj-card ${c.red ? "red" : ""}`;
+        card.innerHTML = `<span>${c.rank}</span><span>${c.suit}</span>`;
+      }
+      host.appendChild(card);
+    });
+  };
+  renderHand(document.querySelector("#bjPlayerHand"), player, false);
+  renderHand(document.querySelector("#bjDealerHand"), dealer, hideDealerHole);
+  document.querySelector("#bjPlayerTotal").textContent = _bjValue(player);
+  document.querySelector("#bjDealerTotal").textContent = hideDealerHole ? "?" : _bjValue(dealer);
+}
+(function wireBJ() {
+  document.querySelector("#bjHit")?.addEventListener("click", () => {
+    if (!_bjState || _bjState.done) return;
+    _bjState.player.push(_bjDeal());
+    _renderBJ(true);
+    if (_bjValue(_bjState.player) > 21) _bjEnd();
+  });
+  document.querySelector("#bjStand")?.addEventListener("click", () => {
+    if (!_bjState || _bjState.done) return;
+    while (_bjValue(_bjState.dealer) < 17) _bjState.dealer.push(_bjDeal());
+    _bjEnd();
+  });
+  document.querySelector("#bjClose")?.addEventListener("click", () => {
+    const d = document.querySelector("#blackjackDialog");
+    if (d) d.close();
+    _bjState = null;
+  });
+})();
+function _bjEnd() {
+  _bjState.done = true;
+  _renderBJ(false);
+  document.querySelector("#bjHit").disabled = true;
+  document.querySelector("#bjStand").disabled = true;
+  const pT = _bjValue(_bjState.player);
+  const dT = _bjValue(_bjState.dealer);
+  let outcome; let payout = 0;
+  if (pT > 21) { outcome = "Bust. Dealer takes it."; payout = 0; }
+  else if (dT > 21) { outcome = "Dealer busted. You win."; payout = 200; }
+  else if (pT > dT) { outcome = `${pT} beats ${dT}. You win.`; payout = 200; }
+  else if (pT === dT) { outcome = `Push. ${pT} all.`; payout = 100; }
+  else { outcome = `${dT} beats ${pT}. Dealer wins.`; payout = 0; }
+  state.player.money += payout;
+  const result = document.querySelector("#bjResult");
+  result.hidden = false;
+  result.innerHTML = `${outcome} ${payout > 0 ? `+${money(payout - 100)}` : `-${money(100)}`}.`;
+  applyEffects(`Blackjack: ${outcome}`, { happiness: payout > 100 ? 4 : payout === 100 ? 0 : -4 }, payout > 100 ? "good" : payout === 0 ? "bad" : "normal");
+}
+window.blackjackTable = openBlackjackGame;
+
+// ============================================================
+// AUDITION TIMING METER MINIGAME
+// ============================================================
+let _audState = null;
+function openAuditionGame() {
+  const dialog = document.querySelector("#auditionDialog");
+  if (!dialog) return;
+  _audState = { take: 1, best: 0, raf: null, position: 0, dir: 1, speed: 1.6 };
+  document.querySelector("#auditionTake").textContent = "1";
+  document.querySelector("#auditionBest").textContent = "0";
+  document.querySelector("#auditionResult").hidden = true;
+  if (dialog.showModal) dialog.showModal();
+  _audTick();
+}
+function _audTick() {
+  if (!_audState) return;
+  _audState.position += _audState.dir * _audState.speed;
+  if (_audState.position >= 100) { _audState.position = 100; _audState.dir = -1; }
+  if (_audState.position <= 0) { _audState.position = 0; _audState.dir = 1; }
+  const marker = document.querySelector("#auditionMarker");
+  if (marker) marker.style.left = `${_audState.position}%`;
+  _audState.raf = requestAnimationFrame(_audTick);
+}
+(function wireAudition() {
+  document.querySelector("#auditionStopBtn")?.addEventListener("click", () => {
+    if (!_audState) return;
+    cancelAnimationFrame(_audState.raf);
+    const pos = _audState.position;
+    let score = 0;
+    if (pos >= 45 && pos <= 55) score = 100 - Math.abs(50 - pos) * 8;
+    else if (pos >= 35 && pos <= 65) score = 40 - Math.abs(50 - pos) * 2;
+    else score = Math.max(0, 20 - Math.abs(50 - pos));
+    _audState.best = Math.max(_audState.best, Math.floor(score));
+    document.querySelector("#auditionBest").textContent = _audState.best;
+    _audState.take += 1;
+    if (_audState.take > 3) {
+      _audFinish();
+    } else {
+      document.querySelector("#auditionTake").textContent = _audState.take;
+      _audState.speed += 0.4;
+      _audTick();
+    }
+  });
+  document.querySelector("#auditionClose")?.addEventListener("click", () => {
+    const d = document.querySelector("#auditionDialog");
+    if (d) d.close();
+    if (_audState?.raf) cancelAnimationFrame(_audState.raf);
+    _audState = null;
+  });
+})();
+function _audFinish() {
+  const best = _audState.best;
+  let outcome;
+  if (best >= 80) { outcome = "Callback. They want you for the lead."; applyEffects(`Audition score ${best}. Callback for the lead role.`, { fame: 12, looks: 3, happiness: 14, businessReputation: 2 }, "good"); }
+  else if (best >= 50) { outcome = "Booked supporting. Real credit."; applyEffects(`Audition score ${best}. Supporting role.`, { fame: 6, looks: 2, happiness: 8 }, "good"); }
+  else if (best >= 25) { outcome = "Ensemble spot. Still on the playbill."; applyEffects(`Audition score ${best}. Ensemble.`, { fame: 2, happiness: 4 }, "good"); }
+  else { outcome = "No callback. Better luck next read."; applyEffects(`Audition score ${best}. Pass.`, { happiness: -4, discipline: 3 }, "bad"); }
+  const result = document.querySelector("#auditionResult");
+  result.hidden = false;
+  result.innerHTML = `<strong>${best}</strong>/100. ${outcome}`;
+  setTimeout(() => { const d = document.querySelector("#auditionDialog"); if (d) d.close(); _audState = null; }, 2200);
+}
+window.audition = openAuditionGame;
+
+// ============================================================
+// DAY TRADE CHART MINIGAME
+// ============================================================
+let _dtState = null;
+function openDayTradeGame() {
+  const dialog = document.querySelector("#dayTradeDialog");
+  if (!dialog) return;
+  const tickers = ["TSLA", "GME", "NVDA", "AMC", "PLTR", "RKLB", "SOFI"];
+  _dtState = {
+    ticker: pick(tickers),
+    prices: [100],
+    tick: 1,
+    shares: 0,
+    avgBuy: 0,
+    cash: Math.min(state.player.money, 5000),
+    startCash: 0
+  };
+  _dtState.startCash = _dtState.cash;
+  state.player.money -= _dtState.cash;
+  document.querySelector("#dtTicker").textContent = _dtState.ticker;
+  document.querySelector("#dtResult").hidden = true;
+  _renderDT();
+  if (dialog.showModal) dialog.showModal();
+}
+function _renderDT() {
+  const s = _dtState;
+  const chart = document.querySelector("#dtChart");
+  chart.innerHTML = "";
+  const maxP = Math.max(...s.prices, 1);
+  const minP = Math.min(...s.prices, maxP * 0.7);
+  s.prices.forEach((p, i) => {
+    const bar = document.createElement("div");
+    bar.className = "dt-bar";
+    const prev = i > 0 ? s.prices[i-1] : p;
+    if (p < prev) bar.classList.add("down");
+    if (i === s.prices.length - 1) bar.classList.add("current");
+    bar.style.height = `${((p - minP) / (maxP - minP + 0.0001)) * 90 + 8}%`;
+    chart.appendChild(bar);
+  });
+  document.querySelector("#dtPrice").textContent = `$${s.prices[s.prices.length-1].toFixed(2)}`;
+  document.querySelector("#dtTick").textContent = s.tick;
+  document.querySelector("#dtCash").textContent = money(Math.floor(s.cash));
+  document.querySelector("#dtShares").textContent = s.shares;
+}
+(function wireDT() {
+  document.querySelector("#dtBuy")?.addEventListener("click", () => {
+    if (!_dtState) return;
+    const price = _dtState.prices[_dtState.prices.length-1];
+    const qty = Math.floor(_dtState.cash / price);
+    if (qty <= 0) return;
+    _dtState.avgBuy = ((_dtState.avgBuy * _dtState.shares) + (price * qty)) / (_dtState.shares + qty);
+    _dtState.shares += qty;
+    _dtState.cash -= qty * price;
+    _renderDT();
+  });
+  document.querySelector("#dtSell")?.addEventListener("click", () => {
+    if (!_dtState || _dtState.shares <= 0) return;
+    const price = _dtState.prices[_dtState.prices.length-1];
+    _dtState.cash += _dtState.shares * price;
+    _dtState.shares = 0;
+    _renderDT();
+  });
+  document.querySelector("#dtTickBtn")?.addEventListener("click", () => {
+    if (!_dtState) return;
+    const last = _dtState.prices[_dtState.prices.length-1];
+    const drift = randomInt(-12, 14);
+    const next = Math.max(2, last + (last * drift / 100));
+    _dtState.prices.push(next);
+    _dtState.tick += 1;
+    _renderDT();
+    if (_dtState.tick > 8) _dtFinish();
+  });
+  document.querySelector("#dtClose")?.addEventListener("click", () => {
+    const d = document.querySelector("#dayTradeDialog");
+    if (d) d.close();
+    if (_dtState) {
+      const finalPrice = _dtState.prices[_dtState.prices.length-1];
+      state.player.money += Math.floor(_dtState.cash + _dtState.shares * finalPrice);
+    }
+    _dtState = null;
+  });
+})();
+function _dtFinish() {
+  const s = _dtState;
+  const finalPrice = s.prices[s.prices.length-1];
+  const finalCash = s.cash + s.shares * finalPrice;
+  const pnl = finalCash - s.startCash;
+  state.player.money += Math.floor(finalCash);
+  const result = document.querySelector("#dtResult");
+  result.hidden = false;
+  result.innerHTML = `Session done. <strong>${pnl >= 0 ? "+" : "-"}${money(Math.abs(Math.floor(pnl)))}</strong> on ${s.ticker}.`;
+  applyEffects(`Day trade on ${s.ticker}: ${pnl >= 0 ? "+" : "-"}${money(Math.abs(Math.floor(pnl)))}.`, { smarts: 2, happiness: pnl > 0 ? 4 : -4 }, pnl > 0 ? "good" : "bad");
+  setTimeout(() => { const d = document.querySelector("#dayTradeDialog"); if (d) d.close(); _dtState = null; }, 2400);
+}
+window.dayTrade = openDayTradeGame;
+
+// ============================================================
+// DRIVING TEST MINIGAME
+// ============================================================
+let _driveState = null;
+function openDrivingTest() {
+  const dialog = document.querySelector("#driveDialog");
+  if (!dialog) return;
+  _driveState = { car: 50, hits: 0, cones: [], time: 12.0, running: false, raf: null, last: 0 };
+  document.querySelector("#driveCar").style.left = "50%";
+  document.querySelector("#driveCar").style.transform = "translateX(-50%)";
+  document.querySelector("#driveTime").textContent = "12.0s";
+  document.querySelector("#driveHits").textContent = "0";
+  document.querySelector("#driveResult").hidden = true;
+  document.querySelector("#driveRoad").querySelectorAll(".drive-cone").forEach(n => n.remove());
+  if (dialog.showModal) dialog.showModal();
+}
+function _driveTick(ts) {
+  if (!_driveState || !_driveState.running) return;
+  if (!_driveState.last) _driveState.last = ts;
+  const dt = (ts - _driveState.last) / 1000;
+  _driveState.last = ts;
+  _driveState.time -= dt;
+  document.querySelector("#driveTime").textContent = `${Math.max(0, _driveState.time).toFixed(1)}s`;
+  // spawn cones
+  if (Math.random() < 0.04) {
+    const road = document.querySelector("#driveRoad");
+    const cone = document.createElement("div");
+    cone.className = "drive-cone";
+    cone.style.left = `${randomInt(10, 80)}%`;
+    cone.style.top = "-40px";
+    road.appendChild(cone);
+    _driveState.cones.push({ el: cone, y: -40, x: parseFloat(cone.style.left) });
+  }
+  // advance cones
+  _driveState.cones.forEach(c => {
+    c.y += dt * 180;
+    c.el.style.top = `${c.y}px`;
+    // collision: car at bottom-28, position from left%
+    if (c.y > 280 && c.y < 350) {
+      const carX = _driveState.car;
+      if (Math.abs(carX - c.x) < 6 && !c.hit) {
+        c.hit = true;
+        _driveState.hits += 1;
+        document.querySelector("#driveHits").textContent = _driveState.hits;
+        c.el.style.opacity = "0.3";
+      }
+    }
+  });
+  _driveState.cones = _driveState.cones.filter(c => c.y < 400);
+  if (_driveState.time <= 0) {
+    _driveState.running = false;
+    _finishDrive();
+    return;
+  }
+  _driveState.raf = requestAnimationFrame(_driveTick);
+}
+function _driveMove(dir) {
+  if (!_driveState || !_driveState.running) return;
+  _driveState.car = Math.max(5, Math.min(95, _driveState.car + dir * 8));
+  const car = document.querySelector("#driveCar");
+  car.style.left = `${_driveState.car}%`;
+  car.style.transform = "translateX(-50%)";
+}
+(function wireDrive() {
+  document.querySelector("#driveStart")?.addEventListener("click", () => {
+    if (!_driveState) return;
+    _driveState.running = true;
+    _driveState.last = 0;
+    _driveState.raf = requestAnimationFrame(_driveTick);
+    document.querySelector("#driveStart").disabled = true;
+  });
+  document.querySelector("#driveLeft")?.addEventListener("click", () => _driveMove(-1));
+  document.querySelector("#driveRight")?.addEventListener("click", () => _driveMove(1));
+  document.addEventListener("keydown", e => {
+    if (!_driveState || !_driveState.running) return;
+    if (e.key === "ArrowLeft") _driveMove(-1);
+    if (e.key === "ArrowRight") _driveMove(1);
+  });
+  document.querySelector("#driveClose")?.addEventListener("click", () => {
+    const d = document.querySelector("#driveDialog");
+    if (d) d.close();
+    if (_driveState?.raf) cancelAnimationFrame(_driveState.raf);
+    _driveState = null;
+    document.querySelector("#driveStart").disabled = false;
+  });
+})();
+function _finishDrive() {
+  const hits = _driveState.hits;
+  const passed = hits <= 2;
+  const result = document.querySelector("#driveResult");
+  result.hidden = false;
+  result.innerHTML = passed
+    ? `<strong>Passed.</strong> ${hits} cone${hits === 1 ? "" : "s"} hit. License granted.`
+    : `<strong>Failed.</strong> ${hits} cones. Try again next year.`;
+  if (passed) {
+    state.player.licenses = state.player.licenses || [];
+    if (!state.player.licenses.includes("driver")) state.player.licenses.push("driver");
+    applyEffects(`Driver's license: passed (${hits} cones hit).`, { money: -140, happiness: 10, discipline: 3, smarts: 2 }, "good");
+  } else {
+    applyEffects(`Driver's test failed (${hits} cones). DMV fee gone.`, { money: -60, happiness: -4 }, "bad");
+  }
+  setTimeout(() => { const d = document.querySelector("#driveDialog"); if (d) d.close(); _driveState = null; document.querySelector("#driveStart").disabled = false; }, 2400);
+}
+window.getDriverLicense = () => {
+  if (state.player.licenses?.includes("driver")) { applyEffects("You already have a license.", { happiness: -1 }); return; }
+  openDrivingTest();
+};
+
+// ============================================================
+// OPEN MIC MINIGAME
+// ============================================================
+const _micSetups = [
+  { setup: "My therapist said I have abandonment issues. Then she left.", choices: [
+    { text: "Build to a bigger callback", impact: 18 },
+    { text: "Crowd work pivot", impact: 6 },
+    { text: "Repeat the punchline louder", impact: -10 }
+  ]},
+  { setup: "I went on a date last week.", choices: [
+    { text: "Specific weird detail", impact: 14 },
+    { text: "Lazy 'her name was Karen' joke", impact: -8 },
+    { text: "Surreal twist setup", impact: 16 }
+  ]},
+  { setup: "Tip waiters. Tip therapists. Tip everybody.", choices: [
+    { text: "Self-aware tag", impact: 12 },
+    { text: "Long sermon", impact: -6 },
+    { text: "Concrete number callback", impact: 14 }
+  ]},
+  { setup: "My grandfather lived to 95.", choices: [
+    { text: "Dark left turn", impact: 18 },
+    { text: "Cute family bit", impact: 4 },
+    { text: "Old-people slur", impact: -16 }
+  ]},
+  { setup: "I just moved to LA.", choices: [
+    { text: "Specific observation", impact: 14 },
+    { text: "Generic 'traffic, am I right' bit", impact: -4 },
+    { text: "Hate yourself bit", impact: 8 }
+  ]}
+];
+let _micState = null;
+function openOpenMicGame() {
+  const dialog = document.querySelector("#micDialog");
+  if (!dialog) return;
+  const setups = _micSetups.slice().sort(() => Math.random() - 0.5).slice(0, 4);
+  _micState = { setups, index: 0, score: 50 };
+  document.querySelector("#micResult").hidden = true;
+  _renderMicQ();
+  if (dialog.showModal) dialog.showModal();
+}
+function _renderMicQ() {
+  const s = _micState;
+  if (!s) return;
+  const setup = s.setups[s.index];
+  document.querySelector("#micSetup").textContent = setup.setup;
+  document.querySelector("#micMeterFill").style.width = `${s.score}%`;
+  document.querySelector("#micRoom").textContent = `room: ${s.score >= 75 ? "killing" : s.score >= 55 ? "warm" : s.score >= 30 ? "cooling" : "dead"}`;
+  const choicesEl = document.querySelector("#micChoices");
+  choicesEl.innerHTML = "";
+  setup.choices.forEach(c => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mic-choice";
+    btn.textContent = c.text;
+    btn.addEventListener("click", () => {
+      s.score = Math.max(0, Math.min(100, s.score + c.impact));
+      s.index += 1;
+      if (s.index >= s.setups.length) _finishMic();
+      else _renderMicQ();
+    });
+    choicesEl.appendChild(btn);
+  });
+}
+function _finishMic() {
+  const score = _micState.score;
+  const result = document.querySelector("#micResult");
+  let outcome; let effects;
+  if (score >= 75) { outcome = "Killed it. Three industry people gave you cards."; effects = { fame: 8, followers: randomInt(400, 4000), happiness: 12, businessReputation: 3 }; }
+  else if (score >= 50) { outcome = "Solid set. People remembered your name."; effects = { fame: 4, followers: randomInt(80, 800), happiness: 6 }; }
+  else if (score >= 25) { outcome = "Got a few laughs, lost the room twice."; effects = { fame: 1, happiness: 1 }; }
+  else { outcome = "Bombed. Mic stays on next Tuesday."; effects = { fame: -2, happiness: -8, discipline: 3 }; }
+  result.hidden = false;
+  result.innerHTML = `<strong>${score}/100</strong>. ${outcome}`;
+  applyEffects(`Open mic: ${outcome}`, effects, score >= 50 ? "good" : "bad");
+  setTimeout(() => { const d = document.querySelector("#micDialog"); if (d) d.close(); _micState = null; }, 2400);
+}
+document.querySelector("#micClose")?.addEventListener("click", () => {
+  const d = document.querySelector("#micDialog");
+  if (d) d.close();
+  _micState = null;
+});
+window.openMicSet = openOpenMicGame;
+window.openMicNight = openOpenMicGame;
+
+// ============================================================
+// POKER MINIGAME
+// ============================================================
+const _pokerRanks = { "A": 14, "K": 13, "Q": 12, "J": 11, "10": 10, "9": 9, "8": 8, "7": 7, "6": 6, "5": 5, "4": 4, "3": 3, "2": 2 };
+function _pokerDeal() {
+  const ranks = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+  const suits = ["♠","♥","♦","♣"];
+  return { rank: pick(ranks), suit: pick(suits) };
+}
+function _pokerHandRank(cards) {
+  // Sort high to low
+  const sorted = cards.slice().sort((a, b) => _pokerRanks[b.rank] - _pokerRanks[a.rank]);
+  const top = sorted[0];
+  // Pair check
+  const counts = {};
+  cards.forEach(c => counts[c.rank] = (counts[c.rank] || 0) + 1);
+  const pair = Object.values(counts).some(c => c >= 2);
+  return (pair ? 1000 : 0) + _pokerRanks[top.rank];
+}
+let _pokerState = null;
+function openPokerGame() {
+  const dialog = document.querySelector("#pokerDialog");
+  if (!dialog) return;
+  if (state.player.money < 500) { applyEffects("$500 minimum at the table.", { happiness: -1 }); return; }
+  state.player.money -= 500;
+  _pokerState = {
+    you: [_pokerDeal(), _pokerDeal()],
+    community: [],
+    pot: 2000,
+    opponents: ["Mike", "Rosa", "Trip"].map(name => ({ name, folded: false, hand: [_pokerDeal(), _pokerDeal()], aggressive: Math.random() })),
+    round: 0,
+    yourBet: 500,
+    done: false
+  };
+  _renderPoker();
+  document.querySelector("#pokerResult").hidden = true;
+  document.querySelector("#pokerFold").disabled = false;
+  document.querySelector("#pokerCall").disabled = false;
+  document.querySelector("#pokerRaise").disabled = false;
+  if (dialog.showModal) dialog.showModal();
+}
+function _renderPoker() {
+  const s = _pokerState;
+  document.querySelector("#pokerPot").textContent = `$${s.pot}`;
+  const oppsEl = document.querySelector("#pokerOpps");
+  oppsEl.innerHTML = "";
+  s.opponents.forEach(o => {
+    const div = document.createElement("div");
+    div.className = `poker-opp ${o.folded ? "folded" : ""}`;
+    div.textContent = `${o.name}${o.folded ? " (out)" : ""}`;
+    oppsEl.appendChild(div);
+  });
+  const comm = document.querySelector("#pokerCommunity");
+  comm.innerHTML = "";
+  s.community.forEach(c => {
+    const card = document.createElement("div");
+    card.className = `bj-card ${c.suit === "♥" || c.suit === "♦" ? "red" : ""}`;
+    card.innerHTML = `<span>${c.rank}</span><span>${c.suit}</span>`;
+    comm.appendChild(card);
+  });
+  const you = document.querySelector("#pokerYou");
+  you.innerHTML = "";
+  s.you.forEach(c => {
+    const card = document.createElement("div");
+    card.className = `bj-card ${c.suit === "♥" || c.suit === "♦" ? "red" : ""}`;
+    card.innerHTML = `<span>${c.rank}</span><span>${c.suit}</span>`;
+    you.appendChild(card);
+  });
+}
+function _pokerNextRound(action) {
+  const s = _pokerState;
+  if (s.done) return;
+  // Round 0: flop (3 community). Round 1: turn (4). Round 2: river (5). Round 3: showdown.
+  if (action === "fold") { _pokerEnd(false); return; }
+  // Opponents react
+  s.opponents.forEach(o => {
+    if (o.folded) return;
+    const handStr = _pokerHandRank([...o.hand, ...s.community]);
+    if (action === "raise" && Math.random() > o.aggressive + 0.2) o.folded = true;
+    else if (handStr < 8 && Math.random() < 0.3) o.folded = true;
+  });
+  // Player adds to pot
+  const bet = action === "raise" ? 400 : 200;
+  if (state.player.money < bet && action === "raise") { applyEffects("Not enough to raise.", {}); return; }
+  state.player.money -= bet;
+  s.pot += bet;
+  // Deal next community card
+  if (s.round === 0) { s.community.push(_pokerDeal(), _pokerDeal(), _pokerDeal()); }
+  else if (s.round === 1 || s.round === 2) { s.community.push(_pokerDeal()); }
+  s.round += 1;
+  _renderPoker();
+  if (s.round >= 3 || s.opponents.every(o => o.folded)) _pokerEnd(true);
+}
+function _pokerEnd(showdown) {
+  const s = _pokerState;
+  s.done = true;
+  document.querySelector("#pokerFold").disabled = true;
+  document.querySelector("#pokerCall").disabled = true;
+  document.querySelector("#pokerRaise").disabled = true;
+  const result = document.querySelector("#pokerResult");
+  let outcome;
+  if (!showdown) { outcome = "You folded. Pot stays at the table."; result.innerHTML = outcome; applyEffects(outcome, { money: 0, happiness: -2 }, "bad"); }
+  else {
+    const yourScore = _pokerHandRank([...s.you, ...s.community]);
+    const stayed = s.opponents.filter(o => !o.folded);
+    const oppScores = stayed.map(o => _pokerHandRank([...o.hand, ...s.community]));
+    const bestOpp = oppScores.length ? Math.max(...oppScores) : 0;
+    if (yourScore > bestOpp) {
+      state.player.money += s.pot;
+      outcome = `You won the pot. $${s.pot}.`;
+      result.innerHTML = outcome;
+      applyEffects(outcome, { money: 0, happiness: 8, smarts: 3 }, "good");
+    } else if (yourScore === bestOpp) {
+      state.player.money += Math.floor(s.pot / 2);
+      outcome = `Split pot. $${Math.floor(s.pot/2)} each.`;
+      result.innerHTML = outcome;
+      applyEffects(outcome, { money: 0, happiness: 2 });
+    } else {
+      outcome = `Lost the showdown. Pot gone.`;
+      result.innerHTML = outcome;
+      applyEffects(outcome, { money: 0, happiness: -8, smarts: 2 }, "bad");
+    }
+  }
+  result.hidden = false;
+  setTimeout(() => { const d = document.querySelector("#pokerDialog"); if (d) d.close(); _pokerState = null; }, 3000);
+}
+(function wirePoker() {
+  document.querySelector("#pokerFold")?.addEventListener("click", () => _pokerNextRound("fold"));
+  document.querySelector("#pokerCall")?.addEventListener("click", () => _pokerNextRound("call"));
+  document.querySelector("#pokerRaise")?.addEventListener("click", () => _pokerNextRound("raise"));
+  document.querySelector("#pokerClose")?.addEventListener("click", () => {
+    const d = document.querySelector("#pokerDialog");
+    if (d) d.close();
+    _pokerState = null;
+  });
+})();
+window.pokerNight = openPokerGame;
+window.onlinePokerGrind = openPokerGame;
+
+// ============================================================
+// EXAM MINIGAME
+// ============================================================
+const _examQuestions = [
+  { q: "If x² = 49, what is x?", choices: ["6","7","8","-7"], correctIndexes: [1,3] },
+  { q: "Whose 'I have a dream' speech?", choices: ["JFK","MLK Jr.","Malcolm X","FDR"], correctIndexes: [1] },
+  { q: "Mitochondria is the _____ of the cell.", choices: ["nucleus","cell wall","powerhouse","membrane"], correctIndexes: [2] },
+  { q: "WWII ended in what year?", choices: ["1939","1942","1945","1949"], correctIndexes: [2] },
+  { q: "Author of '1984'?", choices: ["Huxley","Orwell","Bradbury","Vonnegut"], correctIndexes: [1] },
+  { q: "Capital of Australia?", choices: ["Sydney","Melbourne","Canberra","Perth"], correctIndexes: [2] },
+  { q: "What is 15% of 200?", choices: ["20","25","30","35"], correctIndexes: [2] },
+  { q: "Speed of light in m/s (approx)?", choices: ["3×10⁵","3×10⁶","3×10⁸","3×10¹⁰"], correctIndexes: [2] },
+  { q: "Who painted the Mona Lisa?", choices: ["Michelangelo","Da Vinci","Raphael","Donatello"], correctIndexes: [1] },
+  { q: "Smallest prime number?", choices: ["0","1","2","3"], correctIndexes: [2] }
+];
+let _examState = null;
+function openExam() {
+  const dialog = document.querySelector("#examDialog");
+  if (!dialog) return;
+  const qs = _examQuestions.slice().sort(() => Math.random() - 0.5).slice(0, 5);
+  _examState = { questions: qs, index: 0, correct: 0, timer: 8, raf: null, last: 0 };
+  document.querySelector("#examResult").hidden = true;
+  document.querySelector("#examCorrect").textContent = "0";
+  _renderExamQ();
+  _examTick(performance.now());
+  if (dialog.showModal) dialog.showModal();
+}
+function _renderExamQ() {
+  const s = _examState;
+  const q = s.questions[s.index];
+  document.querySelector("#examQNum").textContent = `Question ${s.index + 1} of 5`;
+  document.querySelector("#examQ").textContent = q.q;
+  s.timer = 8;
+  s.last = 0;
+  const cEl = document.querySelector("#examChoices");
+  cEl.innerHTML = "";
+  q.choices.forEach((ch, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "exam-choice";
+    btn.textContent = ch;
+    btn.addEventListener("click", () => _examAnswer(i));
+    cEl.appendChild(btn);
+  });
+}
+function _examAnswer(idx) {
+  const s = _examState;
+  if (!s) return;
+  const q = s.questions[s.index];
+  const correct = q.correctIndexes.includes(idx);
+  const btns = document.querySelectorAll(".exam-choice");
+  btns.forEach((b, i) => {
+    b.disabled = true;
+    if (q.correctIndexes.includes(i)) b.classList.add("correct");
+    else if (i === idx) b.classList.add("wrong");
+  });
+  if (correct) {
+    s.correct += 1;
+    document.querySelector("#examCorrect").textContent = s.correct;
+  }
+  setTimeout(() => {
+    s.index += 1;
+    if (s.index >= s.questions.length) _finishExam();
+    else _renderExamQ();
+  }, 800);
+}
+function _examTick(ts) {
+  if (!_examState) return;
+  if (!_examState.last) _examState.last = ts;
+  const dt = (ts - _examState.last) / 1000;
+  _examState.last = ts;
+  _examState.timer -= dt;
+  const fill = document.querySelector("#examTimer");
+  if (fill) fill.style.width = `${(_examState.timer / 8) * 100}%`;
+  if (_examState.timer <= 0) {
+    _examAnswer(-1);
+    return;
+  }
+  _examState.raf = requestAnimationFrame(_examTick);
+}
+function _finishExam() {
+  if (_examState.raf) cancelAnimationFrame(_examState.raf);
+  const correct = _examState.correct;
+  const result = document.querySelector("#examResult");
+  let outcome; let effects;
+  if (correct === 5) { outcome = "Aced it."; effects = { smarts: 8, happiness: 10, discipline: 4 }; }
+  else if (correct >= 3) { outcome = "Passed clean."; effects = { smarts: 5, happiness: 6, discipline: 3 }; }
+  else if (correct >= 2) { outcome = "Got a C."; effects = { smarts: 2, happiness: 1 }; }
+  else { outcome = "Failed. Talk to the professor."; effects = { smarts: 1, happiness: -6, discipline: 3 }; }
+  result.hidden = false;
+  result.innerHTML = `<strong>${correct}/5</strong>. ${outcome}`;
+  applyEffects(`Exam: ${correct}/5 correct. ${outcome}`, effects, correct >= 3 ? "good" : "bad");
+  setTimeout(() => { const d = document.querySelector("#examDialog"); if (d) d.close(); _examState = null; }, 2400);
+}
+document.querySelector("#examClose")?.addEventListener("click", () => {
+  if (_examState?.raf) cancelAnimationFrame(_examState.raf);
+  const d = document.querySelector("#examDialog");
+  if (d) d.close();
+  _examState = null;
+});
+// Hook study to the exam at college level
+const _origStudy = (typeof study === "function") ? study : null;
+window.study = function() {
+  if (state.player.educationRank >= 4) {
+    openExam();
+  } else if (_origStudy) {
+    _origStudy();
+  }
+};
+
 (function wireMatureToggle() {
   const btn = document.querySelector("#matureBtn");
   if (!btn) return;
@@ -21048,5 +23228,211 @@ function applyDailyChallenge() {
         setGenreFilter(current);
       }
     });
+  });
+})();
+
+// Trophy gallery button wiring
+(function wireTrophyBtn() {
+  const btn = document.querySelector("#trophyBtn");
+  if (!btn) return;
+  btn.addEventListener("click", () => openTrophyGallery());
+})();
+
+// ============================================================
+// CUSTOM SEED — type any string for deterministic life
+// ============================================================
+function applyCustomSeed(seedText) {
+  if (!seedText) return null;
+  // Hash the seed into deterministic indices
+  let h = 0;
+  for (let i = 0; i < seedText.length; i++) h = (h * 31 + seedText.charCodeAt(i)) >>> 0;
+  const cities = ["Los Angeles, CA","Skid Row, Los Angeles","Compton, CA","New York City, NY","Brooklyn, NY","The Bronx, NY","Chicago, IL","Atlanta, GA","Miami, FL","Houston, TX","Las Vegas, NV","Mexico City, Mexico","Medellín, Colombia","Rio de Janeiro, Brazil","London, UK","Paris, France","Tokyo, Japan","Seoul, South Korea","Dubai, UAE"];
+  const classes = ["random","nepo","comfortable","working","struggling","survival"];
+  const focuses = ["smarts","happiness","health","looks","discipline"];
+  const idents = ["Guy","Girl","Trans guy","Trans girl","Nonbinary"];
+  if (el.homeInput) el.homeInput.value = cities[h % cities.length];
+  if (el.classInput) el.classInput.value = classes[(h >> 4) % classes.length];
+  if (el.focusInput) el.focusInput.value = focuses[(h >> 8) % focuses.length];
+  if (el.identityInput) el.identityInput.value = idents[(h >> 12) % idents.length];
+  if (el.homeInput) el.homeInput.dispatchEvent(new Event("change"));
+  return seedText;
+}
+
+(function wireCustomSeed() {
+  const input = document.querySelector("#customSeedInput");
+  const btn = document.querySelector("#customSeedApply");
+  if (!input || !btn) return;
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const seed = input.value.trim();
+    if (!seed) return;
+    applyCustomSeed(seed);
+    btn.textContent = "Applied ✓";
+    setTimeout(() => { btn.textContent = "Apply seed"; }, 1500);
+  });
+})();
+
+// ============================================================
+// REINCARNATE — replay a past life with same starting conditions
+// ============================================================
+function reincarnateFromLife(life) {
+  if (!life) return;
+  // Use the original life as a seed source
+  applyCustomSeed(life.name + life.location);
+  if (el.nameInput) el.nameInput.value = life.name + " II";
+  const sub = document.querySelector(".creator-sub");
+  if (sub) sub.innerHTML = `<strong style="color: var(--orange-2);">Reincarnation:</strong> Same conditions as ${life.name}, who lived ${life.age} years and was ${life.cause || "remembered"}. Different choices this time.`;
+}
+
+// Hook into HoF cards so user can click "Replay" on any past life
+(function wireReincarnateInHof() {
+  // Mutate renderHallOfFame to append a Replay button per card
+  const original = window.renderHallOfFame;
+  if (typeof original !== "function") return;
+  window.renderHallOfFame = function() {
+    original();
+    const wrap = document.querySelector("#hofList");
+    if (!wrap) return;
+    const history = (typeof loadHistory === "function") ? loadHistory() : [];
+    wrap.querySelectorAll(".hof-life").forEach((card, i) => {
+      if (card.querySelector(".hof-replay")) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ghost hof-replay";
+      btn.textContent = "↻ Reincarnate";
+      btn.addEventListener("click", () => {
+        document.querySelector("#hofDialog")?.close();
+        reincarnateFromLife(history[i]);
+      });
+      card.appendChild(btn);
+    });
+  };
+})();
+
+// ============================================================
+// FAMILY TREE — small SVG in the recap card
+// ============================================================
+function renderFamilyTree(player) {
+  const host = document.querySelector("#recapFamilyTree");
+  if (!host) return;
+  if (!player) { host.innerHTML = ""; return; }
+  const parents = (player.relationships || []).filter(r => r.id === "guardian" || r.id === "guardian2");
+  const sibs = (player.relationships || []).filter(r => r.id === "sibling" || r.twin);
+  const partner = (player.relationships || []).find(r => r.type === "spouse" || r.type === "partner");
+  const kids = (player.children || []);
+
+  const w = 320;
+  let svg = `<svg viewBox="0 0 ${w} 200" preserveAspectRatio="xMidYMid meet" class="family-tree-svg">`;
+  // Parents row
+  parents.forEach((p, i) => {
+    const x = parents.length === 1 ? w / 2 : 80 + i * 160;
+    svg += `<circle cx="${x}" cy="30" r="14" fill="#4f7ec7"/><text x="${x}" y="55" text-anchor="middle" fill="#cdd5e0" font-size="10">${p.name}</text>`;
+  });
+  // Lines from parents to player
+  parents.forEach((p, i) => {
+    const x = parents.length === 1 ? w / 2 : 80 + i * 160;
+    svg += `<line x1="${x}" y1="44" x2="${w / 2}" y2="92" stroke="#444a55" stroke-width="1.5"/>`;
+  });
+  // Player + partner
+  svg += `<circle cx="${w / 2}" cy="100" r="16" fill="#c92a3f"/><text x="${w / 2}" y="125" text-anchor="middle" fill="#fffdf5" font-size="11" font-weight="700">${player.name}</text>`;
+  if (partner) {
+    svg += `<circle cx="${w / 2 + 50}" cy="100" r="14" fill="#9a5cc4"/><text x="${w / 2 + 50}" y="125" text-anchor="middle" fill="#cdd5e0" font-size="10">${partner.name}</text>`;
+    svg += `<line x1="${w / 2 + 16}" y1="100" x2="${w / 2 + 36}" y2="100" stroke="#444a55" stroke-width="1.5"/>`;
+  }
+  // Siblings (left of player)
+  sibs.forEach((s, i) => {
+    const x = (w / 2) - 50 - i * 35;
+    svg += `<circle cx="${x}" cy="100" r="12" fill="#3aa089"/><text x="${x}" y="125" text-anchor="middle" fill="#cdd5e0" font-size="10">${s.name}</text>`;
+  });
+  // Kids
+  kids.forEach((k, i) => {
+    const x = (w / (kids.length + 1)) * (i + 1);
+    svg += `<line x1="${w / 2}" y1="116" x2="${x}" y2="170" stroke="#444a55" stroke-width="1.5"/>`;
+    svg += `<circle cx="${x}" cy="178" r="10" fill="#d9a531"/><text x="${x}" y="196" text-anchor="middle" fill="#cdd5e0" font-size="9">${k.name}</text>`;
+  });
+  svg += `</svg>`;
+  host.innerHTML = `<p class="recap-kicker" style="margin-top:14px;">Family tree</p>` + svg;
+}
+
+// ============================================================
+// SHAREABLE HALL OF FAME — pack the whole HoF into a URL
+// ============================================================
+function encodeHallOfFameUrl() {
+  const history = (typeof loadHistory === "function") ? loadHistory() : [];
+  if (!history.length) return location.origin;
+  const compact = history.map(l => ({
+    n: l.name, a: l.age, l: l.location, c: l.cause,
+    m: l.money, f: l.fame, ac: l.achievements
+  }));
+  try {
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
+    return `${location.origin}/?hof=${b64}`;
+  } catch (e) { return location.origin; }
+}
+
+function decodeHallOfFameFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const raw = params.get("hof");
+  if (!raw) return null;
+  try {
+    const json = decodeURIComponent(escape(atob(raw)));
+    const c = JSON.parse(json);
+    return c.map(l => ({
+      name: l.n, age: l.a, location: l.l, cause: l.c,
+      money: l.m, fame: l.f, achievements: l.ac
+    }));
+  } catch (e) { return null; }
+}
+
+function renderSharedHoF(history) {
+  const dlg = document.querySelector("#hofDialog");
+  const wrap = document.querySelector("#hofList");
+  if (!dlg || !wrap) return;
+  const records = history.length ? {
+    longest: history.reduce((m, l) => l.age > m.age ? l : m, history[0]),
+    richest: history.reduce((m, l) => l.money > m.money ? l : m, history[0]),
+    famous: history.reduce((m, l) => l.fame > m.fame ? l : m, history[0])
+  } : null;
+  const recordLine = records ? `<div class="hof-records">
+    <div><strong>Longest</strong><span>${records.longest.age} (${records.longest.name})</span></div>
+    <div><strong>Richest</strong><span>$${records.richest.money.toLocaleString()} (${records.richest.name})</span></div>
+    <div><strong>Most famous</strong><span>${records.famous.fame} fame (${records.famous.name})</span></div>
+  </div>` : "";
+  const cards = history.map((life, i) => `
+    <article class="hof-life ${i === 0 ? "hof-life--top" : ""}">
+      <div class="hof-life-head"><strong>${i === 0 ? "★ " : ""}${life.name}</strong><span class="hof-life-age">age ${life.age}</span></div>
+      <div class="hof-life-body"><span>${life.location || "—"}</span><span class="hof-life-cause">${life.cause}</span></div>
+      <div class="hof-life-stats"><span>$${(life.money||0).toLocaleString()}</span><span>${life.fame||0} fame</span><span>${life.achievements||0} unlocks</span></div>
+    </article>
+  `).join("");
+  // Make HoF dialog show "Shared" header instead of normal
+  const heading = dlg.querySelector("h2");
+  if (heading) heading.textContent = `Someone\'s past lives`;
+  wrap.innerHTML = recordLine + `<div class="hof-grid">${cards}</div>` +
+    `<button class="primary wide" id="hofShareStartOwn" type="button" style="margin-top:14px;">Start your own life</button>`;
+  setTimeout(() => {
+    const startBtn = document.querySelector("#hofShareStartOwn");
+    if (startBtn) startBtn.addEventListener("click", () => { dlg.close(); location.href = location.origin; });
+  }, 60);
+  try { dlg.showModal(); } catch (e) {}
+}
+
+(function tryShareHoFOnLoad() {
+  const history = decodeHallOfFameFromUrl();
+  if (history) {
+    document.addEventListener("DOMContentLoaded", () => renderSharedHoF(history), { once: true });
+    if (document.readyState !== "loading") setTimeout(() => renderSharedHoF(history), 100);
+  }
+})();
+
+// Wire "Share my Hall of Fame" button
+(function wireShareHof() {
+  const btn = document.querySelector("#hofShareBtn");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    const url = encodeHallOfFameUrl();
+    try { await navigator.clipboard.writeText(url); btn.textContent = "Copied. send it"; }
+    catch (e) { btn.textContent = "Failed"; }
+    setTimeout(() => { btn.textContent = "Share my Hall of Fame"; }, 2200);
   });
 })();
