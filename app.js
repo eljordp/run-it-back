@@ -364,11 +364,211 @@ const origins = {
     spawnLine: "born somewhere the city never closes and everybody's parents work nights",
     locals: ["Trey", "Brittany", "Marco", "Ava", "Mason"],
     hood: "off-Strip"
+  },
+  // ---- More US (added for inclusivity — main-city tier) ----
+  "Detroit, MI": {
+    short: "the D",
+    money: [25, 160], costMod: 0.72, fameMod: 1.05, salaryMod: 0.9, streetMod: 1.2,
+    vibe: "abandoned blocks turning into murals, Coney Islands at 3am, Lions losses you remember forever",
+    spawnLine: "born in the city that built America and then got left for parts",
+    locals: ["Jalen", "Reggie", "Tasha", "Devonte", "Mariah"], hood: "the D"
+  },
+  "Philadelphia, PA": {
+    short: "Philly",
+    money: [40, 200], costMod: 0.95, fameMod: 1.0, salaryMod: 1.0, streetMod: 1.1,
+    vibe: "cheesesteaks, broad street, row houses, Eagles games that double as religion",
+    spawnLine: "born in the city where loyalty is the first language they teach you",
+    locals: ["Naheem", "Briana", "Tyrik", "Aaliyah", "Mike"], hood: "the block"
+  },
+  "Washington, D.C.": {
+    short: "DC",
+    money: [60, 280], costMod: 1.3, fameMod: 1.15, salaryMod: 1.2,
+    vibe: "monuments, marble, go-go in the parks, the metro that's a museum of its own",
+    spawnLine: "born in the capital where everybody's parent works for a department they can't talk about",
+    locals: ["Khalil", "Imani", "Andre", "Jasmine", "Dante"], hood: "the DMV"
+  },
+  "Boston, MA": {
+    short: "Boston",
+    money: [60, 260], costMod: 1.3, fameMod: 1.0, salaryMod: 1.15,
+    vibe: "Dunkin' twice a day, brick everything, the T at rush hour, students everywhere September to May",
+    spawnLine: "born in the city where the accent gives you away and the winters teach you patience",
+    locals: ["Sully", "Maeve", "Sean", "Erin", "Brendan"], hood: "Southie"
+  },
+  "Seattle, WA": {
+    short: "Seattle",
+    money: [70, 300], costMod: 1.35, fameMod: 1.05, salaryMod: 1.25,
+    vibe: "rain for nine months, coffee shops as offices, tech campuses south of downtown, mountains everywhere",
+    spawnLine: "born in the rainy city where introversion is the regional personality",
+    locals: ["Hana", "Tobias", "Mei", "Eli", "Soraya"], hood: "the PNW"
+  },
+  "Portland, OR": {
+    short: "Portland",
+    money: [50, 240], costMod: 1.18, fameMod: 0.95, salaryMod: 1.0,
+    vibe: "bike lanes, food trucks, weird is the brand, three different kinds of rain",
+    spawnLine: "born where the city is small enough to know everybody who matters and weird enough to lose them",
+    locals: ["River", "Juniper", "Jasper", "Sage", "Kai"], hood: "the eastside"
+  },
+  "Denver, CO": {
+    short: "Denver",
+    money: [50, 240], costMod: 1.15, fameMod: 0.95, salaryMod: 1.1,
+    vibe: "Rockies on the skyline, weed shops on every block, transplants from California with stories",
+    spawnLine: "born a mile up where the air is thin and the politics shift fast",
+    locals: ["Marisol", "Trent", "Lupe", "Cody", "Jada"], hood: "Five Points"
+  },
+  "Phoenix, AZ": {
+    short: "Phoenix",
+    money: [40, 200], costMod: 0.92, fameMod: 0.9, salaryMod: 0.98,
+    vibe: "115° in July, strip malls, gas station roller dogs, Suns games keep the city alive",
+    spawnLine: "born in the desert where the summer is the season everybody negotiates with",
+    locals: ["Diego", "Camila", "Jorge", "Lucia", "Rafael"], hood: "the valley"
+  },
+  "Austin, TX": {
+    short: "Austin",
+    money: [50, 250], costMod: 1.2, fameMod: 1.1, salaryMod: 1.15,
+    vibe: "queso, live music every block of 6th street, breakfast tacos, tech moves that priced out the locals",
+    spawnLine: "born in the city that used to be weird before the tech money found it",
+    locals: ["Lupe", "Tanner", "Maya", "Cole", "Yara"], hood: "East Austin"
+  },
+  "Dallas, TX": {
+    short: "Dallas",
+    money: [50, 240], costMod: 1.05, fameMod: 1.0, salaryMod: 1.08,
+    vibe: "highways stacked five deep, Cowboys obsession, Tex-Mex, churches the size of malls",
+    spawnLine: "born in the city that thinks bigger means better and almost makes the case",
+    locals: ["Demarcus", "Brittney", "Carlos", "Shanice", "Tyler"], hood: "Oak Cliff"
+  },
+  "San Diego, CA": {
+    short: "SD",
+    money: [60, 280], costMod: 1.3, fameMod: 1.05, salaryMod: 1.05,
+    vibe: "perfect weather, fish tacos, Navy in everything, beaches that locals gatekeep",
+    spawnLine: "born where the weather is a personality trait and the city is forever almost a major city",
+    locals: ["Marisol", "Brandon", "Esme", "Diego", "Hailey"], hood: "PB"
+  },
+  "Sacramento, CA": {
+    short: "Sac",
+    money: [40, 200], costMod: 0.95, fameMod: 0.85, salaryMod: 1.0,
+    vibe: "Capitol downtown, farm-to-fork brunches, summer heat that doesn't quit, midtown grid art walks",
+    spawnLine: "born in the capital that the rest of the state forgets is the capital",
+    locals: ["Eddie", "Karina", "Jamal", "Sofia", "Travis"], hood: "Oak Park"
+  },
+  "Memphis, TN": {
+    short: "Memphis",
+    money: [25, 150], costMod: 0.72, fameMod: 1.0, salaryMod: 0.88, streetMod: 1.3,
+    vibe: "BBQ smoke from every corner, Beale Street blues, Grizzlies grit, FedEx planes overnight",
+    spawnLine: "born in the city that built rock and roll then got left for it",
+    locals: ["DeAndre", "Latrice", "Marquise", "Yolanda", "Trey"], hood: "Orange Mound"
+  },
+  "New Orleans, LA": {
+    short: "NOLA",
+    money: [30, 180], costMod: 0.9, fameMod: 1.15, salaryMod: 0.92, streetMod: 1.2,
+    vibe: "second lines on Sundays, po'boys at 2am, brass bands on Frenchmen, humidity that ruins ironed clothes",
+    spawnLine: "born in the city that party-cried itself back from being underwater",
+    locals: ["Trombone", "Étienne", "Marie", "Théo", "Aurore"], hood: "Tremé"
+  },
+  "Baltimore, MD": {
+    short: "Bmore",
+    money: [25, 160], costMod: 0.85, fameMod: 1.0, salaryMod: 0.95, streetMod: 1.35,
+    vibe: "Inner Harbor tourists, row houses with marble steps, Ravens fans, the Wire didn't make it up",
+    spawnLine: "born in Bmore where the city raised you to be sharper than the system that ignored it",
+    locals: ["Tre", "Ayanna", "Marcus", "DeShawn", "Imani"], hood: "the East Side"
+  },
+  "Honolulu, HI": {
+    short: "Honolulu",
+    money: [50, 240], costMod: 1.35, fameMod: 0.95, salaryMod: 0.95,
+    vibe: "trade winds, plate lunch, multi-generational housing, mainland prices for island life",
+    spawnLine: "born where the ocean is the daily commute and the mainland is a different planet",
+    locals: ["Kainoa", "Leilani", "Makoa", "Noelani", "Kekoa"], hood: "town"
+  },
+  "Newark, NJ": {
+    short: "Brick City",
+    money: [30, 180], costMod: 1.0, fameMod: 1.0, salaryMod: 0.98, streetMod: 1.3,
+    vibe: "Penn Station to Manhattan in 20 minutes, brick everything, Newark Airport waking you up",
+    spawnLine: "born close enough to New York to taste it and far enough to know you're not from there",
+    locals: ["Quan", "Mariah", "Damien", "Yara", "Naheem"], hood: "Brick City"
+  },
+  // ---- International (added) ----
+  "Dublin, Ireland": {
+    short: "Dublin",
+    money: [50, 220], costMod: 1.2, fameMod: 1.0, salaryMod: 1.05,
+    vibe: "Guinness as a food group, terraced houses, rain that lasts six months, craic that lasts longer",
+    spawnLine: "born in a city where the storytellers outnumber the listeners",
+    locals: ["Saoirse", "Cillian", "Niamh", "Oisín", "Aisling"], hood: "the Liberties"
+  },
+  "Berlin, Germany": {
+    short: "Berlin",
+    money: [40, 220], costMod: 1.05, fameMod: 1.0, salaryMod: 1.0,
+    vibe: "techno on Sundays at 11am, döner stands, U-Bahn, wall fragments and weight rooms in the same building",
+    spawnLine: "born in the city that rebuilt itself loud after the wall came down",
+    locals: ["Mira", "Lukas", "Jonas", "Lena", "Aylin"], hood: "Kreuzberg"
+  },
+  "Lagos, Nigeria": {
+    short: "Lagos",
+    money: [20, 280], costMod: 0.65, fameMod: 1.2, salaryMod: 0.8, streetMod: 1.3,
+    vibe: "go-slow traffic, generators humming, jollof debates, Nollywood and Afrobeats exporting nonstop",
+    spawnLine: "born in the city that exports its sound to the world and keeps the hustle for itself",
+    locals: ["Tunde", "Adaeze", "Femi", "Kemi", "Chidi"], hood: "the mainland"
+  },
+  "Mumbai, India": {
+    short: "Mumbai",
+    money: [15, 320], costMod: 0.6, fameMod: 1.15, salaryMod: 0.75, streetMod: 1.2,
+    vibe: "Bollywood billboards, vada pav for ₹15, slum and skyline within the same frame, monsoon floods",
+    spawnLine: "born in the city of dreams where the dreamers outnumber the apartments",
+    locals: ["Rohan", "Priya", "Aditya", "Anaya", "Vikram"], hood: "the chawl"
+  },
+  "Sydney, Australia": {
+    short: "Sydney",
+    money: [60, 260], costMod: 1.4, fameMod: 1.05, salaryMod: 1.15,
+    vibe: "harbor views, surf before work, flat whites, a relaxed pace that hides real money",
+    spawnLine: "born in the city where the beach is the dressing room and the harbor is the office view",
+    locals: ["Tilly", "Jack", "Indi", "Hugo", "Mia"], hood: "the Inner West"
+  },
+  "Napa Valley, CA": {
+    short: "the valley",
+    money: [15, 220], costMod: 1.0, fameMod: 0.85, salaryMod: 0.85, streetMod: 0.6,
+    vibe: "tractor headlights at 4am, vineyard rows that never end, tasting rooms in front and pickers in back, English in the lobby and Spanish in the field",
+    spawnLine: "born in Napa where the labels travel the world and the labor stays invisible",
+    locals: ["Jorge", "Lupe", "Esme", "Mateo", "Maria"],
+    hood: "the valley"
   }
 };
 
 function originOf(location) {
-  return origins[location] || origins["Los Angeles, CA"];
+  return origins[location] || generateFallbackOrigin(location);
+}
+
+// When a player types a city we don't have full data for, generate a
+// sensible fallback so the game still works gracefully. Uses regional
+// heuristics for cost/salary feel.
+function generateFallbackOrigin(location) {
+  if (!location) return origins["Los Angeles, CA"];
+  const low = location.toLowerCase();
+  let costMod = 1.0, salaryMod = 1.0, fameMod = 0.85, streetMod = 1.0;
+  let money = [40, 200];
+  // Region heuristics
+  if (/\b(ca|california)\b/.test(low)) { costMod = 1.2; salaryMod = 1.1; money = [50, 240]; }
+  else if (/\b(ny|new york)\b/.test(low)) { costMod = 1.35; salaryMod = 1.15; money = [60, 260]; }
+  else if (/\b(tx|texas)\b/.test(low)) { costMod = 0.95; salaryMod = 1.0; money = [40, 210]; }
+  else if (/\b(fl|florida)\b/.test(low)) { costMod = 1.0; salaryMod = 0.98; money = [40, 210]; }
+  else if (/\b(uk|england|scotland|wales)\b/.test(low)) { costMod = 1.1; salaryMod = 1.05; money = [40, 220]; }
+  else if (/\b(canada|on|bc|ab|qc)\b/.test(low)) { costMod = 1.1; salaryMod = 1.0; money = [40, 200]; }
+  else if (/\b(mexico|colombia|brazil|argentina|peru|chile|venezuela)\b/.test(low)) { costMod = 0.65; salaryMod = 0.7; money = [15, 160]; streetMod = 1.2; }
+  else if (/\b(india|nigeria|kenya|ghana|egypt|south africa)\b/.test(low)) { costMod = 0.55; salaryMod = 0.6; money = [10, 180]; streetMod = 1.15; }
+  else if (/\b(japan|korea|china|taiwan|hong kong|singapore)\b/.test(low)) { costMod = 1.2; salaryMod = 1.05; money = [50, 230]; }
+  // Build short label from typed text
+  const cityPart = location.split(",")[0].trim();
+  const shortLabel = cityPart.length > 14 ? cityPart.slice(0, 14) : cityPart;
+  return {
+    short: shortLabel,
+    money,
+    costMod,
+    salaryMod,
+    fameMod,
+    streetMod,
+    vibe: `your block, your people, the streets that raised you in ${cityPart}`,
+    spawnLine: `born in ${cityPart} — your city is the story you're going to tell the world`,
+    locals: ["Devon", "Aaliyah", "Marcus", "Maya", "Jules", "Ari", "Mei"],
+    hood: shortLabel,
+    isCustom: true
+  };
 }
 
 function flavor(template) {
@@ -748,6 +948,8 @@ const store = [
 ];
 
 const achievements = [
+  { id: "cultEscape", text: "Escaped a cult" },
+  { id: "whistleblower", text: "Vindicated as a whistleblower" },
   { id: "citizen", text: "Became a US citizen" },
   { id: "pulitzer", text: "Won the Pulitzer" },
   { id: "everest", text: "Summited Everest" },
@@ -807,6 +1009,7 @@ const el = {
   play: document.querySelector("#play"),
   nameInput: document.querySelector("#nameInput"),
   homeInput: document.querySelector("#homeInput"),
+  customSpotInput: document.querySelector("#customSpotInput"),
   identityInput: document.querySelector("#identityInput"),
   handleInput: document.querySelector("#handleInput"),
   focusInput: document.querySelector("#focusInput"),
@@ -1252,8 +1455,10 @@ function maybeRollTwin(player) {
 function createPlayer() {
   const focus = el.focusInput.value;
   const name = el.nameInput.value.trim() || pick(names);
-  const location = el.homeInput.value;
-  const origin = origins[location] || origins["Los Angeles, CA"];
+  // Honor a typed "or type any spot" custom city if present, otherwise dropdown.
+  const customSpot = (el.customSpotInput?.value || "").trim();
+  const location = customSpot || el.homeInput.value;
+  const origin = originOf(location);
 
   // Check for seeded spawn (someone shared a URL with ?seed=...)
   const seededSpawn = pendingSeedSpawn;
@@ -1562,11 +1767,46 @@ function openTrophyGallery() {
 }
 
 
+// ============================================================
+// ACHIEVEMENT TOAST — animated corner notification when trophy unlocks
+// ============================================================
+function showAchievementToast(achievementId) {
+  const all = (typeof achievements !== "undefined") ? achievements : [];
+  const ach = all.find(a => a.id === achievementId);
+  if (!ach) return;
+  let host = document.querySelector("#achievementToastHost");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "achievementToastHost";
+    host.className = "achievement-toast-host";
+    document.body.appendChild(host);
+  }
+  const toast = document.createElement("div");
+  toast.className = "achievement-toast";
+  toast.innerHTML = `
+    <span class="achievement-toast-mark">★</span>
+    <div class="achievement-toast-body">
+      <span class="achievement-toast-kicker">Trophy unlocked</span>
+      <strong>${ach.text}</strong>
+    </div>
+  `;
+  host.appendChild(toast);
+  if (typeof ringUpSfx === "function") ringUpSfx();
+  setTimeout(() => toast.classList.add("achievement-toast--in"), 30);
+  setTimeout(() => {
+    toast.classList.remove("achievement-toast--in");
+    toast.classList.add("achievement-toast--out");
+    setTimeout(() => toast.remove(), 500);
+  }, 4500);
+}
+
+
 function unlock(id, writeLog = true) {
   const player = state.player;
   if (!player || player.achievements.includes(id)) return;
   player.achievements.push(id);
   if (typeof saveTrophy === "function") saveTrophy(id);
+  if (typeof showAchievementToast === "function") showAchievementToast(id);
   const item = achievements.find(achievement => achievement.id === id);
   if (writeLog && item) {
     addLog(`Milestone: ${item.text}.`, "good");
@@ -7691,6 +7931,81 @@ const events = [
       { label: "N95 and live your life", run: () => applyEffects(`You went outside anyway. Your throat hurt for a week. You'll remember it later when the doctor asks.`, { health: -6, discipline: 2 }) }
     ]
   },
+  // ---- NAPA VALLEY ----
+  {
+    title: "Caymus Harvest Shift",
+    text: () => `4:30am. Headlights down a Rutherford road. ${pick(["Caymus", "Stag's Leap", "Silver Oak", "Opus One"])} is bringing crews in for cab. Foreman wants 14-hour days for 3 weeks. Pay is $${randomInt(18, 24)}/hr.`,
+    when: p => p.location === "Napa Valley, CA" && p.age >= 14 && (p.age <= 40 || p.stats.health >= 60) && chance(5),
+    choices: [
+      { label: "Work the harvest", run: () => {
+        const earned = randomInt(2800, 6400);
+        applyEffects(`Three weeks of cuts on your hands, sore back, sunburn on the neck. Walked off with ${money(earned)} cash. Body remembers.`, { money: earned, discipline: 8, health: -5, smarts: 2 }, "good");
+      } },
+      { label: "Tasting room job at the front instead", run: () => {
+        if (state.player.stats.looks >= 55 && chance(60)) {
+          const earned = randomInt(2200, 4800);
+          applyEffects(`Six weekends pouring for tourists. Tips were better than the wage. ${money(earned)} and you learned the difference between cab and merlot.`, { money: earned, looks: 2, smarts: 4, happiness: 4 }, "good");
+        } else {
+          applyEffects(`They said they'd call. They didn't. The harvest crew was always hiring.`, { happiness: -4, discipline: 2 });
+        }
+      } },
+      { label: "Pass, summer's short", run: () => applyEffects(`You took the summer off. Slept in, swam at Berryessa. Came back to school broke but rested.`, { happiness: 8, health: 4 }) }
+    ]
+  },
+  {
+    title: "ICE at the Trailer Park",
+    text: () => `Phone tree starts at 5am. Two unmarked vans seen near ${pick(["the trailers off Soscol", "Cuttings Wharf", "the camp behind the winery"])}. Half your friends' parents are undocumented.`,
+    when: p => p.location === "Napa Valley, CA" && p.age >= 12 && chance(2),
+    choices: [
+      { label: "Drive a friend home, watch the road", run: () => {
+        const friend = friendName(state.player, ["Jorge", "Lupe", "Mateo"]);
+        applyEffects(`You picked ${friend} up before school. Their dad stayed home that day. Nobody got taken. Everybody remembered who showed up.`, { karma: 14, happiness: -4, discipline: 4 }, "good");
+      } },
+      { label: "Stay home, keep your head down", run: () => applyEffects(`You stayed inside. By noon the phone tree said it was a false alarm. You still felt it.`, { happiness: -6, smarts: 2 }) },
+      { label: "Post about it online", run: () => {
+        const followers = randomInt(200, 2400);
+        applyEffects(`You posted what you saw. ${followers} new follows. Two strangers thanked you. One DM threatened you.`, { followers, fame: 4, karma: 6, happiness: -4 });
+      } }
+    ]
+  },
+  {
+    title: "Tasting Room Family Brunch",
+    text: () => `Auntie Lupe got us a table at ${pick(["Domaine Carneros", "Inglenook", "Beringer", "Castello di Amorosa"])}. $${randomInt(85, 180)} per person. Half the menu is in French.`,
+    when: p => p.location === "Napa Valley, CA" && p.age >= 16 && p.money >= 200 && chance(3),
+    choices: [
+      { label: "Order the flight, lean in", run: () => {
+        const cost = randomInt(120, 240);
+        applyEffects(`Five pours. The somm tried to teach you tannin and you actually listened. The bill was loud. So was the buzz.`, { money: -cost, happiness: 12, smarts: 4, looks: 1 }, "good");
+      } },
+      { label: "Bring a flask, fake the sips", run: () => applyEffects(`You nodded through the pairings, hit the flask in the bathroom. Auntie noticed. She didn't care.`, { money: -randomInt(35, 70), happiness: 6, discipline: -2 }) }
+    ]
+  },
+  {
+    title: "Smoke Taint Vintage",
+    text: () => `${pick(["Glass", "LNU Lightning", "Atlas", "Kincade"])} fire jumped the ridge. Smoke sat on the grapes for 11 days during fermentation. Owner's saying half the cab is unsellable.`,
+    when: p => p.location === "Napa Valley, CA" && p.age >= 18 && chance(3),
+    choices: [
+      { label: "Stay loyal, take a wage cut", run: () => applyEffects(`The boss appreciated it. You ate ramen for six months. Made you proof in a tough year.`, { money: -randomInt(2000, 6000), karma: 8, discipline: 8, happiness: -4 }) },
+      { label: "Switch wineries before they fold", run: () => {
+        const earned = randomInt(2000, 6000);
+        applyEffects(`You jumped to a producer up north before the rumor got out. Started fresh, ${money(earned)} signing bonus.`, { money: earned, discipline: 4, karma: -4 }, "good");
+      } },
+      { label: "Leave wine, work for the city", run: () => {
+        state.player.jobId = "service";
+        applyEffects(`You took a county job. Steady hours, real benefits, no more 4am calls. Lost a calling, gained a weekend.`, { money: 0, discipline: 6, happiness: 4, health: 6 });
+      } }
+    ]
+  },
+  {
+    title: "Spanish at Work, English at School",
+    text: () => `Your dad doesn't speak English at work and doesn't have to. Your teacher just sent home a note: parents need to sign it. ${state.player.name} is the translator now.`,
+    when: p => p.location === "Napa Valley, CA" && p.age >= 7 && p.age <= 14 && chance(3),
+    choices: [
+      { label: "Translate honestly, every word", run: () => applyEffects(`You read it through twice in Spanish at the kitchen table. Pops signed. Took you forty-five minutes. You felt older when you went to bed.`, { smarts: 8, karma: 6, happiness: 4, discipline: 4 }, "good") },
+      { label: "Soften the bad part", run: () => applyEffects(`You skipped over the "behavior concerns" paragraph. Pops signed without knowing. You'll tell him eventually.`, { smarts: 2, karma: -4, happiness: -2 }) }
+    ]
+  },
+
   {
     title: "Earthquake — Mid Shaker",
     text: () => `Shaking. Two seconds, then six, then eleven. Pictures off the wall, glass on the floor. Your phone screams the alert ten seconds late.`,
@@ -12578,6 +12893,309 @@ const events = [
         if (state.player.pets?.length) state.player.pets.shift();
         addCanonEvent(`${state.player.name} lost their pet.`, "bad");
         applyEffects(`The urn sits on the shelf with the photos. Some grief doesn\'t want a yard.`, { happiness: -14, karma: 4, money: -randomInt(200, 600) }, "bad");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // CULT ESCAPE — full chain, 6 deep events
+  // ============================================================
+  {
+    title: "Friend invited you to a 'gathering'",
+    text: () => `${pick((state.player.relationships || []).filter(r => r.bond >= 50 && r.type === "friend").map(r => r.name)) || "A friend"} invited you to dinner with their \"community.\" They\'ve been different lately. Calmer. Brighter. Almost too sure of things.`,
+    when: p => p.age >= 19 && (p.relationships || []).some(r => r.bond >= 50 && r.type === "friend") && !p.cultStatus && p.stats.happiness <= 60 && chance(4),
+    cooldown: 99,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Show up. See what it is.", run: () => {
+        state.player.cultStatus = "curious";
+        applyEffects(`Twelve people. Communal dinner. The leader spoke for an hour about purpose. You left feeling seen for the first time in years.`, { happiness: 8, smarts: 2, karma: -1 });
+      } },
+      { label: "Politely decline", run: () => applyEffects(`You said you had work. Friend stopped texting after the third decline.`, { discipline: 4 }) }
+    ]
+  },
+  {
+    title: "First donation",
+    text: () => `Three months in. The community has saved your life. They\'re asking for a \"contribution to the work.\" $${randomInt(2, 10)}K is the suggested floor.`,
+    when: p => p.cultStatus === "curious" && p.age >= 19 && p.money >= 2000 && chance(15),
+    cooldown: 4,
+    tags: ["drama", "money"],
+    choices: [
+      { label: "Give it all in. $20K.", run: () => {
+        state.player.cultStatus = "deep";
+        const amt = Math.min(state.player.money, 20000);
+        applyEffects(`You wrote the check Sunday. Felt holy. Old friends stopped getting return calls.`, { money: -amt, happiness: 12, karma: -10, discipline: -4 }, "bad");
+      } },
+      { label: "Give the suggested amount", run: () => {
+        state.player.cultStatus = "member";
+        const amt = randomInt(2000, 10000);
+        applyEffects(`Donation accepted. Leader hugged you publicly at the next gathering.`, { money: -amt, happiness: 6, karma: -4 });
+      } },
+      { label: "Walk out before the ask", run: () => {
+        state.player.cultStatus = null;
+        applyEffects(`Something registered. You drove home and didn\'t answer the texts that came in for a week.`, { discipline: 8, smarts: 6, happiness: 2 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Inner circle invitation",
+    text: () => `Leader pulled you into a private meeting. You\'re being trusted with the \"deeper teachings.\" Also — they want you recruiting now.`,
+    when: p => (p.cultStatus === "deep" || p.cultStatus === "member") && p.age >= 20 && chance(12),
+    cooldown: 99,
+    tags: ["drama", "fame"],
+    choices: [
+      { label: "Accept. Become a recruiter.", run: () => {
+        state.player.cultStatus = "inner-circle";
+        state.player.cultRecruits = 0;
+        addCanonEvent(`${state.player.name} joined the inner circle of the cult.`, "bad");
+        applyEffects(`Six recruits in your first quarter. Your \"results\" turned you into a featured speaker.`, { happiness: 14, fame: 6, karma: -16, money: randomInt(8000, 30000) });
+      } },
+      { label: "Decline the role. Stay rank-and-file.", run: () => applyEffects(`Leader was disappointed. Other members started looking at you sideways.`, { discipline: 6, happiness: -4, karma: 2 }) }
+    ]
+  },
+  {
+    title: "First crack",
+    text: () => `You overheard the leader talking about you in a way that contradicted ${pick(["everything they\'d told you privately", "what they teach in the public seminars", "the doctrine itself"])}. You can\'t un-hear it.`,
+    when: p => (p.cultStatus === "inner-circle" || p.cultStatus === "deep") && p.age >= 21 && chance(10),
+    cooldown: 99,
+    tags: ["drama"],
+    choices: [
+      { label: "Sit with the doubt. Investigate quietly.", run: () => {
+        state.player.cultStatus = "doubting";
+        applyEffects(`You started reading ex-member forums at 2am. Patterns emerged. The grief of the last 3 years started loading.`, { smarts: 14, happiness: -10, discipline: 6 });
+      } },
+      { label: "Suppress it. The work is real.", run: () => {
+        applyEffects(`You doubled down. Confessed your doubt to your \"sponsor.\" They reported you upward. Trust fractured.`, { happiness: -12, karma: -6, discipline: -4 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Escape attempt",
+    text: () => `You packed a bag at 3am. Cult-affiliated rideshare driver flagged your address. Texts from leadership, family-style, started flooding in. Some loving. Some not.`,
+    when: p => p.cultStatus === "doubting" && chance(20),
+    cooldown: 99,
+    tags: ["drama", "family"],
+    choices: [
+      { label: "Run. Block every number. Cold cut.", run: () => {
+        state.player.cultStatus = "escaped";
+        addCanonEvent(`${state.player.name} escaped the cult.`, "good");
+        if (typeof saveTrophy === "function") saveTrophy("cultEscape");
+        state.player.achievements = state.player.achievements || [];
+        if (!state.player.achievements.includes("cultEscape")) state.player.achievements.push("cultEscape");
+        applyEffects(`You crashed at a stranger\'s couch for two months. Got a new phone. Started over with $${randomInt(0, 200)} and a backpack.`, { money: -Math.floor(state.player.money * 0.6), happiness: 4, karma: 14, discipline: 18, smarts: 12 }, "good");
+      } },
+      { label: "Lawyer up. Sue for your money back.", run: () => {
+        state.player.cultStatus = "escaped";
+        if (chance(35)) {
+          const recovered = randomInt(40000, 200000);
+          addCanonEvent(`${state.player.name} sued the cult and won.`, "good");
+          applyEffects(`Two-year case. Settled. Money came back. So did your name.`, { money: recovered, fame: 8, karma: 16, smarts: 16, happiness: 8 }, "good");
+        } else {
+          applyEffects(`Years of legal back-and-forth. Cult had better lawyers. You walked away tired.`, { money: -randomInt(20000, 80000), discipline: 8, happiness: -8 }, "bad");
+        }
+      } },
+      { label: "Stay. Pretend you never doubted.", run: () => {
+        state.player.cultStatus = "trapped";
+        applyEffects(`You stayed for years past when you should\'ve left. The damage compounded.`, { happiness: -22, money: -randomInt(20000, 200000), karma: -12, discipline: -8 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Cult aftermath",
+    text: () => `Year out. Therapy weekly. The flashbacks come on a schedule. A documentary crew has been calling. Old members message looking for help.`,
+    when: p => p.cultStatus === "escaped" && p.age >= 22 && chance(10),
+    cooldown: 5,
+    tags: ["drama", "fame", "family"],
+    choices: [
+      { label: "Tell the whole story on the doc", run: () => {
+        addCanonEvent(`${state.player.name} went public about the cult.`, "good");
+        applyEffects(`Two-hour interview that streamed in 60 countries. Brought down the leader. Lawsuits and threats followed. So did letters from people you saved.`, { fame: 26, karma: 30, happiness: 8, money: randomInt(40000, 240000), businessReputation: 14 }, "good");
+      } },
+      { label: "Help ex-members privately. No press.", run: () => {
+        applyEffects(`Six people you helped left. They\'re doing better. You stayed anonymous. The work was real.`, { karma: 22, happiness: 12, discipline: 8, smarts: 8 }, "good");
+      } },
+      { label: "Bury it. Build a new life.", run: () => {
+        state.player.cultStatus = "buried";
+        applyEffects(`You moved cities. Changed your phone. Started telling people you were from somewhere else. Forgetting takes years.`, { discipline: 10, happiness: 4, money: -randomInt(2000, 8000) });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // MODELING SECOND ACT
+  // ============================================================
+  {
+    title: "Body inclusivity campaign",
+    text: () => `${pick(["Aerie", "Savage X Fenty", "Universal Standard", "Adidas"])} wants you back at 36. The pitch: real body, real story. The fee is bigger than your peak rate.`,
+    when: p => p.modelingPath === "retired" && p.age >= 34 && chance(8),
+    cooldown: 99,
+    tags: ["fame", "money"],
+    choices: [
+      { label: "Sign. Lead the campaign.", run: () => {
+        state.player.modelingPath = "second-act";
+        applyEffects(`Billboards in Times Square again. The conversation around it was different. Better.`, { money: randomInt(80000, 320000), fame: 22, karma: 12, happiness: 16 }, "good");
+      } },
+      { label: "Pass. Stay retired.", run: () => applyEffects(`You said no on principle. The principle held.`, { discipline: 8, karma: 4 }) }
+    ]
+  },
+  {
+    title: "Open your own agency",
+    text: () => `You know the games the agencies play because you played them. The girls coming up need someone who won\'t.`,
+    when: p => p.modelingPath === "second-act" && p.age >= 36 && p.money >= 80000 && chance(7),
+    cooldown: 99,
+    tags: ["business", "fame"],
+    choices: [
+      { label: "Open it. Take 8 girls year one.", run: () => {
+        state.player.modelingPath = "agent";
+        addCanonEvent(`${state.player.name} opened a modeling agency.`, "good");
+        applyEffects(`Different side of the table. Mom mode. Two of your girls landed major covers in 18 months.`, { money: randomInt(160000, 600000), businessReputation: 18, karma: 14, fame: 10 }, "good");
+      } },
+      { label: "Stay independent. Mentor informally.", run: () => applyEffects(`You took 4am calls from girls in panic for years. They named daughters after you.`, { karma: 22, happiness: 8 }) }
+    ]
+  },
+  {
+    title: "Memoir about the industry",
+    text: () => `Publisher wants the book. Names. Patterns. The agents who made you sign things at 16. The photographers who crossed lines.`,
+    when: p => (p.modelingPath === "second-act" || p.modelingPath === "agent") && p.age >= 38 && chance(5),
+    cooldown: 99,
+    tags: ["fame", "drama"],
+    choices: [
+      { label: "Name names. Burn the bridges.", run: () => {
+        state.player.books = (state.player.books || 0) + 1;
+        addCanonEvent(`${state.player.name} wrote a tell-all about the modeling industry.`, "good");
+        applyEffects(`Book hit. Lawsuits filed. Six powerful people lost jobs. Your name carried different weight after.`, { money: randomInt(80000, 400000), fame: 28, karma: 22, businessReputation: -8, happiness: 10 }, "good");
+      } },
+      { label: "Write the careful version", run: () => {
+        state.player.books = (state.player.books || 0) + 1;
+        applyEffects(`Sold quietly. Industry pretended nothing happened. You knew you knew.`, { money: randomInt(20000, 80000), discipline: 6 });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // WHISTLEBLOWER CHAIN
+  // ============================================================
+  {
+    title: "Saw something at work",
+    text: () => `${pick(["Accounting was cooking books for the quarterly", "The hospital was billing dead patients", "Pharma trial data was being scrubbed", "Police reports were being doctored"])}. You weren\'t supposed to see what you saw.`,
+    when: p => p.age >= 25 && p.jobId !== "none" && p.stats.smarts >= 60 && !p.whistleblowerPath && chance(3),
+    cooldown: 99,
+    tags: ["drama", "business"],
+    choices: [
+      { label: "Document everything. Quietly.", run: () => {
+        state.player.whistleblowerPath = "documenting";
+        applyEffects(`Encrypted USB drive. Two months of file-grabbing after hours. Your sleep got worse.`, { discipline: 8, smarts: 10, happiness: -6 });
+      } },
+      { label: "Pretend you didn\'t see it", run: () => {
+        applyEffects(`You buried it. Six months later it ate at you anyway.`, { karma: -8, happiness: -8 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Reach out to a journalist",
+    text: () => `${pick(["ProPublica", "NYT", "WSJ", "60 Minutes"])} reporter responded within an hour. Wants to meet. You have to decide on the record vs anonymous.`,
+    when: p => p.whistleblowerPath === "documenting" && p.age >= 26 && chance(20),
+    cooldown: 99,
+    tags: ["drama", "fame"],
+    choices: [
+      { label: "Go on the record. Public face.", run: () => {
+        state.player.whistleblowerPath = "public";
+        applyEffects(`Your name printed Tuesday. Phone hasn\'t stopped since.`, { fame: 18, karma: 22, happiness: -10, businessReputation: -14 });
+      } },
+      { label: "Anonymous source. Stay protected.", run: () => {
+        state.player.whistleblowerPath = "anonymous";
+        applyEffects(`Story ran. Your fingerprints clean. You watched it from the office and said nothing.`, { karma: 14, smarts: 8, discipline: 8 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Blowback hits",
+    text: () => `Lawyers. Cease-and-desist. ${pick(["Fired publicly", "Sued for breach of contract", "Doxxed across forums", "Surveilled outside your house"])}. Not everyone hates you. The ones who do are loud.`,
+    when: p => p.whistleblowerPath === "public" && p.age >= 27 && chance(25),
+    cooldown: 99,
+    tags: ["drama", "family"],
+    choices: [
+      { label: "Lawyer up. Counter-sue.", run: () => {
+        if (chance(45)) {
+          applyEffects(`Three years of court. You won. Settlement was eight figures. The company restructured.`, { money: randomInt(2000000, 8000000), fame: 22, karma: 18, smarts: 14 }, "good");
+        } else {
+          applyEffects(`Lost on a technicality. Spent your savings. Career-blacklisted in your industry.`, { money: -randomInt(80000, 400000), fame: 10, happiness: -22, karma: 8 }, "bad");
+        }
+      } },
+      { label: "Disappear. Move to a different state.", run: () => {
+        state.player.location = pick(["Portland, OR", "Asheville, NC", "Burlington, VT", "Bozeman, MT", "Santa Fe, NM"].concat(Object.keys(typeof origins !== "undefined" ? origins : {}))[0]);
+        applyEffects(`Different city, different name on the lease. Quieter years. The story still came up at parties.`, { happiness: 4, discipline: 6, money: -randomInt(8000, 30000), karma: 6 });
+      } },
+      { label: "Stay loud. Write a book.", run: () => {
+        state.player.books = (state.player.books || 0) + 1;
+        applyEffects(`Book signed in 18 months. Speaking circuit. Your name became a verb in the industry.`, { money: randomInt(80000, 400000), fame: 28, karma: 14, businessReputation: -10 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Vindicated years later",
+    text: () => `Seven years out. The company everyone defended is now the company everyone disowns. ${pick(["60 Minutes", "Netflix doc", "HBO miniseries", "Oprah special"])} wants to tell your version.`,
+    when: p => (p.whistleblowerPath === "public" || p.whistleblowerPath === "anonymous") && p.age >= 35 && chance(6),
+    cooldown: 99,
+    tags: ["fame", "drama"],
+    choices: [
+      { label: "Sit for the interview", run: () => {
+        addCanonEvent(`${state.player.name} was vindicated as a whistleblower.`, "good");
+        if (typeof saveTrophy === "function") saveTrophy("whistleblower");
+        state.player.achievements = state.player.achievements || [];
+        if (!state.player.achievements.includes("whistleblower")) state.player.achievements.push("whistleblower");
+        applyEffects(`Two-hour interview. Your story landed in living rooms. People stopped you on planes for years.`, { fame: 32, money: randomInt(100000, 800000), karma: 24, happiness: 16 }, "good");
+      } },
+      { label: "Decline. The fight\'s over.", run: () => {
+        applyEffects(`You let other people tell it. You went on a long walk that day instead.`, { happiness: 12, karma: 10, discipline: 6 });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // CRYPTO YOUTUBER PIVOT
+  // ============================================================
+  {
+    title: "Crypto rug video goes viral",
+    text: () => `You posted a 14-minute breakdown of how the rug pulled. Honest math. No coping. The video hit 800K views in a week.`,
+    when: p => p.cryptoBag === 0 && (p.canonEvents || []).some(c => c.text.toLowerCase().includes("rug") || c.text.toLowerCase().includes("crypto")) && !p.cryptoYTPath && chance(10),
+    cooldown: 99,
+    tags: ["fame", "money"],
+    choices: [
+      { label: "Start a real channel. Twice a week.", run: () => {
+        state.player.cryptoYTPath = "creator";
+        applyEffects(`Channel hit 80K subs in three months. Adsense + sponsorships became real money.`, { money: randomInt(8000, 40000), fame: 14, followers: randomInt(40000, 200000), happiness: 8 }, "good");
+      } },
+      { label: "One-and-done. Stay anonymous.", run: () => applyEffects(`The video stayed up. You went back to your life. People referenced it for years.`, { karma: 4, fame: 4 }) }
+    ]
+  },
+  {
+    title: "Hired by an exchange",
+    text: () => `Coinbase / Kraken-tier exchange wants you in a content / education role. $${randomInt(180, 320)}K + equity. They need credibility. You have it.`,
+    when: p => p.cryptoYTPath === "creator" && p.age >= 24 && chance(8),
+    cooldown: 99,
+    tags: ["business", "money"],
+    choices: [
+      { label: "Sign the deal", run: () => {
+        applyEffects(`In-house content guy. Equity vest 4 years. Your channel kept your independence.`, { money: randomInt(180000, 320000), businessReputation: 12, fame: 10 }, "good");
+      } },
+      { label: "Stay independent", run: () => applyEffects(`You kept full ownership. Sponsors paid more for unfiltered.`, { money: randomInt(40000, 200000), discipline: 8, businessReputation: 6 }) }
+    ]
+  },
+  {
+    title: "Crypto YouTuber burnout",
+    text: () => `Three years in. Every drop is a script. You can\'t watch crypto news without working. The algorithm punishes time off.`,
+    when: p => p.cryptoYTPath === "creator" && p.age >= 26 && chance(12),
+    cooldown: 99,
+    tags: ["drama"],
+    choices: [
+      { label: "Sell the channel. Six figures.", run: () => {
+        const sale = randomInt(120000, 800000);
+        applyEffects(`Channel sold to a content network. Non-compete for 2 years. Took the cash and slept.`, { money: sale, happiness: 18, discipline: 6 }, "good");
+        state.player.cryptoYTPath = "exited";
+      } },
+      { label: "Pivot to long-form podcast", run: () => {
+        applyEffects(`Went 90-minute interview format. Smaller numbers, deeper audience. Reset the relationship to the work.`, { happiness: 12, discipline: 6, smarts: 8 });
       } }
     ]
   },
@@ -19390,6 +20008,7 @@ function render() {
   renderMeters();
   renderBucketLive();
   if (typeof renderStatsGraph === "function") renderStatsGraph();
+  if (typeof renderChainBadges === "function") renderChainBadges();
   renderTabs();
   renderCanonEvents();
   renderTimeline();
@@ -19735,6 +20354,54 @@ function renderStatsGraph() {
     paths += `<polyline fill="none" stroke="${colors[stat]}" stroke-width="1.4" stroke-linejoin="round" points="${points.join(" ")}"/>`;
   });
   svg.innerHTML = paths;
+}
+
+
+// ============================================================
+// CHAIN PROGRESSION BADGE — show active career paths in character panel
+// ============================================================
+function getActiveChains(player) {
+  if (!player) return [];
+  const chains = [];
+  if (player.musicPath) chains.push({ label: "Music", stage: player.musicPath });
+  if (player.actingPath) chains.push({ label: "Acting", stage: player.actingPath });
+  if (player.modelingPath) chains.push({ label: "Modeling", stage: player.modelingPath });
+  if (player.kitchenPath) chains.push({ label: "Restaurant", stage: player.kitchenPath });
+  if (player.athleticPath) chains.push({ label: "Athletics", stage: player.athleticPath });
+  if (player.influencerPath) chains.push({ label: "Influencer", stage: player.influencerPath });
+  if (player.techPath) chains.push({ label: "Tech founder", stage: player.techPath });
+  if (player.realEstate?.units > 0) chains.push({ label: "Real estate", stage: `${player.realEstate.units} units` });
+  if (player.journalismPath) chains.push({ label: "Journalism", stage: player.journalismPath });
+  if (player.academicPath) chains.push({ label: "Academic", stage: player.academicPath });
+  if (player.climbingPath) chains.push({ label: "Climbing", stage: player.climbingPath });
+  if (player.cryptoYTPath) chains.push({ label: "Crypto YT", stage: player.cryptoYTPath });
+  if (player.realityTv) chains.push({ label: "Reality TV", stage: player.realityTv });
+  if (player.cultStatus && player.cultStatus !== "buried") chains.push({ label: "Cult", stage: player.cultStatus });
+  if (player.fosterParent) chains.push({ label: "Foster", stage: player.fosterParent });
+  if (player.military) chains.push({ label: player.military.branch, stage: player.military.deployments ? `${player.military.deployments} deploys` : "active" });
+  if (player.whistleblowerPath) chains.push({ label: "Whistleblower", stage: player.whistleblowerPath });
+  if (player.activistPath) chains.push({ label: "Activist", stage: player.activistPath });
+  return chains;
+}
+
+function renderChainBadges() {
+  const chains = getActiveChains(state.player);
+  let host = document.querySelector("#chainBadges");
+  if (!host) {
+    const after = document.querySelector("#bucketLive") || document.querySelector("#miniStats");
+    if (!after) return;
+    host = document.createElement("section");
+    host.id = "chainBadges";
+    host.className = "chain-badges";
+    after.parentNode.insertBefore(host, after.nextSibling);
+  }
+  if (!chains.length) { host.innerHTML = ""; return; }
+  host.innerHTML = `
+    <p class="chain-badges-kicker">Paths in motion</p>
+    <div class="chain-badge-list">
+      ${chains.map(c => `<span class="chain-badge"><strong>${c.label}</strong><span>${c.stage}</span></span>`).join("")}
+    </div>
+  `;
 }
 
 

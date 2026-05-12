@@ -128,27 +128,49 @@
           <label>
             Hometown
             <select id="homeInput">
-              <optgroup label="USA">
+              <optgroup label="USA — West">
                 <option>Los Angeles, CA</option>
                 <option>Hollywood, Los Angeles</option>
                 <option>Compton, CA</option>
-                <option>New York City, NY</option>
-                <option>Brooklyn, NY</option>
-                <option>The Bronx, NY</option>
-                <option>Chicago, IL</option>
-                <option>South Side, Chicago</option>
-                <option>Atlanta, GA</option>
-                <option>Miami, FL</option>
-                <option>Houston, TX</option>
-                <option>Nashville, TN</option>
-                <option>Hermitage, Nashville</option>
-                <option>Las Vegas, NV</option>
                 <option>Skid Row, Los Angeles</option>
+                <option>San Diego, CA</option>
                 <option>Oakland, CA</option>
                 <option>San Francisco, CA</option>
                 <option>Berkeley, CA</option>
                 <option>San Jose, CA</option>
+                <option>Sacramento, CA</option>
                 <option>Vacaville, CA</option>
+                <option>Napa Valley, CA</option>
+                <option>Las Vegas, NV</option>
+                <option>Phoenix, AZ</option>
+                <option>Denver, CO</option>
+                <option>Seattle, WA</option>
+                <option>Portland, OR</option>
+                <option>Honolulu, HI</option>
+              </optgroup>
+              <optgroup label="USA — Northeast">
+                <option>New York City, NY</option>
+                <option>Brooklyn, NY</option>
+                <option>The Bronx, NY</option>
+                <option>Newark, NJ</option>
+                <option>Philadelphia, PA</option>
+                <option>Boston, MA</option>
+                <option>Washington, D.C.</option>
+                <option>Baltimore, MD</option>
+              </optgroup>
+              <optgroup label="USA — Midwest & South">
+                <option>Chicago, IL</option>
+                <option>South Side, Chicago</option>
+                <option>Detroit, MI</option>
+                <option>Atlanta, GA</option>
+                <option>Miami, FL</option>
+                <option>Houston, TX</option>
+                <option>Dallas, TX</option>
+                <option>Austin, TX</option>
+                <option>Memphis, TN</option>
+                <option>New Orleans, LA</option>
+                <option>Nashville, TN</option>
+                <option>Hermitage, Nashville</option>
               </optgroup>
               <optgroup label="Latin America">
                 <option>Mexico City, Mexico</option>
@@ -158,13 +180,22 @@
               <optgroup label="Europe">
                 <option>London, UK</option>
                 <option>Paris, France</option>
+                <option>Dublin, Ireland</option>
+                <option>Berlin, Germany</option>
               </optgroup>
-              <optgroup label="Asia & Middle East">
+              <optgroup label="Asia, Africa, Oceania">
                 <option>Tokyo, Japan</option>
                 <option>Seoul, South Korea</option>
                 <option>Dubai, UAE</option>
+                <option>Mumbai, India</option>
+                <option>Lagos, Nigeria</option>
+                <option>Sydney, Australia</option>
               </optgroup>
             </select>
+          </label>
+          <label>
+            Or type any spot
+            <input id="customSpotInput" maxlength="40" placeholder="Stockton, CA · Boise · wherever" autocomplete="off" />
           </label>
           <label>
             Identity

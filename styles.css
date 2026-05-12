@@ -59,6 +59,7 @@ body[data-location="san-francisco-ca"]    { --loc-tint: rgba(150, 170, 190, 0.28
 body[data-location="berkeley-ca"]         { --loc-tint: rgba(140, 100, 150, 0.28); --loc-tint-2: rgba(110, 80, 140, 0.14); --loc-bottom: #0a0810; }
 body[data-location="san-jose-ca"]         { --loc-tint: rgba(210, 160, 90, 0.26);  --loc-tint-2: rgba(180, 130, 70, 0.14); --loc-bottom: #0c0a07; }
 body[data-location="vacaville-ca"]        { --loc-tint: rgba(190, 150, 70, 0.28);  --loc-tint-2: rgba(160, 120, 60, 0.14); --loc-bottom: #0d0a06; }
+body[data-location="napa-valley-ca"]      { --loc-tint: rgba(150, 70, 60, 0.30);   --loc-tint-2: rgba(120, 100, 50, 0.16); --loc-bottom: #0c0606; }
 
 /* NYC family — concrete blue */
 body[data-location="new-york-city-ny"]    { --loc-tint: rgba(90, 110, 140, 0.30); --loc-tint-2: rgba(70, 90, 130, 0.14); --loc-bottom: #06080c; }
@@ -4606,4 +4607,94 @@ h1, h2 {
   padding: 6px 12px;
   font-size: 0.78rem;
   width: 100%;
+}
+
+/* Achievement toast */
+.achievement-toast-host {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.achievement-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, rgba(217, 165, 49, 0.95), rgba(180, 132, 24, 0.92));
+  border: 1px solid rgba(255, 220, 140, 0.65);
+  border-radius: 12px;
+  color: #1a1410;
+  font-family: Inter, sans-serif;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  min-width: 240px;
+  max-width: 360px;
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 380ms cubic-bezier(0.2, 0.6, 0.2, 1), opacity 380ms ease;
+}
+.achievement-toast--in { transform: translateX(0); opacity: 1; }
+.achievement-toast--out { transform: translateX(120%); opacity: 0; }
+.achievement-toast-mark {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #1a1410;
+}
+.achievement-toast-body { display: flex; flex-direction: column; gap: 2px; }
+.achievement-toast-kicker {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.achievement-toast strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+/* Chain badges */
+.chain-badges {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(79, 126, 199, 0.05);
+  border: 1px solid rgba(79, 126, 199, 0.2);
+  border-radius: 10px;
+}
+.chain-badges-kicker {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #93b3df;
+  margin: 0 0 8px;
+}
+.chain-badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chain-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(79, 126, 199, 0.12);
+  border: 1px solid rgba(79, 126, 199, 0.3);
+  border-radius: 999px;
+  font-family: Inter, sans-serif;
+  font-size: 0.7rem;
+}
+.chain-badge strong {
+  color: #fffdf5;
+  font-weight: 700;
+}
+.chain-badge span {
+  color: #93b3df;
+  font-style: italic;
+  font-size: 0.66rem;
 }
