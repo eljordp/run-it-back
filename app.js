@@ -551,22 +551,30 @@ const heritageNames = {
   mixed: ["Ari", "Nova", "Riley", "Sage", "Kai", "Jules", "Devon", "Tess"]
 };
 
+// Gender-agnostic flavor templates. {parent} is replaced with "mom" or "dad".
 const parentOccupationFlavor = {
-  teacher: "your mom teaches 4th grade",
-  nurse: "your mom works nights at the hospital",
-  lawyer: "your mom is a litigator who reads contracts on vacation",
-  entrepreneur: "your mom runs her own thing",
-  artist: "your mom paints, sells some, struggles often",
-  executive: "your mom runs a department at a Fortune 500",
-  service: "your mom waits tables / cleans houses / drives Uber",
-  "stay-home": "your mom raises you and keeps the house",
-  absent: "your mom isn't around",
-  laborer: "your dad works construction / trades",
-  cop: "your dad's a cop / served in the military",
-  doctor: "your dad's a doctor who works late",
-  musician: "your dad plays gigs and does sessions",
-  hustler: "your dad runs the block, depending on what week it is"
+  teacher:       "your {parent} teaches 4th grade",
+  nurse:         "your {parent} works nights at the hospital",
+  lawyer:        "your {parent} is a litigator who reads contracts on vacation",
+  entrepreneur:  "your {parent} runs their own thing",
+  artist:        "your {parent} paints, sells some, struggles often",
+  executive:     "your {parent} runs a department at a Fortune 500",
+  service:       "your {parent} waits tables / cleans houses / drives Uber",
+  "stay-home":   "your {parent} keeps the house and raises you",
+  absent:        "your {parent} isn't around",
+  laborer:       "your {parent} works construction / trades",
+  cop:           "your {parent}'s a cop / served in the military",
+  doctor:        "your {parent}'s a doctor who works late",
+  musician:      "your {parent} plays gigs and does sessions",
+  hustler:       "your {parent} runs the block, depending on what week it is"
 };
+
+function parentFlavor(jobKey, isMom) {
+  const template = parentOccupationFlavor[jobKey];
+  const parent = isMom ? "mom" : "dad";
+  if (!template) return `your ${parent} ${isMom ? "did her own thing" : "worked something"}`;
+  return template.replace("{parent}", parent);
+}
 
 function pickParentOccupation(field, isMom) {
   if (field && field !== "random") return field;
@@ -1352,8 +1360,8 @@ function createPlayer() {
   addLog(`Personality: ${personality.label} — ${personality.tagline}.`, "good");
   addCanonEvent(`${name} grew into a ${personality.label}: ${personality.tagline}.`);
   // Custom-life canon: parents + heritage + faith
-  const momFlavor = parentOccupationFlavor[state.player.momJob] || `your mom did her own thing`;
-  const dadFlavor = parentOccupationFlavor[state.player.dadJob] || `your dad worked something`;
+  const momFlavor = parentFlavor(state.player.momJob, true);
+  const dadFlavor = parentFlavor(state.player.dadJob, false);
   addLog(`Home setup: ${momFlavor}, ${dadFlavor}.`, "good");
   addCanonEvent(`Grew up with ${momFlavor} and ${dadFlavor}.`);
   if (state.player.heritage && state.player.heritage !== "mixed") {
