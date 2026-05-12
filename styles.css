@@ -953,11 +953,10 @@ label {
 
 .location-strip {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 14px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   background:
@@ -969,42 +968,55 @@ label {
 .location-strip-inner {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  flex: 1;
+  gap: 2px;
   min-width: 0;
 }
 
+.location-strip-inner .kicker {
+  margin-bottom: 2px;
+}
+
 .location-name {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.01em;
+  line-height: 1.15;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .location-vibe {
   color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.4;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .location-strip-meta {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
+}
+
+.location-strip-meta:empty {
+  display: none;
 }
 
 .loc-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 5px 9px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .loc-tag.tag-class {
@@ -4009,4 +4021,157 @@ h1, h2 {
 .speed-row button {
   padding: 8px;
   font-size: 0.85rem;
+}
+
+/* ============================================================
+   MOBILE FINAL OVERRIDE — single source of truth for ≤720px.
+   Loaded last so it beats the earlier conflicting grid rules.
+   ============================================================ */
+@media (max-width: 720px) {
+  /* Stack everything as plain blocks. Earlier media queries left
+     panels with `grid-area: active` while the dashboard's
+     template-areas were the 5-row layout — that mismatch was
+     producing implicit columns and squishing every panel. */
+  .dashboard:not([hidden]) {
+    display: block !important;
+    grid-template-columns: none !important;
+    grid-template-areas: none !important;
+    gap: 0 !important;
+    margin: 8px !important;
+  }
+
+  .dashboard > .character-panel,
+  .dashboard > .life-panel,
+  .dashboard > .command-panel,
+  .dashboard > .assets-panel,
+  .dashboard > .people-panel {
+    display: none !important;
+    width: 100% !important;
+    grid-area: auto !important;
+    margin: 0 0 14px !important;
+    position: static !important;
+    top: auto !important;
+  }
+
+  body[data-mobile-tab="character"] .character-panel,
+  body[data-mobile-tab="life"] .life-panel,
+  body[data-mobile-tab="command"] .command-panel,
+  body[data-mobile-tab="assets"] .assets-panel,
+  body[data-mobile-tab="people"] .people-panel {
+    display: block !important;
+  }
+
+  /* Hints sit above the active panel as normal block flow. */
+  .first-life-hint {
+    width: auto !important;
+    margin: 0 0 12px !important;
+    grid-column: auto !important;
+  }
+  .first-year-hint {
+    position: static !important;
+    margin: 0 8px 10px !important;
+  }
+
+  /* Header: keep the title on one row, action buttons below it.
+     The 480px breakpoint already does this, but at 390-480 the
+     subtitle + h1 + 3 buttons all clash with each other. */
+  .game-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 12px 14px !important;
+    min-height: 0 !important;
+  }
+  .game-header > div:first-child {
+    min-width: 0;
+  }
+  .game-header h1 {
+    font-size: 1.5rem !important;
+    line-height: 1.1 !important;
+  }
+  #statusLine {
+    margin-bottom: 2px;
+  }
+  .header-actions {
+    display: flex !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+  .header-actions .ghost {
+    flex: 1;
+    padding: 10px 12px !important;
+    min-height: 44px !important;
+  }
+
+  /* AI chat: never let the SEND button truncate the input. */
+  .ai-form {
+    grid-template-columns: 1fr;
+    gap: 8px !important;
+  }
+  .ai-form input {
+    width: 100% !important;
+  }
+  .ai-form button {
+    width: 100% !important;
+  }
+
+  /* The location strip subtitle gets crammed at narrow widths. */
+  .location-strip-meta {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* Floating Age Up button: pull it above the bottom tab bar. */
+  .age-button {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px) + 12px) !important;
+    right: 16px !important;
+  }
+
+  /* Mini-stats / asset-summary / category-list as 2 columns. */
+  .mini-stats {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .game-header h1 {
+    font-size: 1.35rem !important;
+  }
+  .category-list {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.era-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--panel-3);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-family: Inter, sans-serif;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+.genre-filters {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.genre-filters label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--ink);
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.genre-filters input[type=checkbox] {
+  accent-color: var(--orange-2, #e07a3a);
 }

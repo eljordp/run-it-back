@@ -73,6 +73,29 @@ const origins = {
     locals: ["Pops", "Ms. Tisha", "Ray-Ray", "Lil Cuz"],
     hood: "the Row"
   },
+  "Oakland, CA": {
+    short: "the Town",
+    money: [30, 180],
+    costMod: 1.05,
+    fameMod: 1.0,
+    salaryMod: 0.95,
+    streetMod: 1.3,
+    vibe: "fog off the Bay, sideshows on dead-end blocks, A's gone, Town still here",
+    spawnLine: "born in the Town where everybody is from somewhere and the city raised its own",
+    locals: ["D-Lo", "Reesie", "K-Dub", "Ace", "Marquise"],
+    hood: "the Town"
+  },
+  "San Francisco, CA": {
+    short: "the City",
+    money: [120, 380],
+    costMod: 1.55,
+    fameMod: 1.15,
+    salaryMod: 1.35,
+    vibe: "Twin Peaks fog, Mission burritos, $9 oat lattes, tech in patagonia vests, rent that breaks people",
+    spawnLine: "born in the City where the rent is the conversation and tech rewrote the streets",
+    locals: ["Liang", "Sofia", "Tomás", "Riya", "Caleb"],
+    hood: "the City"
+  },
   "Hollywood, Los Angeles": {
     short: "Hollywood",
     money: [80, 280],
@@ -805,6 +828,19 @@ function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
+// Pick a friend name that isn't the player's own name. Prefers existing
+// non-family relationships if any, otherwise picks from a fallback pool.
+function friendName(player, fallbackPool) {
+  if (player && player.relationships) {
+    const friends = player.relationships.filter(r => r.type !== "family" && r.type !== "pet" && r.name !== player.name);
+    if (friends.length && Math.random() < 0.4) return pick(friends).name;
+  }
+  const playerName = player?.name || "";
+  const pool = (fallbackPool || []).filter(n => n !== playerName);
+  if (pool.length === 0) return pick(fallbackPool || ["Sage"]);
+  return pick(pool);
+}
+
 function uniquePicks(list, count) {
   const pool = [...list];
   const chosen = [];
@@ -840,12 +876,20 @@ function getEventTitle(event) {
   return null;
 }
 
+const GENRE_FILTER_KEY = "run-it-back-genre-filter";
+function getGenreFilter() {
+  try { return JSON.parse(localStorage.getItem(GENRE_FILTER_KEY) || "[]"); } catch (e) { return []; }
+}
+function setGenreFilter(arr) {
+  try { localStorage.setItem(GENRE_FILTER_KEY, JSON.stringify(arr || [])); } catch (e) {}
+}
+
 function pickLifeEvent(list, player = state.player) {
   const personality = personalityOf(player);
   const cooldowns = player.eventCooldowns || {};
 
   // First-pass filter: drop events still on 5-year cooldown
-  const fresh = list.filter(ev => {
+  let fresh = list.filter(ev => {
     const t = getEventTitle(ev);
     if (!t) return true;
     const lastAge = cooldowns[t];
@@ -853,6 +897,15 @@ function pickLifeEvent(list, player = state.player) {
     const window = ev.cooldown || 5;
     return (player.age - lastAge) >= window;
   });
+
+  // Genre filter: drop events whose tags include any of the blocked genres
+  const blocked = getGenreFilter();
+  if (blocked.length) {
+    fresh = fresh.filter(ev => {
+      const tags = ev.tags || [];
+      return !tags.some(t => blocked.includes(t));
+    });
+  }
 
   const pool = fresh.length > 0 ? fresh : list; // fallback to full list if all on cooldown
 
@@ -949,7 +1002,28 @@ function hasAsset(id) {
 
 const CURRENT_REAL_YEAR = 2026;
 
+const ERA_KEY = "run-it-back-era";
+function getEraChoice() {
+  try { return localStorage.getItem(ERA_KEY) || "now"; } catch (e) { return "now"; }
+}
+function setEraChoice(era) {
+  try { localStorage.setItem(ERA_KEY, era); } catch (e) {}
+}
+function eraToBirthYear(era) {
+  // Player runs from age 0 to ~80, so birth year = current year - 80 floor or specified era
+  const map = {
+    "1965": 1965,
+    "1985": 1985,
+    "2005": 2005,
+    "now": null  // null means use default pickBirthYear()
+  };
+  return map[era] || null;
+}
+
+
 function pickBirthYear() {
+  const eraYr = (typeof eraToBirthYear === "function") ? eraToBirthYear(getEraChoice()) : null;
+  if (eraYr) return eraYr;
   // Newborns spawn between 1980 and current year (so most lives play through
   // the 90s/2000s/2010s/2020s and decade-flavored events can hit).
   return 1980 + Math.floor(Math.random() * (CURRENT_REAL_YEAR - 1980 + 1));
@@ -1465,6 +1539,19 @@ function ageUp() {
     player.currentTrip = null;
   }
 
+  // Snapshot pre-year stats so we can build a digest line
+  const _preYear = {
+    money: player.money || 0,
+    health: player.stats?.health || 0,
+    happiness: player.stats?.happiness || 0,
+    fame: player.fame || 0,
+    followers: player.followers || 0,
+    discipline: player.stats?.discipline || 0,
+    smarts: player.stats?.smarts || 0,
+    relationships: (player.relationships || []).reduce((a, r) => a + (r.bond || 0), 0)
+  };
+  player._preYear = _preYear;
+
   player.age += 1;
   player.moves = movesForAge(player.age);
   player.ghostSeededThisYear = false;
@@ -1526,6 +1613,7 @@ function ageUp() {
     person.bond = clamp(person.bond + randomInt(-4, 1));
   });
   tickNPCArcs(player);
+  tickLifestyleConsequences(player);
   player.children = player.children.map(child => {
     if (typeof child === "string") child = { name: child, age: 1 };
     const aged = { ...child, age: (child.age || 0) + 1 };
@@ -1681,10 +1769,24 @@ function ageUp() {
   }
   checkDeath();
   checkMilestones();
+  emitYearDigest(player);
   saveGame();
   render();
 
-  if (player.alive) showEvent(pickLifeEvent(events.filter(event => event.when(player)), player));
+  if (player.alive) {
+    let filtered = events.filter(event => event.when(player));
+    // Apply branching lane locks
+    if (player.cityEventsLocked || player.offGrid) {
+      filtered = filtered.filter(e => !/yacht|paparazzi|club|nightlife|red carpet|fashion|party/i.test(e.title || ""));
+    }
+    if (player.fameTrackLocked || player.offGrid) {
+      filtered = filtered.filter(e => !/brand|reality|magazine|tour|award|grammy|oscar/i.test(e.title || ""));
+    }
+    if (player.partyLockedUntil && player.age < player.partyLockedUntil) {
+      filtered = filtered.filter(e => !/party|club|bar crawl|crashed|bachelor/i.test(e.title || ""));
+    }
+    showEvent(pickLifeEvent(filtered, player));
+  }
 }
 
 function livingCost() {
@@ -2336,6 +2438,211 @@ function assignNPCArc(person) {
     person.arc = pick(["loyal", "loyal", "snake", "spiral", "star", "ghost", "builder"]);
   }
   person.arcYears = 0;
+}
+
+// ============================================================
+// YEAR DIGEST — show the player what changed this year
+// ============================================================
+function emitYearDigest(player) {
+  if (!player || !player._preYear) return;
+  const pre = player._preYear;
+  const diffs = [];
+  const dMoney = (player.money || 0) - pre.money;
+  if (Math.abs(dMoney) >= 50) diffs.push(`${dMoney > 0 ? "+" : "-"}${money(Math.abs(dMoney))}`);
+  const dHealth = (player.stats?.health || 0) - pre.health;
+  if (Math.abs(dHealth) >= 2) diffs.push(`${dHealth > 0 ? "+" : ""}${dHealth} health`);
+  const dHappy = (player.stats?.happiness || 0) - pre.happiness;
+  if (Math.abs(dHappy) >= 2) diffs.push(`${dHappy > 0 ? "+" : ""}${dHappy} mood`);
+  const dDisc = (player.stats?.discipline || 0) - pre.discipline;
+  if (Math.abs(dDisc) >= 2) diffs.push(`${dDisc > 0 ? "+" : ""}${dDisc} discipline`);
+  const dSmart = (player.stats?.smarts || 0) - pre.smarts;
+  if (Math.abs(dSmart) >= 2) diffs.push(`${dSmart > 0 ? "+" : ""}${dSmart} smarts`);
+  const dFame = (player.fame || 0) - pre.fame;
+  if (Math.abs(dFame) >= 1) diffs.push(`${dFame > 0 ? "+" : ""}${dFame} fame`);
+  const dFol = (player.followers || 0) - pre.followers;
+  if (Math.abs(dFol) >= 100) diffs.push(`${dFol > 0 ? "+" : "-"}${Math.abs(dFol).toLocaleString()} followers`);
+  const dRel = (player.relationships || []).reduce((a, r) => a + (r.bond || 0), 0) - pre.relationships;
+  if (Math.abs(dRel) >= 6) diffs.push(`${dRel > 0 ? "+" : ""}${dRel} bonds`);
+  if (diffs.length === 0) {
+    addLog(`Year ${player.age}: a quiet one.`, "normal");
+  } else {
+    addLog(`Year ${player.age}: ${diffs.join(" · ")}.`, dHealth + dHappy + dDisc + dFame > 0 ? "good" : dHealth + dHappy < -4 ? "bad" : "normal");
+  }
+  delete player._preYear;
+}
+
+// ============================================================
+// LIFESTYLE CONSEQUENCES — actions actually change your year-tick
+// ============================================================
+function tickLifestyleConsequences(player) {
+  if (!player || !player.alive) return;
+  let logs = [];
+
+  // STREET / TRAP — passive income but heat compounds, health drags
+  const isTrapping = player.canonEvents?.some(c => /cooked|trap|moved bags|moved weight/i.test(c.text || "")) && !player.gang === false;
+  if (player.gang || player.gangHeat >= 4 || isTrapping) {
+    const take = randomInt(400, 3200) + (player.streetRep || 0) * 40;
+    player.money = (player.money || 0) + take;
+    logs.push(`Street money kept coming. ${money(take)} this year.`);
+    changeStat("health", -1);
+    changeStat("discipline", -1);
+    player.gangHeat = Math.max(0, (player.gangHeat || 0) + randomInt(0, 2));
+    if (player.gangHeat >= 12 && chance(20)) {
+      logs.push(`The block is hot. People you knew got picked up.`);
+      changeStat("happiness", -4);
+    }
+  }
+
+  // GUN OWNERSHIP — slight constant background tension
+  if (player.hasGun) {
+    if (chance(2)) {
+      logs.push("You had to pull it once. Nobody got hurt. The week after was different.");
+      changeStat("happiness", -3);
+      player.gangHeat = (player.gangHeat || 0) + 1;
+    }
+  }
+
+  // CULT LEADER — passive income from tithing, karma drags
+  if (player.isCultLeader) {
+    const tithes = randomInt(8000, 80000) + (player.followers || 0) * 4;
+    player.money += tithes;
+    changeStat("karma", -1);
+    logs.push(`Tithing came in. ${money(tithes)} from the community.`);
+  }
+
+  // OFF-GRID — no fame, no socials, real peace
+  if (player.offGrid) {
+    player.fame = Math.max(0, (player.fame || 0) - 2);
+    player.followers = Math.max(0, Math.floor((player.followers || 0) * 0.85));
+    changeStat("happiness", 2);
+    changeStat("health", 1);
+  }
+
+  // SAINT — slow karma climb, steady fame
+  if (player.isSaint) {
+    changeStat("karma", 2);
+    player.fame = (player.fame || 0) + 1;
+  }
+
+  // WEEKLY THERAPY — happiness baseline lifts, depression spirals reduced
+  if ((player.therapyWeeks || 0) >= 4) {
+    changeStat("happiness", 2);
+    changeStat("smarts", 1);
+    if (player.therapyWeeks >= 52) changeStat("discipline", 1);
+  }
+
+  // SSRI — flat happiness floor lift
+  if (player.onSSRI) {
+    if (player.stats.happiness < 45) player.stats.happiness = Math.min(100, player.stats.happiness + 4);
+  }
+
+  // CLEAN / IN RECOVERY — discipline and health compound
+  if ((player.recovery || 0) >= 4 && !player.usedHard && player.smokingLevel === 0) {
+    changeStat("discipline", 1);
+    changeStat("health", 1);
+    if ((player.recovery || 0) >= 12) changeStat("happiness", 1);
+  }
+
+  // MARRIED — shared living costs reduced; affection drift varies
+  if (player.married && player.age >= 18) {
+    if (chance(60)) {
+      const spouse = player.relationships?.find(r => r.type === "spouse");
+      if (spouse) changeBond(spouse, randomInt(-1, 2));
+    }
+  }
+
+  // KIDS — drain on money + happiness boost
+  const minorKids = (player.children || []).filter(c => c.age >= 0 && c.age <= 17).length;
+  if (minorKids > 0) {
+    const cost = minorKids * randomInt(3200, 8400);
+    player.money = Math.max(0, player.money - cost);
+    changeStat("happiness", minorKids);
+    changeStat("discipline", 1);
+    if (chance(8)) logs.push(`Raising ${minorKids} kid${minorKids === 1 ? "" : "s"} cost ${money(cost)} this year.`);
+  }
+
+  // HAS APARTMENT — happiness floor + monthly drain
+  if (player.hasApartment) {
+    const rent = randomInt(8000, 24000);
+    if (player.money >= rent) {
+      player.money -= rent;
+      changeStat("happiness", 1);
+    } else {
+      player.debt = (player.debt || 0) + rent;
+      changeStat("happiness", -6);
+      logs.push("Couldn't make rent. Went on the card.");
+    }
+  }
+
+  // SMOKING DEEP — multi-year compounding (already partly handled but reinforce)
+  if (player.smokingLevel >= 3 && player.yearsSmoking >= 10) {
+    changeStat("health", -2);
+    if (chance(5)) {
+      logs.push("Smoker's cough won't quit. You ignored it again.");
+    }
+  }
+
+  // VERIFIED / FAMOUS — DMs, opportunities, brand offers passively
+  if ((player.fame || 0) >= 40) {
+    if (chance(15)) {
+      const fee = randomInt(2000, 22000) + player.fame * 60;
+      player.money += fee;
+      logs.push(`Brand DM converted. ${money(fee)} for one post.`);
+    }
+  }
+
+  // CEO / POLITICAL OFFICE — salary already in annualPay, but business rep compounds
+  if (player.jobId === "ceo" || player.jobId === "president" || player.jobId === "congress" || player.jobId === "senate") {
+    changeStat("businessReputation", 2);
+  }
+
+  // BOOKIE DEBT — interest accrues
+  if (player.hasBookie && player.debt >= 2000) {
+    const interest = Math.floor(player.debt * 0.18);
+    player.debt += interest;
+    if (chance(20)) logs.push(`Bookie added ${money(interest)} in juice.`);
+  }
+
+  // ONLY-FANS / SUBSCRIPTION INCOME (compounding fame revenue)
+  if (player.canonEvents?.some(c => /OnlyFans|Patreon|Substack/i.test(c.text || ""))) {
+    const mrr = randomInt(400, 8000) + Math.floor((player.followers || 0) / 60);
+    player.money += mrr * 12;
+    if (chance(20)) logs.push(`Subscription income cleared ${money(mrr * 12)} this year.`);
+  }
+
+  // BUSINESS-LOSS RECOIL — large debt + no job = spiral
+  if (player.jobId === "none" && player.debt >= 60000 && player.age >= 22) {
+    changeStat("happiness", -4);
+    changeStat("discipline", -1);
+  }
+
+  // BJJ BELT — discipline compounds with training
+  if (player.bjjBelt && player.bjjBelt !== "white") {
+    changeStat("discipline", 1);
+    if (player.bjjBelt === "black") changeStat("happiness", 2);
+  }
+
+  // SOCIAL ISOLATION (off-grid OR jail OR rural + no socials)
+  if (player.relationships && player.relationships.filter(r => r.bond >= 50).length === 0 && player.age >= 25) {
+    changeStat("happiness", -2);
+    if (chance(10)) logs.push("Nobody's calling. You noticed.");
+  }
+
+  // TRUE LOVE ESTABLISHED — happiness floor
+  if (player.trueLoveClaimed) {
+    changeStat("happiness", 2);
+  }
+
+  // FOUNDER ECONOMY — own a business asset
+  if (hasAsset && (hasAsset("business") || hasAsset("franchise") || hasAsset("rental"))) {
+    // already handled in passiveIncome but reinforce reputation
+    changeStat("businessReputation", 1);
+  }
+
+  // Emit a single combined log line if anything happened
+  if (logs.length > 0) {
+    addLog(logs.join(" "), "normal");
+  }
 }
 
 function tickNPCArcs(player) {
@@ -3947,6 +4254,334 @@ const events = [
     choices: [
       { label: "Buy an air purifier and ride it out", run: () => applyEffects("You sealed the apartment. Bought N95s. Made it through.", { money: -400, health: -3, smarts: 3 }) },
       { label: "Leave for a month", run: () => applyEffects("You worked remote from somewhere with breathable air.", { money: -2400, happiness: 4, smarts: 3 }, "good") }
+    ]
+  },
+  // ============================================================
+  // FLAG-GATED EVENTS — these only fire because of who you became
+  // ============================================================
+  {
+    title: "Trap House Got Hit",
+    text: () => `Door kicked off the hinges at 3 AM. Federal warrant. They had two months of surveillance.`,
+    when: p => p.age >= 17 && p.gang && p.canonEvents?.some(c => /trap|cooked|moved bags|moved weight/i.test(c.text || "")) && chance(4),
+    choices: [
+      { label: "Plead, name nobody", run: () => {
+        startJailSentence(state.player, randomInt(2, 6), "trafficking — they had the surveillance tapes");
+      } },
+      { label: "Cooperate, get a deal", run: () => {
+        state.player.gang = null;
+        state.player.gangHeat = 0;
+        applyEffects("You named names. Got two years probation. The block knows.", { record: 2, streetRep: -20, karma: -8, happiness: -10, gangHeat: -10 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Federal Indictment",
+    text: () => `Marshals at the door, not local. Paperwork is thick.`,
+    when: p => p.age >= 22 && p.gang && p.gangHeat >= 15 && chance(3),
+    choices: [
+      { label: "Lawyer up, stay silent", run: () => {
+        if (state.player.hasLawyerOnRetainer && chance(40)) {
+          applyEffects("Lawyer carved it down to a state misdemeanor. Probation, no time.", { money: -randomInt(20000, 80000), record: 1, happiness: -10 }, "bad");
+        } else {
+          startJailSentence(state.player, randomInt(5, 12), "federal RICO");
+        }
+      } }
+    ]
+  },
+  {
+    title: "Therapy Breakthrough",
+    text: () => `Session 38. Therapist asked one question and the floor dropped.`,
+    when: p => (p.therapyWeeks || 0) >= 30 && chance(15),
+    choices: [
+      { label: "Stay with it", run: () => applyEffects("You cried for an hour. Walked out of the office different. The next year of relationships changed.", { happiness: 14, smarts: 6, discipline: 4, karma: 4 }, "good") }
+    ]
+  },
+  {
+    title: "SSRI Plateau",
+    text: () => `You've been on the same dose for 18 months. The lift is real but you wonder what's underneath.`,
+    when: p => p.onSSRI && chance(6),
+    choices: [
+      { label: "Taper down with doctor supervision", run: () => {
+        state.player.onSSRI = false;
+        applyEffects("Three-month taper. Felt every layer come back. You handled it.", { happiness: 6, smarts: 5, discipline: 6 }, "good");
+      } },
+      { label: "Stay the course", run: () => applyEffects("You said yes to the refill. The floor stayed up.", { happiness: 3, discipline: 2 }) }
+    ]
+  },
+  {
+    title: "Sponsor Asked You To Sponsor Somebody",
+    text: () => `You're three years clean. Your sponsor said it's time to sponsor somebody else.`,
+    when: p => (p.recovery || 0) >= 12 && !p.usedHard && p.smokingLevel === 0 && chance(5),
+    choices: [
+      { label: "Say yes", run: () => applyEffects("You took a newcomer through the steps. Their year clean was partly yours.", { karma: 16, recovery: 4, happiness: 10, discipline: 4 }, "good") },
+      { label: "Not ready", run: () => applyEffects("You said you weren't there yet. Sponsor nodded. Six months later you said yes.", { discipline: 4, smarts: 3 }) }
+    ]
+  },
+  {
+    title: "Followers Hit 100K",
+    text: () => `${(state.player.followers || 0).toLocaleString()} on the page. Brand deals are coming in unsolicited.`,
+    when: p => p.socialPage && (p.followers || 0) >= 100000 && !p.over100kReached && chance(40),
+    choices: [
+      { label: "Hire a manager", run: () => {
+        state.player.over100kReached = true;
+        state.player.hasManager = true;
+        applyEffects("You signed with a real management company. The next year you tripled income.", { money: -randomInt(2000, 8000), businessReputation: 4, fame: 4 }, "good");
+      } },
+      { label: "Stay independent", run: () => {
+        state.player.over100kReached = true;
+        applyEffects("You kept everything in-house. More work, more margin.", { discipline: 6, smarts: 4, happiness: 4 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Spouse Wants A Second House",
+    text: () => {
+      const s = state.player.relationships?.find(r => r.type === "spouse");
+      return `${s?.name || "Your spouse"} put together a real PowerPoint about a vacation home.`;
+    },
+    when: p => p.married && p.money >= 80000 && p.age >= 32 && chance(3),
+    choices: [
+      { label: "Buy it", run: () => {
+        state.player.assets = state.player.assets || [];
+        state.player.assets.push({ id: "rental", name: "Vacation house", value: 320000 });
+        applyEffects("You closed in three weeks. First weekend felt like a different life.", { money: -80000, happiness: 14, looks: 1 }, "good");
+      } },
+      { label: "Push it five years", run: () => applyEffects("You said in five. They'll bring it up again.", { happiness: -2, discipline: 4 }) }
+    ]
+  },
+  {
+    title: "Apartment Lease Got Bought Out",
+    text: () => `Landlord sold the building. New owner wants you out by end of quarter.`,
+    when: p => p.hasApartment && p.age >= 22 && chance(3),
+    choices: [
+      { label: "Take the buyout, find a better place", run: () => applyEffects("Bought out for $8K. Found a place you actually like.", { money: 8000 - randomInt(2000, 6000), happiness: 6, smarts: 4 }, "good") },
+      { label: "Fight to stay", run: () => {
+        if (chance(45)) applyEffects("Tenant law had your back. They couldn't move you.", { smarts: 8, happiness: 6, discipline: 4 }, "good");
+        else applyEffects("You lost. Out by month-end. Hotel for a week.", { money: -randomInt(2000, 8000), happiness: -10 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Cult Compound Audit",
+    text: () => `IRS sent two agents to the compound. They have questions about the tithing model.`,
+    when: p => p.isCultLeader && chance(4),
+    choices: [
+      { label: "Pay lawyers and accountants", run: () => applyEffects("$200K legal bill, walked away clean.", { money: -200000, smarts: 4, businessReputation: -2 }, "good") },
+      { label: "Wing it on faith", run: () => {
+        state.player.record = (state.player.record || 0) + 2;
+        applyEffects("Tax fraud charges. The community fractured.", { money: -randomInt(400000, 2000000), record: 2, fame: 4, happiness: -16 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Ranger Pulled Up",
+    text: () => `Forest service ranger at your gate. They're doing wellness checks on off-grid residents.`,
+    when: p => p.offGrid && chance(5),
+    choices: [
+      { label: "Coffee, real conversation", run: () => {
+        applyEffects("You made them coffee. They told you about three other folks living deeper. Real neighbors.", { karma: 4, happiness: 6, smarts: 3 }, "good");
+      } },
+      { label: "Wave them off", run: () => applyEffects("You stayed inside. They left a card. Felt rude after.", { happiness: -2, discipline: 1 }) }
+    ]
+  },
+  {
+    title: "Brand Cycle Refresh",
+    text: () => `Your agency wants to refresh the brand image. New shoots, new energy.`,
+    when: p => (p.fame || 0) >= 30 && p.hasManager && chance(6),
+    choices: [
+      { label: "Full rebrand", run: () => applyEffects("New look, new bio, new color palette. Followers jumped.", { money: -randomInt(4000, 18000), fame: 6, followers: randomInt(8000, 80000), looks: 2 }, "good") },
+      { label: "Stay the version that worked", run: () => applyEffects("You stayed the same. The algorithm noticed.", { fame: -3, happiness: 2 }) }
+    ]
+  },
+  {
+    title: "Office Politics",
+    text: () => `You're a VP now. Two reports are working against you with the CEO.`,
+    when: p => p.jobId === "ceo" && chance(4),
+    choices: [
+      { label: "Document everything, present clean", run: () => applyEffects("You walked into the all-hands with receipts. Both got reassigned.", { businessReputation: 6, smarts: 5, karma: -2 }, "good") },
+      { label: "Confront them directly", run: () => applyEffects("You called the meeting. The truth came out. Awkward, useful.", { smarts: 5, discipline: 4 }, "good") }
+    ]
+  },
+  {
+    title: "Political Opponent Goes Negative",
+    text: () => `Opposition research pulled something old. The story drops Friday.`,
+    when: p => (p.jobId === "mayor" || p.jobId === "senate" || p.jobId === "congress" || p.jobId === "councilmember") && chance(5),
+    choices: [
+      { label: "Get ahead of it", run: () => applyEffects("Your team broke the story themselves with full context. Voters rewarded honesty.", { fame: 4, politicalCapital: 6, smarts: 5 }, "good") },
+      { label: "Stonewall", run: () => applyEffects("No comment. The story compounded. Polls dropped.", { politicalCapital: -12, happiness: -10, fame: -4 }, "bad") }
+    ]
+  },
+  {
+    title: "Kids Asked About The Money",
+    text: () => `Your kid is 14 and they Googled you. They want to know what you really do.`,
+    when: p => p.age >= 32 && p.children?.some(c => c.age >= 12 && c.age <= 17) && (p.gang || p.bigScoreAttempted || p.isCultLeader) && chance(8),
+    choices: [
+      { label: "Tell them the truth", run: () => applyEffects("You said the real version. They went quiet for a week, then asked harder questions.", { karma: 4, smarts: 6, happiness: -4 }, "good") },
+      { label: "Lie clean", run: () => applyEffects("You gave them the cover story. They didn't believe it.", { karma: -4, happiness: -6 }, "bad") }
+    ]
+  },
+  {
+    title: "Saint Beatification Process",
+    text: () => `The diocese opened a beatification investigation. Real one.`,
+    when: p => p.isSaint && p.age >= 70 && chance(20),
+    choices: [
+      { label: "Cooperate", run: () => {
+        addCanonEvent(`${state.player.name} entered beatification process at ${state.player.age}.`);
+        applyEffects("Witnesses interviewed. Miracles documented. The process takes years.", { karma: 12, fame: 16, happiness: 12 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Bookie Sent Two Guys",
+    text: () => `Knock at the door. You know who they are. They want what you owe.`,
+    when: p => p.hasBookie && p.debt >= 8000 && chance(8),
+    choices: [
+      { label: "Pay in cash today", run: () => {
+        const owe = Math.min(state.player.money, state.player.debt);
+        state.player.debt -= owe;
+        state.player.money -= owe;
+        applyEffects(`Paid ${money(owe)}. They were cool about it.`, { happiness: -4, discipline: 3 }, "good");
+      } },
+      { label: "Hide / negotiate", run: () => {
+        if (chance(40)) applyEffects("You talked your way to another two weeks. Bought time.", { smarts: 5, happiness: -6 }, "good");
+        else applyEffects("They put you in the hospital. The debt got worse.", { health: -22, happiness: -16, money: -randomInt(2000, 8000) }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Veteran Of The Movement",
+    text: () => `Old organizers from the protests you attended in your 20s want you to speak at a 30-year retrospective.`,
+    when: p => p.age >= 50 && p.canonEvents?.some(c => /protest|march/i.test(c.text || "")) && chance(8),
+    choices: [
+      { label: "Speak", run: () => applyEffects("You walked through what worked, what didn't, what's still true. Young organizers in the front row took notes.", { karma: 12, fame: 6, happiness: 12, smarts: 5 }, "good") },
+      { label: "Send a written statement", run: () => applyEffects("You wrote a paragraph. They read it. Felt smaller than it should have.", { karma: 3, happiness: -2 }) }
+    ]
+  },
+  {
+    title: "Music Royalties Year-End",
+    text: () => `Royalty statement came in. The song you wrote at 19 is still streaming.`,
+    when: p => p.classCareer?.music && p.age >= 28 && chance(20),
+    choices: [
+      { label: "Cash it", run: () => {
+        const royalties = randomInt(800, 38000);
+        applyEffects(`${money(royalties)} from a song you forgot you wrote.`, { money: royalties, happiness: 8, fame: 1 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Patent Cited By A Big Company",
+    text: () => `Your patent from 8 years ago just showed up in a Fortune 500 product. Lawyer is on the phone.`,
+    when: p => p.classCareer?.coding && p.canonEvents?.some(c => /patent|seed/i.test(c.text || "")) && chance(8),
+    choices: [
+      { label: "Sue for infringement", run: () => {
+        if (chance(45)) {
+          const settle = randomInt(200000, 6000000);
+          applyEffects(`Settled out of court: ${money(settle)}.`, { money: settle, fame: 4, businessReputation: 8 }, "good");
+        } else applyEffects("They had a defense. You ate the legal bill.", { money: -randomInt(80000, 300000), smarts: 5 }, "bad");
+      } },
+      { label: "License it, take a cut", run: () => applyEffects("You took a licensing deal. Royalties for the patent's life.", { money: randomInt(80000, 800000), businessReputation: 6 }, "good") }
+    ]
+  },
+  {
+    title: "Drafted Athlete: Knee Injury",
+    text: () => `MRI confirmed it. ACL. Surgery, year off, comeback unclear.`,
+    when: p => p.classCareer?.sports && p.age <= 35 && chance(8),
+    choices: [
+      { label: "Surgery + rehab", run: () => applyEffects("You rehabbed for 14 months. Came back at 80%. Different player.", { money: -randomInt(20000, 100000), health: -8, discipline: 8, fitnessLevel: -8 }, "bad") },
+      { label: "Retire on insurance", run: () => {
+        state.player.classCareer.sports = false;
+        state.player.salaryBonus = Math.max(0, state.player.salaryBonus - 100000);
+        applyEffects("Career-ending. You took the payout and the broadcast offer.", { money: randomInt(200000, 2000000), fame: 4, businessReputation: 4 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Theater Career: Award Nomination",
+    text: () => `Your agent called. Tony nomination. The full circus this spring.`,
+    when: p => p.classCareer?.theater && p.age >= 24 && chance(5),
+    choices: [
+      { label: "Run the campaign", run: () => {
+        if (chance(35)) {
+          addCanonEvent(`${state.player.name} won a Tony at ${state.player.age}.`);
+          applyEffects("You won. Walked the stage. Speech ran one minute over.", { money: -randomInt(20000, 60000), fame: 18, happiness: 22, businessReputation: 6 }, "good");
+        } else {
+          applyEffects("Lost to a vet. The nomination still moved your career.", { money: -randomInt(20000, 60000), fame: 8, happiness: 4 }, "good");
+        }
+      } }
+    ]
+  },
+  {
+    title: "Apartment Got Bedbugs",
+    text: () => `You saw one on the pillow. Then three more. Building called in pest control.`,
+    when: p => p.hasApartment && chance(2),
+    choices: [
+      { label: "Full heat treatment", run: () => applyEffects("$2,400 and three days at a hotel. Done in a week.", { money: -2400, happiness: -8, smarts: 3 }, "bad") },
+      { label: "DIY for months", run: () => applyEffects("You DIY'd it. They came back twice. Sleep cratered.", { money: -800, happiness: -16, health: -3 }, "bad") }
+    ]
+  },
+  {
+    title: "Drag Race To DUI",
+    text: () => `Late night, empty road, you and somebody you barely know. Cops behind you mid-acceleration.`,
+    when: p => p.age >= 18 && p.hasGun && hasAsset && hasAsset("car") && chance(4),
+    choices: [
+      { label: "Pull over clean", run: () => {
+        if (chance(60)) applyEffects("They wrote a warning. Lucky.", { happiness: -2, discipline: 4 });
+        else applyEffects("DUI plus reckless driving. Real charges.", { record: 2, money: -randomInt(8000, 18000), happiness: -10 }, "bad");
+      } },
+      { label: "Try to lose them", run: () => {
+        state.player.risksTaken += 2;
+        if (chance(20)) applyEffects("Somehow you made it home. The story you can't tell sober.", { streetRep: 4, fame: 1, gangHeat: 2 }, "good");
+        else {
+          state.player.record += 3;
+          applyEffects("PIT maneuver. Crashed into a guardrail. Helicopter to the hospital. Felony evading.", { record: 3, health: -28, money: -randomInt(20000, 60000), happiness: -20 }, "bad");
+        }
+      } }
+    ]
+  },
+  {
+    title: "True-Love Anniversary Compounded",
+    text: () => {
+      const s = state.player.relationships?.find(r => r.type === "spouse");
+      return `Year ${state.player.age - (state.player.marriedAge || state.player.age)} with ${s?.name || "your spouse"}. The whole family came over.`;
+    },
+    when: p => p.trueLoveClaimed && (p.age - (p.marriedAge || p.age)) >= 1 && chance(15),
+    choices: [
+      { label: "Real toast", run: () => {
+        const s = state.player.relationships?.find(r => r.type === "spouse");
+        if (s) changeBond(s, 8);
+        applyEffects("You said the words. The room got quiet then loud.", { happiness: 10, karma: 3 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Off-Grid Got A Visitor",
+    text: () => `Somebody from your old life hiked four miles to find your cabin.`,
+    when: p => p.offGrid && chance(8),
+    choices: [
+      { label: "Let them in", run: () => applyEffects("You made coffee. Three days of real conversation. They left changed.", { karma: 6, happiness: 8, smarts: 4 }, "good") },
+      { label: "Tell them to leave", run: () => applyEffects("You said this is your peace. They got it. Walked back out.", { discipline: 6, happiness: 4 }, "good") }
+    ]
+  },
+  {
+    title: "Verified Account Got Hacked",
+    text: () => `Someone took your account. Posting crypto scams.`,
+    when: p => p.verified && chance(6),
+    choices: [
+      { label: "Lawyer + platform escalation", run: () => {
+        if (chance(70)) applyEffects("Got it back in 48 hours. Verification intact.", { money: -1200, smarts: 5, happiness: 4 }, "good");
+        else applyEffects("Platform fumbled. Account lost forever.", { fame: -10, followers: -Math.floor(state.player.followers * 0.6), happiness: -14 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Lifetime Achievement",
+    text: () => `Industry committee called. Lifetime achievement award at this year's ceremony.`,
+    when: p => p.age >= 60 && ((p.fame || 0) >= 50 || p.classCareer) && chance(20),
+    choices: [
+      { label: "Accept, full speech", run: () => {
+        addCanonEvent(`${state.player.name} got a lifetime achievement award at ${state.player.age}.`);
+        applyEffects("You named the people who made you. The standing ovation lasted four minutes.", { fame: 14, happiness: 20, karma: 6 }, "good");
+      } }
     ]
   },
   {
@@ -6693,7 +7328,114 @@ const events = [
     ]
   },
 
-  // ---- VEGAS ----
+  // ---- OAKLAND ----
+  {
+    title: "Sideshow on a Dead-End Block",
+    text: () => `Somebody dropped the pin: deep east, 90th and MacArthur, midnight. Tires already smoking. ${friendName(state.player, ["D-Lo", "Marquise", "Ace"])} swung through to scoop ${state.player.name}.`,
+    when: p => p.location === "Oakland, CA" && p.age >= 15 && chance(3),
+    choices: [
+      { label: "Hop the fence and watch", run: () => applyEffects(`Three cars doing donuts, crowd in a circle, ghost ride moves nobody from out of town would understand. You stayed til the police helicopter came up.`, { happiness: 12, streetRep: 5, fame: 2, health: -2 }, "good") },
+      { label: "Film it for the page", run: () => {
+        const followerGain = randomInt(400, 4800);
+        applyEffects(`Three angles, slow-mo on the donut. Posted at 1am. ${followerGain} new follows by morning.`, { followers: followerGain, fame: 4, happiness: 6, posts: 1 }, "good");
+      } },
+      { label: "Pass — you've seen it", run: () => applyEffects(`You told them next time. Stayed home. Got a real night's sleep.`, { discipline: 4, health: 2 }) }
+    ]
+  },
+  {
+    title: "Lake Merritt Walk",
+    text: () => `It's a Sunday. ${friendName(state.player, ["Reesie", "K-Dub", "Sofia"])} hit you up: "Lake?" Three miles around. Drum circle on the south end. Kids feeding the geese.`,
+    when: p => p.location === "Oakland, CA" && p.age >= 12 && chance(4),
+    choices: [
+      { label: "Full lap, real conversation", run: () => applyEffects(`You walked the whole loop. Caught up on three years in 45 minutes. Bought a ${pick(["loaded fries", "açaí bowl", "smoothie"])} from a vendor.`, { happiness: 12, health: 4, money: -randomInt(8, 22) }, "good") },
+      { label: "Half lap, coffee detour", run: () => applyEffects(`Cut through Grand Ave for a coffee. Bumped into someone you used to know. Two-minute reunion.`, { happiness: 6, money: -randomInt(5, 14) }) },
+      { label: "Pass — drove past it instead", run: () => applyEffects(`Said you were busy. Drove the 580 home. Sun was setting on the lake. You saw it through the window.`, { happiness: -2 }) }
+    ]
+  },
+  {
+    title: "Warriors Playoff Watch Party",
+    text: () => `Game 6 at Oracle was years ago but ${friendName(state.player, ["Big Ed", "Tre", "Reesie"])} is hosting a watch party at the spot. Wings, deep frying somebody's auntie made, and 14 people screaming at a TV.`,
+    when: p => p.location === "Oakland, CA" && p.age >= 14 && chance(3),
+    choices: [
+      { label: "Stay all four quarters", run: () => applyEffects(`You stayed til the buzzer. The Town won. Whole house was outside on the porch yelling at midnight.`, { happiness: 14, fame: 1, karma: 4, money: -randomInt(15, 35) }, "good") },
+      { label: "Halftime and out", run: () => applyEffects(`You ate a plate, said your goodbyes, and were home before traffic.`, { happiness: 6, discipline: 3, money: -randomInt(8, 20) }) }
+    ]
+  },
+  {
+    title: "Sleeping in a Garage Studio",
+    text: () => `Rent in the Town isn't LA money but it's not nothing. ${friendName(state.player, ["Marquise", "D-Lo"])} has a converted garage with a mattress on the floor for $400. Heat's iffy. Wifi's not.`,
+    when: p => p.location === "Oakland, CA" && p.age >= 19 && p.age <= 30 && p.money < 4000 && chance(4),
+    choices: [
+      { label: "Take it — save the difference", run: () => applyEffects(`You moved in. Eight months of saving. Got out with $${randomInt(3000, 9000)} you wouldn't have had otherwise.`, { money: randomInt(3000, 9000), discipline: 8, health: -3, happiness: -4 }, "good") },
+      { label: "Stretch for a real apartment", run: () => applyEffects(`You found a one-bedroom in West Oakland. Stove works, fridge hums. You're house-poor but it's yours.`, { money: -randomInt(1800, 3200), happiness: 6, discipline: 2 }) }
+    ]
+  },
+
+  // ---- SAN FRANCISCO ----
+  {
+    title: "$9 Latte Cofounder Pitch",
+    text: () => `Coffee shop in the Mission. ${friendName(state.player, ["Liang", "Caleb", "Riya"])} slides in, no introduction, opens a laptop. "I have an idea. You're the only person I'd build it with."`,
+    when: p => p.location === "San Francisco, CA" && p.age >= 18 && chance(3),
+    choices: [
+      { label: "Hear it out, full hour", run: () => {
+        if (state.player.stats.smarts >= 60 && chance(45)) {
+          applyEffects(`You poked at the idea. Held up under your questions. By the end you were sketching architecture on a napkin.`, { businessReputation: 8, smarts: 4, happiness: 8 }, "good");
+          state.player.aiMemory = state.player.aiMemory || [];
+          state.player.aiMemory.push("SF cofounder pitch absorbed");
+        } else {
+          applyEffects(`The idea didn't survive the hour. You let them down easy. They paid for the latte.`, { discipline: 4, smarts: 2 });
+        }
+      } },
+      { label: "Skim the deck, hard pass", run: () => applyEffects(`You looked for 90 seconds. "Not for me." They closed the laptop. Both of you were back to work in 20 minutes.`, { discipline: 6, smarts: 2 }) }
+    ]
+  },
+  {
+    title: "Mission Burrito Run",
+    text: () => `${pick(["La Taqueria", "El Farolito", "Taqueria Vallarta"])} at 11pm. Line is out the door. The carne asada super burrito is bigger than your forearm.`,
+    when: p => p.location === "San Francisco, CA" && p.age >= 13 && chance(4),
+    choices: [
+      { label: "Get the super, eat outside", run: () => applyEffects(`Aluminum foil on, sat on a bench by 24th and Mission. Hot sauce on your hand. Worth every dollar.`, { happiness: 12, health: -1, money: -randomInt(14, 22) }, "good") },
+      { label: "Grab and go, eat at home", run: () => applyEffects(`Walked it back to the apartment. Ate it standing over the sink so the foil drippings didn't ruin anything.`, { happiness: 8, money: -randomInt(12, 18) }) }
+    ]
+  },
+  {
+    title: "Rent Hike — Move or Stretch",
+    text: () => `Landlord email at 9am. Lease renewal: +$${randomInt(450, 1100)}/mo. You knew it was coming. You hoped it wouldn't be this bad.`,
+    when: p => p.location === "San Francisco, CA" && p.age >= 22 && chance(5),
+    choices: [
+      { label: "Stretch and stay", run: () => {
+        const hike = randomInt(450, 1100);
+        applyEffects(`You signed. Cut the gym membership and the food delivery apps. Stayed within walking distance of work.`, { money: -hike * 12, discipline: 8, happiness: -8 });
+      } },
+      { label: "Move to Oakland", run: () => {
+        state.player.location = "Oakland, CA";
+        addCanonEvent(`${state.player.name} moved across the Bay to Oakland. The City got too expensive.`, "good");
+        applyEffects(`You moved. BART to work. Saving $1,500/mo. The Town has more soul anyway.`, { money: 2000, happiness: 8, discipline: 4 }, "good");
+      } },
+      { label: "Couch surf for 3 months", run: () => applyEffects(`Slept on three friends' couches. Saved $${randomInt(4500, 9000)}. Made everyone love you a little less.`, { money: randomInt(4500, 9000), happiness: -10, karma: -4, discipline: 6 }) }
+    ]
+  },
+  {
+    title: "Karl the Fog Hike",
+    text: () => `Twin Peaks. Fog so thick you can't see the bridge. ${friendName(state.player, ["Caleb", "Sofia", "Tomás"])} brought a thermos. Tourists are screaming because they expected the postcard view.`,
+    when: p => p.location === "San Francisco, CA" && p.age >= 15 && chance(3),
+    choices: [
+      { label: "Stay until sunset breaks through", run: () => applyEffects(`You waited two hours. Fog parted for 14 minutes. The whole bay lit up gold. You got pictures.`, { happiness: 16, looks: 2, posts: 1, followers: randomInt(80, 600) }, "good") },
+      { label: "Bail when it gets cold", run: () => applyEffects(`You called it after 25 minutes. Got a hot chocolate downhill. Worth more than the view.`, { happiness: 6, money: -randomInt(6, 12) }) }
+    ]
+  },
+
+  // ---- SHARED BAY AREA ----
+  {
+    title: "BART at 1AM",
+    text: () => `Last train ${pick(["Pittsburg/Bay Point", "Daly City", "Richmond", "Dublin"])} direction. Half-empty car. Somebody's playing speakerphone at full volume. Somebody else is asleep across two seats.`,
+    when: p => (p.location === "Oakland, CA" || p.location === "San Francisco, CA") && p.age >= 16 && chance(3),
+    choices: [
+      { label: "AirPods in, mind your business", run: () => applyEffects(`You got home in one piece. Heard somebody crying through the music. Pretended you didn't.`, { discipline: 4, karma: -2 }) },
+      { label: "Help the asleep guy off at his stop", run: () => applyEffects(`Woke him up at Civic Center. He thanked you in two languages. You missed your own stop by one.`, { karma: 8, happiness: 4, discipline: -2 }, "good") },
+      { label: "Get off early, walk the rest", run: () => applyEffects(`You hopped off at Lake Merritt and walked 20 blocks home. Streets were dead quiet. Heard your own footsteps for the first time in weeks.`, { health: 2, happiness: 4 }) }
+    ]
+  },
   {
     title: "Casino Cocktail Job Offer",
     text: () => `A manager at ${pick(["Cosmopolitan", "Aria", "Bellagio", "Caesars"])} watched ${state.player.name} hand out drinks at a friend's house party. "We're hiring. Tips are real."`,
@@ -10303,6 +11045,666 @@ const events = [
     ]
   },
 
+  // ============================================================
+  // MODELING INDUSTRY — scout to retired
+  // ============================================================
+  {
+    title: "Scouted at the mall",
+    text: () => `${pick(["Westfield food court", "the airport gate", "outside the cafe", "in the train station"])}. Woman with a folder hands you her card. Says her agency just signed three girls from your zip code last year.`,
+    when: p => p.age >= 14 && p.age <= 22 && !p.modelingPath && p.stats.looks >= 78 && chance(7),
+    cooldown: 99,
+    tags: ["fame"],
+    choices: [
+      { label: "Show up to the test shoot", run: () => {
+        if (chance(50 + Math.floor(state.player.stats.looks / 5))) {
+          state.player.modelingPath = "signed";
+          addCanonEvent(`${state.player.name} got signed to a modeling agency.`, "good");
+          applyEffects(`Polaroids in a binder. Trip to NYC for fashion week prep. Your face is now content.`, { fame: 14, money: randomInt(2000, 12000), happiness: 10 }, "good");
+        } else {
+          applyEffects(`They wanted you 12 lbs lighter. You drove home with the card in the cup holder.`, { happiness: -8, looks: -1, discipline: 4 }, "bad");
+        }
+      } },
+      { label: "Throw the card out", run: () => applyEffects(`Probably for the best. The industry chews girls your age.`, { discipline: 4, karma: 2 }) }
+    ]
+  },
+  {
+    title: "First runway",
+    text: () => `${pick(["NYFW Spring", "Paris ready-to-wear", "Milan men\'s week", "London Fashion Week"])}. Fitting at midnight. Show at noon. Three other shows the same week.`,
+    when: p => p.modelingPath === "signed" && p.age >= 16 && chance(10),
+    cooldown: 99,
+    tags: ["fame", "travel"],
+    choices: [
+      { label: "Walk every show offered", run: () => {
+        applyEffects(`You worked 6 shows in 8 days. Lost 4 lbs. Booked editorial work off it.`, { fame: 18, money: randomInt(8000, 35000), looks: 2, health: -4, happiness: 6 }, "good");
+      } },
+      { label: "Do two. Save energy.", run: () => {
+        applyEffects(`Smarter approach. Better shows, better photos. Slower come-up.`, { fame: 8, money: randomInt(4000, 14000), discipline: 4, happiness: 4 });
+      } }
+    ]
+  },
+  {
+    title: "Vogue cover",
+    text: () => `Editor flew in to see you. Cover shoot booked. The September issue. The big one.`,
+    when: p => p.modelingPath === "signed" && p.age >= 18 && p.fame >= 35 && chance(6),
+    cooldown: 99,
+    tags: ["fame", "money"],
+    choices: [
+      { label: "Take it. Big career moment.", run: () => {
+        addCanonEvent(`${state.player.name} landed a Vogue cover.`, "good");
+        state.player.achievements = state.player.achievements || [];
+        if (!state.player.achievements.includes("vogueCover")) state.player.achievements.push("vogueCover");
+        applyEffects(`Your face on every newsstand for 30 days. Brand deals tripled. Everybody from your high school texted.`, { fame: 38, money: randomInt(80000, 320000), happiness: 18, looks: 4 }, "good");
+      } },
+      { label: "Pass. The shoot concept feels off.", run: () => applyEffects(`You said no for the right reason. The right cover came two years later.`, { fame: 4, discipline: 8, smarts: 4 }) }
+    ]
+  },
+  {
+    title: "Retired at 28",
+    text: () => `New girls every season. The bookings slowed. You\'re shooting catalog work and you can feel the math.`,
+    when: p => p.modelingPath === "signed" && p.age >= 26 && p.age <= 32 && chance(8),
+    cooldown: 99,
+    tags: ["fame", "drama"],
+    choices: [
+      { label: "Pivot to founding a brand", run: () => {
+        state.player.modelingPath = "retired";
+        applyEffects(`You launched a swimwear line off your following. Sold out the first drop. Different stress, better margins.`, { money: randomInt(40000, 200000), businessReputation: 12, fame: 10, happiness: 12 }, "good");
+      } },
+      { label: "Keep working catalog", run: () => {
+        applyEffects(`Steady money. Less glamour. The work was fine.`, { money: randomInt(30000, 90000), happiness: -4, discipline: 4 });
+      } },
+      { label: "Quit clean. Go back to school.", run: () => {
+        state.player.modelingPath = "retired";
+        if (state.player.educationRank < 4) state.player.educationRank = 4;
+        applyEffects(`You enrolled at 29. The other students looked at you funny for a semester. You graduated at 32.`, { smarts: 12, discipline: 8, happiness: 8 }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // RESTAURANT INDUSTRY — line cook to michelin
+  // ============================================================
+  {
+    title: "First line-cook job",
+    text: () => `Line cook spot at ${pick(["the diner on the corner", "the upscale brasserie downtown", "your cousin\'s restaurant", "a chain steakhouse"])}. $${randomInt(13, 18)}/hr. Hot kitchen. Long hours.`,
+    when: p => p.age >= 16 && p.age <= 28 && !p.kitchenPath && p.jobId === "none" && chance(6),
+    cooldown: 99,
+    tags: ["business"],
+    choices: [
+      { label: "Sign up. Take the line.", run: () => {
+        state.player.kitchenPath = "line";
+        applyEffects(`You burned your hands every week. Learned mise en place. Discipline rewired itself.`, { money: randomInt(2000, 6000), discipline: 12, smarts: 4, looks: -2, health: -2 }, "good");
+      } },
+      { label: "Pass. Find something less brutal.", run: () => applyEffects(`Probably the right call. The kitchen breaks people.`, { discipline: 2 }) }
+    ]
+  },
+  {
+    title: "Sous chef promotion",
+    text: () => `Two years on the line. Chef sat you down. \"You\'re running my kitchen on Wednesdays. We\'ll see how you do.\"`,
+    when: p => p.kitchenPath === "line" && p.age >= 19 && p.stats.discipline >= 60 && chance(10),
+    cooldown: 99,
+    tags: ["business"],
+    choices: [
+      { label: "Run it tight. Earn it.", run: () => {
+        state.player.kitchenPath = "sous";
+        addCanonEvent(`${state.player.name} made sous chef.`, "good");
+        applyEffects(`Wednesday became Tuesday-Wednesday. Then full-time sous. Salary jumped 60%.`, { money: randomInt(8000, 22000), discipline: 8, businessReputation: 6, happiness: 6 }, "good");
+      } },
+      { label: "Stay on the line. Don\'t want the politics.", run: () => applyEffects(`Pure cooking, no headaches. Money flat. Stress flat.`, { happiness: 4, discipline: 4 }) }
+    ]
+  },
+  {
+    title: "Open your own spot",
+    text: () => `Lease available on a 1,200 sq ft corner spot. ${randomInt(80, 240)}K to fit out. Three years to break even if you\'re lucky.`,
+    when: p => p.kitchenPath === "sous" && p.age >= 24 && p.money >= 80000 && chance(6),
+    cooldown: 99,
+    tags: ["business", "money"],
+    choices: [
+      { label: "Sign the lease. Open in 6 months.", run: () => {
+        state.player.kitchenPath = "owner";
+        const setup = randomInt(80000, 240000);
+        addCanonEvent(`${state.player.name} opened their first restaurant.`, "good");
+        applyEffects(`Soft open in November. Hard open December. Crit liked the menu. The dish room never got easier.`, { money: -setup, businessReputation: 14, fame: 8, discipline: 10, happiness: 12, health: -6 }, "good");
+        state.player.assets = state.player.assets || [];
+        state.player.assets.push({ id: "restaurant", name: "Your restaurant", value: setup * 1.2, income: randomInt(800, 4200) });
+      } },
+      { label: "Pass. Stay sous somewhere.", run: () => applyEffects(`The risk math wasn\'t there yet. You stayed under someone else\'s name.`, { discipline: 4, happiness: -2 }) }
+    ]
+  },
+  {
+    title: "Michelin star",
+    text: () => `The phone call came at 11am Pacific. The inspector confirmed by email at noon. One Michelin star. Your spot, your name, on the list.`,
+    when: p => p.kitchenPath === "owner" && p.age >= 28 && chance(5),
+    cooldown: 99,
+    tags: ["business", "fame"],
+    choices: [
+      { label: "Accept. Press tour.", run: () => {
+        addCanonEvent(`${state.player.name}\'s restaurant got a Michelin star.`, "good");
+        state.player.achievements = state.player.achievements || [];
+        if (!state.player.achievements.includes("michelin")) state.player.achievements.push("michelin");
+        applyEffects(`Reservations booked 4 months out by Friday. The team got raises. You got two hours of sleep that week.`, { fame: 22, money: randomInt(180000, 800000), businessReputation: 28, happiness: 20, health: -6 }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // CLIMATE DISPLACEMENT
+  // ============================================================
+  {
+    title: "Wildfire reaches your block",
+    text: () => `Smoke for three days. Evacuation order at 4am. You had ten minutes to grab what mattered. The house was ash by sundown.`,
+    when: p => p.age >= 18 && (p.location.includes("California") || p.location.includes("Los Angeles") || p.location.includes("Vegas")) && chance(2),
+    cooldown: 99,
+    tags: ["drama", "city"],
+    choices: [
+      { label: "Move to a different state. Clean slate.", run: () => {
+        const newCity = pick(["Chicago, IL", "Atlanta, GA", "Houston, TX", "New York City, NY"]);
+        state.player.location = newCity;
+        addCanonEvent(`${state.player.name} got displaced by a wildfire and moved to ${newCity}.`, "bad");
+        applyEffects(`Insurance covered some. Insurance didn\'t cover what mattered. New city by Q2.`, { money: -randomInt(20000, 80000), happiness: -16, smarts: 4, discipline: 6 }, "bad");
+      } },
+      { label: "Rebuild on the same lot", run: () => {
+        applyEffects(`Two years of construction. The neighborhood half-rebuilt. You felt rooted again.`, { money: -randomInt(120000, 400000), happiness: -8, karma: 6, discipline: 8 });
+      } }
+    ]
+  },
+  {
+    title: "Hurricane forced move",
+    text: () => `Storm took the roof and most of the contents. The block is empty now. The insurance company is dragging.`,
+    when: p => p.age >= 18 && (p.location.includes("Miami") || p.location.includes("Houston")) && chance(2),
+    cooldown: 99,
+    tags: ["drama", "city"],
+    choices: [
+      { label: "Take the buyout. Move inland.", run: () => {
+        const newCity = pick(["Atlanta, GA", "Chicago, IL", "Mexico City, Mexico"]);
+        state.player.location = newCity;
+        addCanonEvent(`${state.player.name} took the FEMA buyout after a hurricane.`, "bad");
+        applyEffects(`Cash hit the account. The grief took longer than the move.`, { money: randomInt(40000, 220000), happiness: -14, smarts: 4 }, "bad");
+      } },
+      { label: "Stay. Rebuild higher.", run: () => applyEffects(`You stayed. Built to code. Watched the next storm with different eyes.`, { money: -randomInt(60000, 240000), discipline: 10, happiness: -4 }) }
+    ]
+  },
+
+  // ============================================================
+  // CULT / MLM ARC
+  // ============================================================
+  {
+    title: "Friend pitched you the opportunity",
+    text: () => {
+      const f = (state.player.relationships || []).find(r => r.bond >= 50 && r.type === "friend");
+      const what = pick(["essential oils", "leggings", "supplements", "crypto trading", "spiritual coaching"]);
+      return f ? `${f.name} cornered you at brunch. "It\'s not an MLM, it\'s a movement. Six-figure earners in our upline. ${what}."` : `A friend cornered you with an opportunity.`;
+    },
+    when: p => p.age >= 19 && (p.relationships || []).some(r => r.bond >= 50 && r.type === "friend") && !p.mlmJoined && chance(5),
+    cooldown: 6,
+    tags: ["business", "drama"],
+    choices: [
+      { label: "Sign up. Buy the starter kit.", run: () => {
+        state.player.mlmJoined = true;
+        applyEffects(`$${randomInt(400, 1800)} in inventory in your garage. Three friends signed under you. Two stopped responding by month four.`, { money: -randomInt(800, 3200), karma: -4, happiness: -4 }, "bad");
+      } },
+      { label: "Politely decline", run: () => {
+        const f = (state.player.relationships || []).find(r => r.bond >= 50 && r.type === "friend");
+        if (f) changeBond(f, -8);
+        applyEffects(`They got cold for a year. Then quietly came back when they quit the company.`, { discipline: 6, karma: 4 });
+      } }
+    ]
+  },
+  {
+    title: "Deep in the cult",
+    text: () => `You\'re at every meeting. The leader knows your name. You stopped questioning the rules around month nine. Your old friends barely text.`,
+    when: p => p.mlmJoined && p.age >= 21 && chance(8),
+    cooldown: 5,
+    tags: ["drama", "family"],
+    choices: [
+      { label: "Stay in. Climb the hierarchy.", run: () => {
+        applyEffects(`Promoted. You\'re running a downline of 14 now. The numbers look great on the spreadsheet.`, { money: randomInt(8000, 30000), fame: 6, karma: -10, happiness: 4 });
+      } },
+      { label: "Walk out. Burn it.", run: () => {
+        state.player.mlmJoined = false;
+        addCanonEvent(`${state.player.name} got out of the cult.`, "good");
+        applyEffects(`They tried to love-bomb you back. Then they tried to threaten you. You stopped answering the phone.`, { happiness: 14, smarts: 12, karma: 14, money: -randomInt(2000, 12000) }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // ACTIVISM / SOCIAL MOVEMENT
+  // ============================================================
+  {
+    title: "First protest",
+    text: () => `${pick(["Downtown march", "Capitol steps", "Outside city hall", "Federal building"])}. Cold day. Strangers handing out water and signs.`,
+    when: p => p.age >= 16 && !p.activistPath && (p.stats.happiness >= 50 || p.canonEvents?.some(c => c.tone === "bad")) && chance(6),
+    cooldown: 4,
+    tags: ["drama"],
+    choices: [
+      { label: "Show up. Walk the route.", run: () => {
+        state.player.activistPath = "marcher";
+        applyEffects(`Marched 4 miles. Met three people you\'d see at the next one. Felt small and big at the same time.`, { karma: 10, happiness: 8, smarts: 4, discipline: 4 }, "good");
+      } },
+      { label: "Stay home. Donate online instead.", run: () => applyEffects(`Wrote a check. Felt proportional. Slept fine.`, { money: -randomInt(40, 240), karma: 4 }) }
+    ]
+  },
+  {
+    title: "Movement leadership",
+    text: () => `The local org wants you to lead the next push. Press, organizing, planning the sit-in. You\'d be the face for six months.`,
+    when: p => p.activistPath === "marcher" && p.age >= 18 && p.stats.discipline >= 50 && chance(7),
+    cooldown: 99,
+    tags: ["drama", "fame"],
+    choices: [
+      { label: "Take the role. All in.", run: () => {
+        state.player.activistPath = "leader";
+        addCanonEvent(`${state.player.name} took a leadership role in the movement.`, "good");
+        applyEffects(`Six months of 70-hour weeks. Press hits, sit-ins, two arrests for civil disobedience. The change came slow.`, { fame: 22, karma: 22, happiness: 6, discipline: 12, health: -6, record: 1 }, "good");
+      } },
+      { label: "Support from behind. Logistics, not face.", run: () => {
+        applyEffects(`You ran the donation pipeline and the legal-observer training. Nobody knew your name. The work happened.`, { karma: 14, smarts: 8, discipline: 8 }, "good");
+      } },
+      { label: "Burn out. Step back.", run: () => {
+        state.player.activistPath = null;
+        applyEffects(`You needed your weekends. The movement kept moving without you.`, { happiness: 8, discipline: 4 });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // INHERITANCE BATTLE
+  // ============================================================
+  {
+    title: "The will reading",
+    text: () => `Lawyer\'s office. Siblings around the table. The estate is bigger than anyone said. Your share is smaller than you expected.`,
+    when: p => p.age >= 30 && (p.relationships || []).some(r => r.id === "sibling") && !(p.relationships || []).some(r => r.id === "guardian") && chance(4),
+    cooldown: 99,
+    tags: ["family", "money", "drama"],
+    choices: [
+      { label: "Accept the share. Don\'t fight.", run: () => {
+        const cut = randomInt(10000, 80000);
+        addCanonEvent(`${state.player.name} took their share of the estate quietly.`, "good");
+        applyEffects(`You took the smaller cut. Family thanksgivings stayed possible.`, { money: cut, karma: 12, happiness: 4 }, "good");
+      } },
+      { label: "Lawyer up. Contest the will.", run: () => {
+        if (chance(40 + Math.floor(state.player.stats.smarts / 8))) {
+          const cut = randomInt(60000, 400000);
+          const sib = (state.player.relationships || []).find(r => r.id === "sibling");
+          if (sib) changeBond(sib, -32);
+          applyEffects(`You won. You also lost a sibling. The bigger check sits in an account you don\'t look at.`, { money: cut, karma: -12, happiness: -16 }, "bad");
+        } else {
+          applyEffects(`Court fees ate the inheritance. Family didn\'t talk to you for three Christmases.`, { money: -randomInt(8000, 40000), karma: -8, happiness: -16 }, "bad");
+        }
+      } }
+    ]
+  },
+
+  // ============================================================
+  // DNA TEST SURPRISE
+  // ============================================================
+  {
+    title: "DNA test results came back",
+    text: () => `${pick(["Ancestry", "23andMe", "MyHeritage"])} email. You opened it on the toilet. Half-brother in ${pick(["Sacramento", "Phoenix", "Memphis", "Detroit", "Tampa"])}. Same dad. Different mom. He didn\'t know either.`,
+    when: p => p.age >= 22 && !p.dnaSurprise && chance(3),
+    cooldown: 99,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Reach out. Set up a call.", run: () => {
+        state.player.dnaSurprise = true;
+        const name = pick(["Marcus", "Devon", "Cole", "Raymond", "Tyrese", "Eli"]);
+        state.player.relationships.push({ id: `dnasibling-${Date.now()}`, name, role: "Half-sibling (DNA reveal)", bond: randomInt(35, 60), type: "family", arc: "anchor" });
+        addCanonEvent(`${state.player.name} found a half-sibling through DNA.`, "good");
+        applyEffects(`First call ran 4 hours. He had your jaw. You both cried at the same memory neither of you actually had.`, { happiness: 14, karma: 12, smarts: 6 }, "good");
+      } },
+      { label: "Block the contact. Pretend you didn\'t see.", run: () => {
+        state.player.dnaSurprise = true;
+        applyEffects(`You closed the email. Thought about it every day for two months. Then less. Then sometimes.`, { happiness: -8, karma: -6, smarts: 2 });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // IVF / FERTILITY CHAIN
+  // ============================================================
+  {
+    title: "Trying to conceive isn\'t working",
+    text: () => `A year in. Negative tests, negative tests. The doctor wants both of you in for the panel. The conversation in the car after was quiet.`,
+    when: p => p.age >= 26 && p.age <= 42 && p.married && (p.children || []).length === 0 && !p.fertilityJourney && chance(5),
+    cooldown: 6,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Start IVF. Whatever it costs.", run: () => {
+        state.player.fertilityJourney = "ivf";
+        const round = randomInt(18000, 32000);
+        applyEffects(`Hormones, shots, the whole cycle. First round didn\'t take. You promised each other you\'d try once more.`, { money: -round, happiness: -8, health: -4, karma: 4 });
+      } },
+      { label: "Look into adoption", run: () => {
+        state.player.fertilityJourney = "adoption";
+        applyEffects(`Home study takes 18 months. The wait was its own grief. Different door, same desire.`, { money: -randomInt(8000, 35000), happiness: 4, karma: 8 });
+      } },
+      { label: "Accept that it\'s not happening", run: () => {
+        state.player.fertilityJourney = "childfree";
+        applyEffects(`You both grieved separately first, then together. The relationship found a different shape.`, { happiness: -6, karma: 8, smarts: 6 });
+      } }
+    ]
+  },
+  {
+    title: "IVF round results",
+    text: () => `Final round. The clinic called Tuesday morning at 9:14am.`,
+    when: p => p.fertilityJourney === "ivf" && p.age >= 27 && chance(15),
+    cooldown: 99,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Take the call. Hold breath.", run: () => {
+        if (chance(45)) {
+          const name = pick(["Mira", "Theo", "August", "Wren", "Sage"]);
+          state.player.children = state.player.children || [];
+          state.player.children.push({ name, age: 0, personality: pick(["calm", "wild", "bookworm"]), milestonesReached: {}, ivf: true });
+          state.player.relationships.push({ id: `ivf-${Date.now()}`, name, role: "Child via IVF", bond: randomInt(80, 95), type: "child" });
+          addCanonEvent(`${state.player.name} had a baby through IVF.`, "good");
+          applyEffects(`Positive. Healthy heartbeat. You sat in the parking lot crying for 20 minutes before driving home.`, { happiness: 26, karma: 16, money: -randomInt(8000, 20000) }, "good");
+          state.player.fertilityJourney = "child";
+        } else {
+          applyEffects(`Negative again. You both decided that was the last round. The grief got louder before it got quieter.`, { happiness: -22, money: -randomInt(18000, 32000), karma: 4, health: -4 }, "bad");
+          state.player.fertilityJourney = "childfree";
+        }
+      } }
+    ]
+  },
+
+  // ============================================================
+  // STOCK INVESTING — real ticker swings
+  // ============================================================
+  {
+    title: "Big day-trade play",
+    text: () => `${pick(["NVDA earnings call", "TSLA delivery numbers", "AAPL keynote", "META reorg news"])} drops in 30 min. Your account has $${randomInt(2, 40)}K. The Discord chat is loud.`,
+    when: p => p.age >= 18 && p.money >= 2000 && chance(6),
+    cooldown: 4,
+    tags: ["money"],
+    choices: [
+      { label: "All-in calls before the catalyst", run: () => {
+        const stake = Math.min(state.player.money, randomInt(2000, 40000));
+        if (chance(35 + Math.floor(state.player.stats.smarts / 8))) {
+          const win = sanePayout(stake * randomInt(2, 6));
+          applyEffects(`The catalyst hit. Calls printed. You took profits at the open and went for a walk.`, { money: win, happiness: 14, smarts: 4 }, "good");
+        } else {
+          applyEffects(`The print was bad. The calls went to zero. You stared at the screen for 40 minutes.`, { money: -stake, happiness: -16, smarts: 6 }, "bad");
+        }
+      } },
+      { label: "Stick to index funds", run: () => applyEffects(`SPY in the morning, SPY at night. Boring. Compounds.`, { money: randomInt(80, 600), discipline: 4 }) }
+    ]
+  },
+  {
+    title: "Ten-bagger find",
+    text: () => `Bought it at $${randomInt(2, 8)} two years ago because a friend mentioned it. Today it printed at $${randomInt(45, 180)}. Up 14x.`,
+    when: p => p.age >= 22 && p.money >= 5000 && chance(3),
+    cooldown: 99,
+    tags: ["money"],
+    choices: [
+      { label: "Sell everything. Take it all.", run: () => {
+        const haul = sanePayout(randomInt(60000, 600000));
+        addCanonEvent(`${state.player.name} caught a ten-bagger.`, "good");
+        applyEffects(`Wire took two days. You paid off everything and bought a place. Felt unreal for months.`, { money: haul, happiness: 22, smarts: 6, fame: 4 }, "good");
+      } },
+      { label: "Sell half. Let the rest ride.", run: () => {
+        const half = sanePayout(randomInt(30000, 280000));
+        applyEffects(`Took half off the table. The rest doubled. Or crashed. Either way you slept fine.`, { money: half, smarts: 8, discipline: 6 }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // CRYPTO ARC
+  // ============================================================
+  {
+    title: "First crypto buy",
+    text: () => `Coinbase form open. ${pick(["BTC at $42K", "ETH at $2,400", "SOL at $98", "$1K of meme coin"])}. Bull market chatter is everywhere.`,
+    when: p => p.age >= 18 && p.money >= 500 && !p.cryptoBag && chance(7),
+    cooldown: 4,
+    tags: ["money", "drama"],
+    choices: [
+      { label: "Send it. $$$ in.", run: () => {
+        state.player.cryptoBag = randomInt(500, 8000);
+        applyEffects(`Hit confirm. Watched the chart for 3 hours. Felt the volatility in your stomach.`, { money: -state.player.cryptoBag, happiness: 4, smarts: 2 });
+      } },
+      { label: "Read more first. Don\'t buy.", run: () => applyEffects(`You read for a week. Decided not to. Felt smart for 6 months. Felt dumb the next 6.`, { discipline: 4, smarts: 4 }) }
+    ]
+  },
+  {
+    title: "Bull cycle vs rug pull",
+    text: () => `The chart is doing something. Up 6x in two months, or down 80% in a week. You\'re watching live.`,
+    when: p => p.cryptoBag && p.age >= 19 && chance(12),
+    cooldown: 4,
+    tags: ["money", "drama"],
+    choices: [
+      { label: "Sell. Take the win or the lesson.", run: () => {
+        const bag = state.player.cryptoBag;
+        if (chance(50)) {
+          const win = sanePayout(bag * randomInt(3, 8));
+          applyEffects(`Sold near the top. Cash hit your account. You were a genius for a month.`, { money: win, happiness: 16, smarts: 4 }, "good");
+        } else {
+          const loss = Math.floor(bag * (randomInt(15, 40) / 100));
+          applyEffects(`The rug pulled. You sold at 20-40 cents on the dollar. Lessons cost what they cost.`, { money: loss, happiness: -16, smarts: 8 }, "bad");
+        }
+        state.player.cryptoBag = 0;
+      } },
+      { label: "Diamond hands. HODL forever.", run: () => {
+        if (chance(35)) {
+          const grow = sanePayout(state.player.cryptoBag * randomInt(2, 5));
+          applyEffects(`Years in. The bag printed. Your patience paid better than your day job.`, { money: grow, discipline: 12, smarts: 6 }, "good");
+          state.player.cryptoBag = 0;
+        } else {
+          applyEffects(`Three years sideways or down. The HODL cope wore thin. You\'re still holding.`, { happiness: -8, discipline: 4 });
+        }
+      } }
+    ]
+  },
+
+  // ============================================================
+  // FOSTER PARENT CHAIN
+  // ============================================================
+  {
+    title: "Foster certification call",
+    text: () => `You filled out the form on a whim months ago. The state called back. Home study scheduled. Two-week training course.`,
+    when: p => p.age >= 28 && p.age <= 55 && (p.stats.discipline >= 60 || (p.children || []).length === 0) && !p.fosterParent && p.money >= 5000 && chance(4),
+    cooldown: 8,
+    tags: ["family"],
+    choices: [
+      { label: "Do the training. Get certified.", run: () => {
+        state.player.fosterParent = "certified";
+        applyEffects(`Forty hours of class. Background check, fingerprints, the whole thing. Spare bedroom passed inspection.`, { karma: 12, smarts: 6, discipline: 8, money: -randomInt(400, 1200) }, "good");
+      } },
+      { label: "Don\'t go to the orientation", run: () => applyEffects(`You let it lapse. Maybe later. The form sat in a drawer.`, { discipline: 2, karma: -2 }) }
+    ]
+  },
+  {
+    title: "First placement",
+    text: () => {
+      const age = randomInt(2, 14);
+      const name = pick(["Jaylen", "Sky", "Marisol", "Diego", "Naomi", "Tre", "Aaliyah"]);
+      return `Caseworker arrived at 9pm with a child (${age}). One backpack. Two trash bags. ${name} wouldn\'t look at you.`;
+    },
+    when: p => p.fosterParent === "certified" && chance(15),
+    cooldown: 5,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Welcome them. Set up the room.", run: () => {
+        const name = pick(["Jaylen", "Sky", "Marisol", "Diego", "Naomi", "Tre", "Aaliyah"]);
+        const age = randomInt(2, 14);
+        state.player.children = state.player.children || [];
+        state.player.children.push({ name, age, personality: pick(["wild", "calm", "bookworm", "reckless"]), milestonesReached: {}, foster: true });
+        state.player.relationships.push({ id: `foster-${Date.now()}`, name, role: "Foster child", bond: randomInt(20, 50), type: "child", arc: "loyal" });
+        state.player.fosterParent = "active";
+        addCanonEvent(`${state.player.name} took in their first foster placement, ${name}.`, "good");
+        applyEffects(`First night they didn\'t sleep. Second night they did. Trust takes years. The work starts immediately.`, { karma: 18, happiness: 8, money: -randomInt(800, 2400), health: -2 }, "good");
+      } },
+      { label: "Refuse the placement", run: () => {
+        state.player.fosterParent = "certified";
+        applyEffects(`You weren\'t ready. Caseworker got it. Rare for them to call back fast.`, { karma: -8, discipline: 4 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Reunification with bio family",
+    text: () => {
+      const kid = (state.player.children || []).find(c => c.foster);
+      return kid ? `Court ruled to reunify ${kid.name} with their bio mom. You have 30 days. Suitcase sized goodbye.` : `A foster kid is going back to their bio family.`;
+    },
+    when: p => (p.children || []).some(c => c.foster) && chance(8),
+    cooldown: 99,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Send them off with everything they need", run: () => {
+        const kid = (state.player.children || []).find(c => c.foster);
+        if (kid) {
+          state.player.children = state.player.children.filter(c => c !== kid);
+          state.player.relationships = state.player.relationships.filter(r => r.name !== kid.name || r.type !== "child");
+          addCanonEvent(`${kid.name} reunified with their bio family.`, "good");
+        }
+        applyEffects(`Backpack stuffed with new clothes, books, a journal, your number. You drove home and cried for an hour.`, { karma: 22, happiness: -14, money: -randomInt(400, 1400), smarts: 6 }, "good");
+      } },
+      { label: "Fight for adoption instead", run: () => {
+        if (chance(30)) {
+          const kid = (state.player.children || []).find(c => c.foster);
+          if (kid) { kid.foster = false; kid.adopted = true; }
+          applyEffects(`Lawyer fees, hearings, character witnesses. The judge ruled your way. Your kid forever now.`, { money: -randomInt(8000, 30000), karma: 14, happiness: 22 }, "good");
+        } else {
+          applyEffects(`Court ruled against you. The goodbye was harder for the fight.`, { money: -randomInt(8000, 30000), happiness: -22, karma: 4 }, "bad");
+          const kid = (state.player.children || []).find(c => c.foster);
+          if (kid) {
+            state.player.children = state.player.children.filter(c => c !== kid);
+            state.player.relationships = state.player.relationships.filter(r => r.name !== kid.name || r.type !== "child");
+          }
+        }
+      } }
+    ]
+  },
+
+  // ============================================================
+  // PLASTIC SURGERY CHAIN
+  // ============================================================
+  {
+    title: "First cosmetic procedure",
+    text: () => `${pick(["Botox forehead consultation", "Lip filler appointment", "Rhinoplasty consult", "Buccal fat removal pitch"])}. Doctor showed you the before/after binder.`,
+    when: p => p.age >= 22 && !p.cosmeticHistory && p.money >= 1500 && (p.stats.looks <= 60 || p.fame >= 20) && chance(5),
+    cooldown: 4,
+    tags: ["fame", "drama"],
+    choices: [
+      { label: "Book it. Get the work done.", run: () => {
+        state.player.cosmeticHistory = 1;
+        if (chance(72)) {
+          applyEffects(`Subtle. Right amount. People said you looked rested.`, { money: -randomInt(800, 6000), looks: 8, happiness: 12 }, "good");
+        } else {
+          applyEffects(`Overdone. Friends asked if you were ok. Took 6 months to dissolve.`, { money: -randomInt(800, 6000), looks: -6, happiness: -10 }, "bad");
+        }
+      } },
+      { label: "Skip it. Buy better skincare.", run: () => applyEffects(`The $200 cream wasn\'t the surgery, but it wasn\'t nothing.`, { money: -200, looks: 2 }) }
+    ]
+  },
+  {
+    title: "Bigger work — surgery time",
+    text: () => `${pick(["BBL", "Tummy tuck", "Facelift", "Hair transplant", "Breast augmentation", "Mommy makeover"])}. Real surgery. Real recovery. Real money.`,
+    when: p => p.cosmeticHistory && p.age >= 26 && p.money >= 12000 && chance(5),
+    cooldown: 6,
+    tags: ["fame", "drama", "money"],
+    choices: [
+      { label: "Book the surgery. Best surgeon you can afford.", run: () => {
+        state.player.cosmeticHistory = (state.player.cosmeticHistory || 0) + 1;
+        if (chance(78)) {
+          applyEffects(`Recovery was rough. Six months in you couldn\'t stop looking in the mirror. People treated you different.`, { money: -randomInt(8000, 40000), looks: 14, happiness: 16, fame: 4, health: -4 }, "good");
+        } else {
+          applyEffects(`Complications. Revision required. Two years of surgeries to fix the first surgery.`, { money: -randomInt(20000, 90000), looks: -8, health: -14, happiness: -16 }, "bad");
+        }
+      } },
+      { label: "Discount surgeon overseas", run: () => {
+        if (chance(45)) {
+          state.player.cosmeticHistory = (state.player.cosmeticHistory || 0) + 1;
+          applyEffects(`The work was great. The flight back was painful.`, { money: -randomInt(3000, 12000), looks: 12, happiness: 8, health: -4 }, "good");
+        } else {
+          applyEffects(`The clinic was sketchy. Infection. Revision back home cost more than doing it right would have.`, { money: -randomInt(15000, 60000), looks: -8, health: -22, happiness: -22 }, "bad");
+        }
+      } }
+    ]
+  },
+  {
+    title: "Cosmetic addiction",
+    text: () => `Five procedures deep. The mirror keeps moving the goalpost. Your friends stopped commenting. The doctor keeps saying yes.`,
+    when: p => (p.cosmeticHistory || 0) >= 3 && p.age >= 30 && chance(8),
+    cooldown: 5,
+    tags: ["drama"],
+    choices: [
+      { label: "Stop. See a therapist about it.", run: () => {
+        applyEffects(`Took two years to stop wanting the next thing. Looked in the mirror and saw yourself again at month 14.`, { money: -randomInt(2400, 8000), happiness: 14, smarts: 8, karma: 6 }, "good");
+        state.player.inTherapy = true;
+      } },
+      { label: "One more. Just one more.", run: () => {
+        state.player.cosmeticHistory = (state.player.cosmeticHistory || 0) + 1;
+        applyEffects(`Each one looked smaller in the photo than in the mirror. The cycle kept.`, { money: -randomInt(8000, 30000), looks: -2, happiness: -8 }, "bad");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // LONG-DISTANCE RELATIONSHIP
+  // ============================================================
+  {
+    title: () => {
+      const partner = (state.player.relationships || []).find(r => r.type === "partner");
+      return partner ? `${partner.name} got the job out-of-state` : "Partner moving for work";
+    },
+    text: () => {
+      const partner = (state.player.relationships || []).find(r => r.type === "partner");
+      const where = pick(["Austin", "Seattle", "Boston", "Atlanta", "Denver", "DC"]);
+      return partner ? `${partner.name} got the offer in ${where}. Big career move. They want to know if you\'re moving too. Or if you can do this long-distance for a year.` : `Your partner is moving for work.`;
+    },
+    when: p => p.age >= 22 && (p.relationships || []).some(r => r.type === "partner" && r.bond >= 60) && !p.longDistance && chance(7),
+    cooldown: 6,
+    tags: ["romance", "drama"],
+    choices: [
+      { label: "Move with them", run: () => {
+        const where = pick(["Austin, TX", "Seattle, WA", "Boston, MA", "Atlanta, GA", "Denver, CO", "Houston, TX"]);
+        const partner = (state.player.relationships || []).find(r => r.type === "partner");
+        if (partner) changeBond(partner, 18);
+        state.player.location = where;
+        applyEffects(`You followed. Your career took a hit. Their career didn\'t. The relationship survived because you both knew what you sacrificed.`, { happiness: 8, karma: 10, money: -randomInt(2000, 12000) });
+      } },
+      { label: "Stay. Long-distance for a year.", run: () => {
+        state.player.longDistance = true;
+        applyEffects(`Three FaceTimes a week. Visits every six weeks. The phone bill went up. Both of you got better at saying things out loud.`, { discipline: 8, smarts: 6, money: -randomInt(2000, 8000) });
+      } },
+      { label: "Break it off. Clean cut.", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "partner");
+        if (partner) {
+          changeBond(partner, -60);
+          partner.role = "Ex";
+        }
+        applyEffects(`You ended it the night before they moved. Brutal. The right move maybe.`, { happiness: -16, discipline: 6 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Long-distance fatigue",
+    text: () => `Eight months in. The visits feel forced. The texting got transactional. You both know it\'s about to break or it\'s about to deepen.`,
+    when: p => p.longDistance && p.age >= 23 && chance(15),
+    cooldown: 5,
+    tags: ["romance", "drama"],
+    choices: [
+      { label: "One of you moves. Now.", run: () => {
+        state.player.longDistance = false;
+        const partner = (state.player.relationships || []).find(r => r.type === "partner");
+        if (partner) changeBond(partner, 20);
+        applyEffects(`The decision came hard but fast. You closed the distance. Felt like exhaling.`, { happiness: 18, karma: 6, money: -randomInt(3000, 14000) }, "good");
+      } },
+      { label: "Stay in it. Schedule visits more.", run: () => {
+        applyEffects(`You doubled the visit cadence. Bank account hurt. You both held on.`, { money: -randomInt(4000, 16000), happiness: 4, discipline: 6 });
+      } },
+      { label: "Mutual breakup", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "partner");
+        if (partner) {
+          changeBond(partner, -40);
+          partner.role = "Ex (long distance)";
+        }
+        state.player.longDistance = false;
+        applyEffects(`The phone call was 23 minutes. Both of you kept saying \"I love you, but.\" The pain was clean.`, { happiness: -18, smarts: 8, karma: 4 }, "bad");
+      } }
+    ]
+  },
+
   // DAY-ONE / CREW EVENTS. fire when ≥2 day-ones designated
   // ============================================================
   {
@@ -10825,7 +12227,11 @@ function applyForJob() {
     return;
   }
   const bias = lifeBias(state.player, "hireOdds");
-  const odds = 45 + Math.floor(state.player.stats.smarts / 4) + Math.floor(state.player.stats.discipline / 5) - state.player.record * 6 + bias;
+  let lockPenalty = 0;
+  if (state.player.officeJobLocked && next.id !== "creator" && next.id !== "musician" && next.id !== "founder") {
+    lockPenalty = -40;
+  }
+  const odds = 45 + Math.floor(state.player.stats.smarts / 4) + Math.floor(state.player.stats.discipline / 5) - state.player.record * 6 + bias + lockPenalty;
   if (chance(odds)) {
     state.player.jobId = next.id;
     const salaryMult = lifeBias(state.player, "salaryMult");
@@ -10885,7 +12291,10 @@ function dropOut() {
   rememberInterest("street", 1);
   player.school = "Dropped out";
   player.educationRank = Math.min(player.educationRank, 2);
-  applyEffects("You dropped out and got your time back. The future got wider and rougher at the same time.", {
+  // BRANCHING: drop-out kills the office-job path permanently
+  player.officeJobLocked = true;
+  player.collegePathOpen = false;
+  applyEffects("You dropped out and got your time back. The office-job path is closed. The future got wider and rougher.", {
     happiness: 4,
     discipline: -7,
     smarts: -2,
@@ -11204,9 +12613,12 @@ function joinStreetCrew() {
     years: 0
   };
   rememberInterest("street", 3);
+  // BRANCHING: joining a crew kills political office viability + clean corporate
+  player.officeJobLocked = true;
+  player.politicalPathLocked = true;
   const person = pick(originOf(player.location).locals.concat(peopleNames));
   player.relationships.push({ id: `crew-${Date.now()}`, name: person, role: "Street crew contact", bond: randomInt(24, 54), type: "friend" });
-  applyEffects(`You started hanging with ${player.gang.name}. Doors opened, clean exits got harder.`, {
+  applyEffects(`You started hanging with ${player.gang.name}. Doors opened, clean exits got harder. Office-job and political paths locked.`, {
     streetRep: 8,
     gangHeat: 2,
     happiness: 3,
@@ -15303,7 +16715,10 @@ function liveOffGrid() {
   player.offGrid = true;
   player.socialPage = false;
   player.followers = 0;
-  applyEffects("Sold the phone. Cabin off a forest service road. Generator, well, garden. Stayed.", { money: 5000, happiness: 22, health: 6, discipline: 8, karma: 5, fame: -20 }, "good");
+  // BRANCHING: off-grid kills city-event access AND fame-track AND business-pipeline
+  player.cityEventsLocked = true;
+  player.fameTrackLocked = true;
+  applyEffects("Sold the phone. Cabin off a forest service road. Generator, well, garden. Stayed. City events and fame events are off until you come back.", { money: 5000, happiness: 22, health: 6, discipline: 8, karma: 5, fame: -20 }, "good");
 }
 
 function foundASchool() {
@@ -16178,7 +17593,9 @@ function monasteryStay() {
   const player = state.player;
   const cost = 1200;
   if (player.money < cost) { applyEffects(`Two weeks at a working monastery runs ${money(cost)}.`, { happiness: -2 }); return; }
-  applyEffects("Two weeks with the monks. Morning bells, manual work, evening prayer. Real reset.", { money: -cost, happiness: 24, discipline: 10, karma: 10, smarts: 5, health: 3 }, "good");
+  // BRANCHING: monastery stay locks party path for 3 years
+  player.partyLockedUntil = player.age + 3;
+  applyEffects("Two weeks with the monks. Morning bells, manual work, evening prayer. Real reset. The party path is closed for three years.", { money: -cost, happiness: 24, discipline: 10, karma: 10, smarts: 5, health: 3 }, "good");
 }
 
 function volunteerShelter() {
@@ -16359,6 +17776,10 @@ function fundraiser() {
 }
 
 function runForOffice() {
+  if (state.player.politicalPathLocked) {
+    applyEffects("Your past closed this door. The crew tags follow you in every background check.", { happiness: -4, smarts: 3 }, "bad");
+    return;
+  }
   const odds = 22 + Math.floor(state.player.politicalCapital / 2) + Math.floor(state.player.fame / 5) - state.player.record * 12;
   if (chance(odds)) {
     state.player.jobId = "mayor";
@@ -17500,13 +18921,14 @@ function renderActivities() {
 
   let coreIds;
   if (state.player.inJail)           coreIds = ["legal"];
-  else if (state.player.age <= 5)    coreIds = ["little", "social", "hobby", "stores"];
-  else if (state.player.age <= 9)    coreIds = ["school", "classes", "city", "social", "hobby"];
-  else if (state.player.age <= 13)   coreIds = ["school", "classes", "teen", "socialmedia", "hobby", "foodfit"];
-  else if (state.player.age <= 17)   coreIds = ["school", "teen", "classes", "socialmedia", "street", "fame"];
-  else if (state.player.age <= 22)   coreIds = ["teen", "school", "classes", "money", "fame", "business"];
-  else if (state.player.age <= 28)   coreIds = ["school", "city", "money", "fame", "business", "social"];
-  else                               coreIds = ["city", "mind", "social", "money", "business", "fame"];
+  else if (state.player.age <= 5)    coreIds = ["little", "social", "hobby", "stores", "city"];
+  else if (state.player.age <= 9)    coreIds = ["school", "classes", "city", "social", "hobby", "stores", "foodfit"];
+  else if (state.player.age <= 13)   coreIds = ["school", "classes", "teen", "socialmedia", "hobby", "foodfit", "social", "stores", "city", "money", "adventure"];
+  else if (state.player.age <= 17)   coreIds = ["school", "teen", "classes", "socialmedia", "hobby", "foodfit", "social", "stores", "city", "money", "adventure", "fame", "vices", "street", "mind"];
+  else if (state.player.age <= 22)   coreIds = ["teen", "school", "classes", "money", "fame", "business", "social", "city", "adventure", "foodfit", "hobby", "vices", "socialmedia", "mind", "stores", "legal", "peaceful", "street"];
+  else if (state.player.age <= 28)   coreIds = ["school", "city", "money", "fame", "business", "social", "foodfit", "mind", "adventure", "hobby", "vices", "socialmedia", "stores", "legal", "politics", "peaceful", "street", "risk"];
+  else if (state.player.age <= 50)   coreIds = ["money", "business", "social", "city", "foodfit", "mind", "fame", "hobby", "adventure", "vices", "socialmedia", "stores", "legal", "politics", "peaceful", "school"];
+  else                               coreIds = ["city", "mind", "social", "money", "business", "fame", "peaceful", "hobby", "foodfit", "stores", "legal"];
 
   coreIds = coreIds.filter(id => ageGated.find(c => c.id === id));
 
@@ -19601,5 +21023,30 @@ function applyDailyChallenge() {
     const seed = applyDailyChallenge();
     dailyBtn.textContent = `Daily: ${seed.slice(5)} ✓`;
     setTimeout(() => { dailyBtn.textContent = "Today's Daily Seed"; }, 2200);
+  });
+})();
+
+// Era + Genre toggles in settings
+(function wireEraGenreToggles() {
+  const eraSel = document.querySelector("#eraSelect");
+  if (eraSel) {
+    eraSel.value = getEraChoice();
+    eraSel.addEventListener("change", () => setEraChoice(eraSel.value));
+  }
+  const genres = ["street", "drugs", "romance", "drama", "fame"];
+  genres.forEach(g => {
+    const cb = document.querySelector(`#genreFilter_${g}`);
+    if (!cb) return;
+    const blocked = getGenreFilter();
+    cb.checked = !blocked.includes(g);
+    cb.addEventListener("change", () => {
+      const current = getGenreFilter();
+      if (cb.checked) {
+        setGenreFilter(current.filter(x => x !== g));
+      } else {
+        if (!current.includes(g)) current.push(g);
+        setGenreFilter(current);
+      }
+    });
   });
 })();

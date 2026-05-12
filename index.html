@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700;800;900&display=swap" />
-    <link rel="stylesheet" href="styles.css?v=run-it-back-1" />
+    <link rel="stylesheet" href="styles.css?v=run-it-back-mobile-1" />
   </head>
   <body>
     <div class="title-cinematic" id="titleCinematic" aria-hidden="true">
@@ -144,6 +144,8 @@
                 <option>Hermitage, Nashville</option>
                 <option>Las Vegas, NV</option>
                 <option>Skid Row, Los Angeles</option>
+                <option>Oakland, CA</option>
+                <option>San Francisco, CA</option>
               </optgroup>
               <optgroup label="Latin America">
                 <option>Mexico City, Mexico</option>
@@ -472,6 +474,45 @@
 
     <div id="igCardRoot" aria-hidden="true"></div>
 
+    <dialog id="tinderDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">Swipe</span>
+          <button type="button" class="phone-app-close" id="tinderClose" aria-label="Close">✕</button>
+        </div>
+        <div class="tinder-deck" id="tinderDeck"></div>
+        <div class="tinder-actions">
+          <button type="button" class="swipe-btn swipe-no" id="tinderNo" aria-label="Pass">✕</button>
+          <button type="button" class="swipe-btn swipe-info" id="tinderInfo" aria-label="More">i</button>
+          <button type="button" class="swipe-btn swipe-yes" id="tinderYes" aria-label="Like">♥</button>
+        </div>
+        <div class="tinder-result" id="tinderResult" hidden></div>
+      </div>
+    </dialog>
+
+    <dialog id="igDialog" class="phone-app-dialog">
+      <div class="phone-app-frame">
+        <div class="phone-app-bar">
+          <span class="phone-app-title">New Post</span>
+          <button type="button" class="phone-app-close" id="igClose" aria-label="Close">✕</button>
+        </div>
+        <div class="ig-composer">
+          <div class="ig-photo-grid" id="igPhotoGrid"></div>
+          <div class="ig-section">
+            <p class="ig-section-label">Caption</p>
+            <div class="ig-caption-list" id="igCaptionList"></div>
+          </div>
+          <button type="button" class="primary wide" id="igPostBtn" disabled>Post</button>
+          <div class="ig-result" id="igResult" hidden></div>
+        </div>
+      </div>
+    </dialog>
+
+    <div class="result-toast" id="resultToast" hidden>
+      <div class="result-toast-text" id="resultToastText"></div>
+      <div class="result-toast-deltas" id="resultToastDeltas"></div>
+    </div>
+
     <dialog id="childChooserDialog" class="npc-dialog">
       <div class="npc-card-body">
         <p class="recap-kicker">Family line</p>
@@ -514,6 +555,24 @@
           <button class="ghost wide" id="audioBtn" type="button">Sound: off</button>
           <button class="ghost wide" id="matureBtn" type="button">Mature: on</button>
         </div>
+        <p class="settings-label">Born in</p>
+        <select id="eraSelect" class="era-select">
+          <option value="now">Modern era (default)</option>
+          <option value="1965">Born 1965 — Boomer arc</option>
+          <option value="1985">Born 1985 — Millennial arc</option>
+          <option value="2005">Born 2005 — Gen Z arc</option>
+        </select>
+
+        <p class="settings-label">Filter event genres</p>
+        <p class="settings-foot">Uncheck to block. Affects future runs.</p>
+        <div class="genre-filters">
+          <label><input type="checkbox" id="genreFilter_street" /> Street</label>
+          <label><input type="checkbox" id="genreFilter_drugs" /> Drugs</label>
+          <label><input type="checkbox" id="genreFilter_romance" /> Romance</label>
+          <label><input type="checkbox" id="genreFilter_drama" /> Drama</label>
+          <label><input type="checkbox" id="genreFilter_fame" /> Fame</label>
+        </div>
+
         <p class="settings-label">Speed run</p>
         <div class="speed-row">
           <button class="ghost" id="speed18" type="button">→ 18</button>
