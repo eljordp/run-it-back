@@ -517,6 +517,264 @@ h2 {
   color: #ffd2cb;
 }
 
+/* ============================================================
+   MOBILE TABS — single-panel view on phones with bottom nav
+   ============================================================ */
+.mobile-tabs {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  body {
+    padding-bottom: 76px;
+  }
+
+  .mobile-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    padding: 8px 6px max(8px, env(safe-area-inset-bottom)) 6px;
+    background: rgba(10, 12, 16, 0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .mobile-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 4px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+    min-height: 48px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .mobile-tab.active {
+    background: rgba(224, 122, 58, 0.16);
+    color: var(--orange, #e07a3a);
+  }
+
+  .mobile-tab-icon {
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+
+  .mobile-tab-label {
+    font-size: 0.66rem;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }
+
+  /* Only show the active panel */
+  .dashboard {
+    grid-template-areas: "active" !important;
+  }
+
+  .character-panel,
+  .life-panel,
+  .command-panel,
+  .assets-panel,
+  .people-panel {
+    display: none !important;
+    grid-area: active !important;
+  }
+
+  body[data-mobile-tab="character"] .character-panel,
+  body[data-mobile-tab="life"] .life-panel,
+  body[data-mobile-tab="command"] .command-panel,
+  body[data-mobile-tab="assets"] .assets-panel,
+  body[data-mobile-tab="people"] .people-panel {
+    display: block !important;
+  }
+
+  /* Bigger tap targets on mobile */
+  .category-button {
+    min-height: 56px !important;
+    padding: 10px 12px !important;
+  }
+
+  .activity-item, .activity-list button {
+    min-height: 48px !important;
+  }
+
+  .age-button, .mini-stats button, .ghost, .primary {
+    min-height: 44px;
+  }
+
+  /* Compress creator on mobile */
+  .creator-stage {
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .creator-cyclers {
+    grid-template-columns: 1fr 1fr !important;
+    width: 100% !important;
+  }
+
+  .creator-fields {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Recap card screenshot-friendly portrait */
+  .life-recap {
+    max-width: 100% !important;
+    width: 100vw !important;
+  }
+
+  .recap-card {
+    padding: 28px 20px 24px !important;
+    border-radius: 0 !important;
+    min-height: 100vh;
+  }
+
+  .preset-picker {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Even tighter at <420px */
+@media (max-width: 420px) {
+  .creator-cyclers {
+    grid-template-columns: 1fr !important;
+  }
+
+  .game-header h1 {
+    font-size: 1.4rem !important;
+  }
+
+  .recap-card .recap-name {
+    font-size: 1.8rem !important;
+  }
+}
+
+/* ============================================================
+   IG STORY CARD EXPORT — hidden offscreen 1080x1920 portrait
+   ============================================================ */
+#igCardRoot {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  pointer-events: none;
+}
+
+.ig-card {
+  width: 1080px;
+  height: 1920px;
+  padding: 120px 96px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(201, 42, 63, 0.22), transparent 60%),
+    linear-gradient(180deg, #1c2026 0%, #0d1014 100%);
+  color: #f5f5f5;
+  font-family: Inter, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  box-sizing: border-box;
+}
+
+.ig-card-logo {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto;
+}
+
+.ig-card-kicker {
+  font-size: 28px;
+  letter-spacing: 0.3em;
+  color: rgba(224, 122, 58, 0.95);
+  text-transform: uppercase;
+  text-align: center;
+  font-weight: 800;
+}
+
+.ig-card-name {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 110px;
+  line-height: 1.05;
+  text-align: center;
+  margin: 0;
+}
+
+.ig-card-sub {
+  font-size: 32px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.ig-card-spine {
+  margin-top: 24px;
+  padding: 40px;
+  background: linear-gradient(135deg, rgba(224, 122, 58, 0.18), rgba(224, 122, 58, 0.04));
+  border: 2px solid rgba(224, 122, 58, 0.4);
+  border-radius: 24px;
+  text-align: center;
+}
+
+.ig-card-spine-label {
+  font-size: 26px;
+  letter-spacing: 0.22em;
+  color: rgba(224, 122, 58, 0.95);
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.ig-card-spine-text {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 56px;
+  font-style: italic;
+  line-height: 1.2;
+  margin: 20px 0 0;
+}
+
+.ig-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: auto;
+}
+
+.ig-card-stat {
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.ig-card-stat-label {
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.ig-card-stat-value {
+  font-size: 42px;
+  font-weight: 800;
+  margin-top: 8px;
+}
+
+.ig-card-footer {
+  text-align: center;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
 .title-logo {
   display: block;
   width: 88px;
@@ -3627,4 +3885,128 @@ h1, h2 {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--orange-2, #e07a3a);
+}
+
+/* Bucket list in recap */
+.bucket-recap-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+.bucket-recap-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: Inter, sans-serif;
+  font-size: 0.85rem;
+}
+.bucket-recap-row--done {
+  background: rgba(217, 165, 49, 0.10);
+  border: 1px solid rgba(217, 165, 49, 0.4);
+  color: var(--ink);
+}
+.bucket-recap-row--missed {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.2);
+}
+.bucket-mark {
+  width: 18px;
+  text-align: center;
+  font-weight: 700;
+}
+.bucket-recap-row--done .bucket-mark { color: var(--orange-2, #e07a3a); }
+.bucket-recap-row--missed .bucket-mark { color: var(--muted); }
+.bucket-label { flex: 1; }
+.bucket-age {
+  font-size: 0.7rem;
+  color: var(--orange-2, #e07a3a);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Bucket list shown in character panel during play */
+.bucket-live {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(217, 165, 49, 0.25);
+  border-radius: 10px;
+  background: rgba(217, 165, 49, 0.04);
+}
+.bucket-live-kicker {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--orange-2, #e07a3a);
+  margin: 0 0 6px;
+}
+.bucket-live-list { display: grid; gap: 4px; font-size: 0.78rem; }
+.bucket-live-list .done { color: var(--ink); }
+.bucket-live-list .done::before { content: "✓ "; color: var(--orange-2, #e07a3a); font-weight: 700; }
+.bucket-live-list .pending { color: var(--muted); }
+.bucket-live-list .pending::before { content: "○ "; color: var(--soft); }
+
+/* Multi-gen child chooser + recap children */
+.child-chooser-sub {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 14px;
+  font-style: italic;
+}
+.child-chooser-list { display: grid; gap: 8px; }
+.child-pick {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start !important;
+  text-align: left;
+  gap: 4px;
+  padding: 14px 16px !important;
+}
+.child-pick strong {
+  font-family: var(--serif, Georgia, serif);
+  font-size: 1.05rem;
+}
+.child-pick span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.recap-children {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+.recap-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-family: Inter, sans-serif;
+}
+.recap-child strong { font-family: var(--serif, Georgia, serif); font-size: 0.95rem; }
+.recap-child span { font-size: 0.75rem; color: var(--muted); }
+.recap-child-stats { color: var(--orange-2, #e07a3a) !important; font-weight: 600; }
+
+.speed-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+.speed-row button {
+  padding: 8px;
+  font-size: 0.85rem;
 }

@@ -140,6 +140,8 @@
                 <option>Atlanta, GA</option>
                 <option>Miami, FL</option>
                 <option>Houston, TX</option>
+                <option>Nashville, TN</option>
+                <option>Hermitage, Nashville</option>
                 <option>Las Vegas, NV</option>
                 <option>Skid Row, Los Angeles</option>
               </optgroup>
@@ -164,11 +166,6 @@
             <select id="identityInput">
               <option>Guy</option>
               <option>Girl</option>
-              <option>Trans guy</option>
-              <option>Trans girl</option>
-              <option>Nonbinary</option>
-              <option>Genderfluid</option>
-              <option>Figuring it out</option>
             </select>
           </label>
           <label>
@@ -404,6 +401,29 @@
           <div class="people-list" id="relationships" role="list" aria-label="People in your life"></div>
         </section>
       </section>
+
+      <nav class="mobile-tabs" id="mobileTabs" aria-label="Panel navigation" hidden>
+        <button class="mobile-tab active" data-tab="character" type="button" aria-label="Character">
+          <span class="mobile-tab-icon">●</span>
+          <span class="mobile-tab-label">You</span>
+        </button>
+        <button class="mobile-tab" data-tab="life" type="button" aria-label="Life timeline">
+          <span class="mobile-tab-icon">◷</span>
+          <span class="mobile-tab-label">Life</span>
+        </button>
+        <button class="mobile-tab" data-tab="command" type="button" aria-label="Activities">
+          <span class="mobile-tab-icon">✦</span>
+          <span class="mobile-tab-label">Do</span>
+        </button>
+        <button class="mobile-tab" data-tab="assets" type="button" aria-label="Assets">
+          <span class="mobile-tab-icon">$</span>
+          <span class="mobile-tab-label">Money</span>
+        </button>
+        <button class="mobile-tab" data-tab="people" type="button" aria-label="People">
+          <span class="mobile-tab-icon">◍</span>
+          <span class="mobile-tab-label">People</span>
+        </button>
+      </nav>
     </main>
 
     <dialog id="choiceDialog">
@@ -441,10 +461,26 @@
         <div class="recap-actions">
           <button type="button" class="primary wide" id="recapNewLife">Start a new life</button>
           <button type="button" class="ghost wide" id="recapContinueLine" hidden>Continue family line →</button>
+          <button type="button" class="ghost wide" id="recapShareIG">Share to IG Story (1080×1920)</button>
           <button type="button" class="ghost wide" id="recapScreenshot">Share recap →</button>
+          <button type="button" class="ghost wide" id="recapChallenge">Challenge a friend with this seed</button>
           <button type="button" class="ghost wide" id="recapCopyLifeLink">Copy this life link</button>
           <button type="button" class="ghost wide" id="recapShareSeed">Copy "same seed" link</button>
         </div>
+      </div>
+    </dialog>
+
+    <div id="igCardRoot" aria-hidden="true"></div>
+
+    <dialog id="childChooserDialog" class="npc-dialog">
+      <div class="npc-card-body">
+        <p class="recap-kicker">Family line</p>
+        <h2>Pick which child to play next</h2>
+        <p class="child-chooser-sub">They inherit a share of the estate. Their stats and personality carry over.</p>
+        <div id="childChooserList" class="child-chooser-list"></div>
+        <form method="dialog" style="margin-top: 14px;">
+          <button type="submit" class="ghost wide">Cancel</button>
+        </form>
       </div>
     </dialog>
 
@@ -473,9 +509,16 @@
 
         <div class="npc-card-actions">
           <button class="ghost wide" id="hofBtn" type="button">★ Past lives</button>
+          <button class="ghost wide" id="dailyBtn" type="button">Today's Daily Seed</button>
           <button class="ghost wide" id="saveBtn" type="button">Save game</button>
           <button class="ghost wide" id="audioBtn" type="button">Sound: off</button>
           <button class="ghost wide" id="matureBtn" type="button">Mature: on</button>
+        </div>
+        <p class="settings-label">Speed run</p>
+        <div class="speed-row">
+          <button class="ghost" id="speed18" type="button">→ 18</button>
+          <button class="ghost" id="speed30" type="button">→ 30</button>
+          <button class="ghost" id="speed50" type="button">→ 50</button>
         </div>
 
         <p class="settings-foot">Mature off filters out parties, drugs, sex, and graphic violence events.</p>

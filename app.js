@@ -42,6 +42,8 @@ const realLocations = [
   "Atlanta, GA",
   "Miami, FL",
   "Houston, TX",
+  "Nashville, TN",
+  "Hermitage, Nashville",
   "London, UK",
   "Tokyo, Japan",
   "Mexico City, Mexico"
@@ -161,6 +163,28 @@ const origins = {
     spawnLine: "born in the city that turned hip-hop south and made it bigger than itself",
     locals: ["Quan", "Ari", "Mello", "Tasha"],
     hood: "the A"
+  },
+  "Nashville, TN": {
+    short: "Nash",
+    money: [40, 220],
+    costMod: 0.86,
+    fameMod: 1.15,
+    salaryMod: 0.98,
+    vibe: "Music Row, hot chicken, bachelorette buses, songwriters at every bar",
+    spawnLine: "born where every waiter has a demo and a publishing deal is a real career path",
+    locals: ["Sawyer", "Maddi", "Wyatt", "Ezra"],
+    hood: "Music City"
+  },
+  "Hermitage, Nashville": {
+    short: "Hermitage",
+    money: [30, 180],
+    costMod: 0.78,
+    fameMod: 0.85,
+    salaryMod: 0.96,
+    vibe: "Nashville's east-side suburb, Kurdish corner stores, Andrew Jackson's old land, kids playing soccer in cul-de-sacs",
+    spawnLine: "born in Hermitage where Nashville stops looking like a postcard and starts feeling like a real place",
+    locals: ["Rezan", "Dilan", "Sera", "Hawre"],
+    hood: "the H"
   },
   "Miami, FL": {
     short: "Miami",
@@ -398,6 +422,8 @@ const cityClassOdds = {
   "Chicago, IL":             { nepo: 4,  comfortable: 24, working: 38, struggling: 22, survival: 12 },
   "South Side, Chicago":     { nepo: 1,  comfortable: 9,  working: 36, struggling: 34, survival: 20 },
   "Atlanta, GA":             { nepo: 4,  comfortable: 22, working: 40, struggling: 24, survival: 10 },
+  "Nashville, TN":           { nepo: 5,  comfortable: 28, working: 40, struggling: 20, survival: 7 },
+  "Hermitage, Nashville":    { nepo: 0,  comfortable: 14, working: 48, struggling: 28, survival: 10 },
   "Miami, FL":               { nepo: 9,  comfortable: 22, working: 32, struggling: 25, survival: 12 },
   "Houston, TX":             { nepo: 3,  comfortable: 22, working: 42, struggling: 24, survival: 9 },
   "London, UK":              { nepo: 10, comfortable: 30, working: 32, struggling: 19, survival: 9 },
@@ -1039,6 +1065,44 @@ function spendMove() {
   state.player.moves = Math.max(0, state.player.moves - 1);
 }
 
+// ============================================================
+// BUCKET LIST — pick (or randomly assign) 3 life dreams.
+// Tracked over the run, shown in recap card.
+// ============================================================
+const bucketDreams = [
+  { id: "rich",       label: "Become rich",            check: p => (p.money + (p.assets||[]).reduce((s,a)=>s+(a.value||0),0)) >= 1000000 },
+  { id: "famous",     label: "Be famous",              check: p => (p.fame || 0) >= 60 },
+  { id: "love",       label: "Find love that lasts",   check: p => p.married && p.age >= 35 },
+  { id: "family",     label: "Have a family",          check: p => (p.children || []).length >= 1 },
+  { id: "travel",     label: "Travel the world",       check: p => (p.trips || []).length >= 5 },
+  { id: "build",      label: "Build a company",        check: p => p.company && p.company.valuation >= 100000 },
+  { id: "art",        label: "Make art that matters",  check: p => (p.books || 0) >= 1 || (p.championships || 0) >= 1 || ((p.viralHits || 0) >= 3) },
+  { id: "out",        label: "Make it out the hood",   check: p => p.location !== p.origin && (p.money >= 50000 || p.fame >= 25) },
+  { id: "legacy",     label: "Leave a legacy",         check: p => (p.children || []).length >= 1 && (p.achievements || []).length >= 8 }
+];
+
+function rollBucketList() {
+  // Shuffle and pick 3
+  const shuffled = bucketDreams.slice().sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 3).map(d => ({ id: d.id, label: d.label, fulfilled: false }));
+}
+
+function checkBucketList(player) {
+  if (!player || !player.bucketList) return;
+  player.bucketList.forEach(dream => {
+    if (dream.fulfilled) return;
+    const def = bucketDreams.find(d => d.id === dream.id);
+    if (def && def.check(player)) {
+      dream.fulfilled = true;
+      dream.fulfilledAge = player.age;
+      if (typeof addCanonEvent === "function") addCanonEvent(`Crossed off the dream: ${dream.label}.`, "good", player.age);
+      if (typeof addLog === "function") addLog(`★ Dream fulfilled: ${dream.label}`, "good");
+      if (typeof ringUpSfx === "function") ringUpSfx();
+    }
+  });
+}
+
+
 function createPlayer() {
   const focus = el.focusInput.value;
   const name = el.nameInput.value.trim() || pick(names);
@@ -1180,6 +1244,7 @@ function createPlayer() {
     history: [],
     canonEvents: [],
     quirks: {},
+    bucketList: rollBucketList(),
   };
 
   state.player.familyStyle = rollFamilyStyle(spawnKey);
@@ -1284,7 +1349,7 @@ function createPlayer() {
       flavor.forEach(line => addCanonEvent(`${name}: ${line}`));
     }
   }
-  addLog(`Personality: ${personality.label}. ${personality.tagline}.`, "good");
+  addLog(`Personality: ${personality.label} — ${personality.tagline}.`, "good");
   addCanonEvent(`${name} grew into a ${personality.label}: ${personality.tagline}.`);
   // Custom-life canon: parents + heritage + faith
   const momFlavor = parentOccupationFlavor[state.player.momJob] || `your mom did her own thing`;
@@ -1454,8 +1519,21 @@ function ageUp() {
   });
   tickNPCArcs(player);
   player.children = player.children.map(child => {
-    if (typeof child === "string") return { name: child, age: 1 };
-    return { ...child, age: (child.age || 0) + 1 };
+    if (typeof child === "string") child = { name: child, age: 1 };
+    const aged = { ...child, age: (child.age || 0) + 1 };
+    // Initialize child stats on first tick if missing
+    aged.stats = aged.stats || {
+      smarts: randomInt(38, 62),
+      looks: randomInt(40, 70),
+      discipline: randomInt(35, 65),
+      happiness: 60
+    };
+    // Subtle yearly drift driven by parent's discipline + happiness
+    const parentCare = Math.floor((player.stats.discipline + player.stats.happiness) / 25);
+    if (chance(40)) aged.stats.smarts = clamp((aged.stats.smarts || 50) + randomInt(0, parentCare));
+    if (chance(40)) aged.stats.discipline = clamp((aged.stats.discipline || 50) + randomInt(-1, parentCare));
+    if (chance(30)) aged.stats.happiness = clamp((aged.stats.happiness || 60) + randomInt(-2, parentCare));
+    return aged;
   });
   if (localRep(player) > 0) {
     changeLocalRep(randomInt(-1, 1));
@@ -2001,6 +2079,25 @@ function showLifeRecap() {
     }
   }
 
+  // Bucket list — dreams fulfilled vs missed
+  const bucket = player.bucketList || [];
+  if (bucket.length && achEl) {
+    const bucketKicker = document.createElement("p");
+    bucketKicker.className = "recap-kicker";
+    const fulfilled = bucket.filter(d => d.fulfilled).length;
+    bucketKicker.textContent = `Dreams (${fulfilled}/${bucket.length})`;
+    achEl.append(bucketKicker);
+    const bucketList = document.createElement("div");
+    bucketList.className = "bucket-recap-list";
+    bucket.forEach(d => {
+      const row = document.createElement("div");
+      row.className = `bucket-recap-row ${d.fulfilled ? "bucket-recap-row--done" : "bucket-recap-row--missed"}`;
+      row.innerHTML = `<span class="bucket-mark">${d.fulfilled ? "✓" : "✗"}</span><span class="bucket-label">${d.label}</span>${d.fulfilled ? `<span class="bucket-age">age ${d.fulfilledAge}</span>` : ""}`;
+      bucketList.append(row);
+    });
+    achEl.append(bucketList);
+  }
+
   // "What if" alternate ending. generate 2 contextual counterfactuals
   const whatIfEl = document.querySelector("#recapWhatIf");
   if (whatIfEl) {
@@ -2023,6 +2120,30 @@ function showLifeRecap() {
   const continueBtn = document.querySelector("#recapContinueLine");
   if (continueBtn) {
     continueBtn.hidden = !(player.children?.length > 0);
+    if (player.children?.length > 0) {
+      const eldest = player.children.reduce((a, b) => (a.age || 0) > (b.age || 0) ? a : b);
+      continueBtn.textContent = player.children.length === 1
+        ? `Continue as ${eldest.name} (${eldest.age})`
+        : `Continue family line (${player.children.length} kids)`;
+    }
+  }
+  // Render the children mini-list inside the recap
+  const achEl2 = document.querySelector("#recapAchievements");
+  if (achEl2 && player.children?.length > 0) {
+    const childKicker = document.createElement("p");
+    childKicker.className = "recap-kicker";
+    childKicker.textContent = `Children (${player.children.length})`;
+    achEl2.append(childKicker);
+    const chList = document.createElement("div");
+    chList.className = "recap-children";
+    player.children.forEach(c => {
+      const row = document.createElement("div");
+      row.className = "recap-child";
+      const stats = c.stats ? `${c.stats.smarts || 50} smarts · ${c.stats.discipline || 50} discipline` : "";
+      row.innerHTML = `<strong>${c.name}</strong><span>age ${c.age || 0}</span><span class="recap-child-stats">${stats}</span>`;
+      chList.append(row);
+    });
+    achEl2.append(chList);
   }
 
   try { el.lifeRecapDialog.showModal(); } catch (e) {}
@@ -2114,6 +2235,7 @@ function showEvent(event) {
 
 function finishTurn() {
   checkMilestones();
+  if (typeof checkBucketList === "function") checkBucketList(state.player);
   saveGame();
   render();
 }
@@ -2301,7 +2423,1575 @@ function runAction(action) {
   finishTurn();
 }
 
+// ============================================================
+// NPC-DRIVEN EVENTS (Phase B) — read player.relationships and fire
+// targeting specific people you actually have in your life
+// ============================================================
+function pickRel(player, filter) {
+  const pool = (player.relationships || []).filter(filter);
+  if (pool.length === 0) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 const events = [
+  {
+    title: "Mom Called With News",
+    text: () => {
+      const mom = pickRel(state.player, r => r.id === "guardian");
+      return `${mom?.name || "Mom"} called. She didn't open with "how are you."`;
+    },
+    when: p => p.age >= 16 && p.relationships.some(r => r.id === "guardian" && !r.deceased) && chance(2),
+    choices: [
+      { label: "Pick up", run: () => {
+        const mom = pickRel(state.player, r => r.id === "guardian");
+        const tone = chance(50) ? "good" : "bad";
+        if (tone === "good") {
+          if (mom) changeBond(mom, 6);
+          applyEffects(`${mom?.name || "Mom"} just needed to hear your voice. The call ran 90 minutes.`, { happiness: 8, karma: 3 }, "good");
+        } else {
+          if (mom) changeBond(mom, 4);
+          applyEffects(`${mom?.name || "Mom"} got a diagnosis. The call ended quiet.`, { happiness: -12, discipline: 3, money: -200 }, "bad");
+        }
+      } },
+      { label: "Let it ring", run: () => {
+        const mom = pickRel(state.player, r => r.id === "guardian");
+        if (mom) changeBond(mom, -8);
+        applyEffects("You hit decline and stared at the screen.", { happiness: -4, karma: -2, discipline: -2 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Day-One Wants You In Their Wedding",
+    text: () => {
+      const friend = pickRel(state.player, r => r.type === "friend" && r.bond >= 70);
+      return `${friend?.name || "Your day-one"} just got engaged. They want you standing up there with them.`;
+    },
+    when: p => p.age >= 22 && p.age <= 45 && p.relationships.some(r => r.type === "friend" && r.bond >= 70) && chance(2),
+    choices: [
+      { label: "Yes, brother", run: () => {
+        const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 70);
+        if (f) changeBond(f, 12);
+        addCanonEvent(`Stood up at ${f?.name || "a day-one"}'s wedding at ${state.player.age}.`);
+        applyEffects(`You said yes. Speech got people crying.`, { money: -1200, happiness: 14, karma: 5 }, "good");
+      } },
+      { label: "Decline, plead schedule", run: () => {
+        const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 70);
+        if (f) changeBond(f, -28);
+        applyEffects("They got it. They didn't get it.", { happiness: -8, karma: -3 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "The One You Cut Off Is In Town",
+    text: () => `Somebody from your past just posted a story from a bar two blocks from you.`,
+    when: p => p.age >= 18 && p.relationships.some(r => r.role?.includes("cut off") || (r.bond < 30 && r.type === "friend")) && chance(2),
+    choices: [
+      { label: "Reach out", run: () => {
+        const ex = pickRel(state.player, r => r.role?.includes("cut off") || (r.bond < 30 && r.type === "friend"));
+        if (ex) changeBond(ex, 18);
+        applyEffects(`You sent the text. ${ex?.name || "They"} replied in three minutes. You met up Tuesday.`, { happiness: 8, karma: 4, smarts: 3 }, "good");
+      } },
+      { label: "Block their story", run: () => applyEffects("You blocked them. The peace lasted a week.", { happiness: 2, discipline: 3 }) }
+    ]
+  },
+  {
+    title: "Sibling Spiraling",
+    text: () => {
+      const sib = pickRel(state.player, r => r.id === "sibling");
+      return `${sib?.name || "Your sibling"} hasn't been answering the family chat. Mom called you instead.`;
+    },
+    when: p => p.age >= 18 && p.relationships.some(r => r.id === "sibling" && !r.deceased) && chance(2),
+    choices: [
+      { label: "Drive over", run: () => {
+        const sib = pickRel(state.player, r => r.id === "sibling");
+        if (sib) changeBond(sib, 14);
+        applyEffects(`You found ${sib?.name || "them"} eating cereal for dinner. You stayed the night.`, { money: -120, happiness: 6, karma: 8, discipline: 3 }, "good");
+      } },
+      { label: "Text and let it ride", run: () => {
+        const sib = pickRel(state.player, r => r.id === "sibling");
+        if (sib) changeBond(sib, -8);
+        applyEffects("You sent a heart emoji. They didn't reply.", { happiness: -4 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "An Ex's Wedding Invite",
+    text: () => `An invitation in the mail. From somebody you used to know intimately.`,
+    when: p => p.age >= 25 && p.relationships.some(r => r.role?.toLowerCase().includes("ex")) && chance(1.5),
+    choices: [
+      { label: "Go alone", run: () => applyEffects("You went solo, smiled at the right times, left at the right time. Pride intact.", { money: -180, happiness: 5, smarts: 4, looks: 1 }, "good") },
+      { label: "Skip it", run: () => applyEffects("You stayed home. Watched the stories anyway.", { happiness: -3, discipline: 2 }, "bad") }
+    ]
+  },
+  {
+    title: "Day-One's Kid Asked To Stay With You",
+    text: () => {
+      const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 65);
+      return `${f?.name || "Your friend"}'s kid is going through something. Asked if they could crash with you for the school year.`;
+    },
+    when: p => p.age >= 30 && p.hasApartment && p.relationships.some(r => r.type === "friend" && r.bond >= 65) && chance(1),
+    choices: [
+      { label: "Yes, room's open", run: () => {
+        applyEffects("You gave a kid a soft place to land for a year.", { money: -3200, happiness: 12, karma: 18, discipline: 4 }, "good");
+      } },
+      { label: "Recommend a counselor", run: () => applyEffects("You sent resources, made calls, didn't open your door. Half a help.", { karma: 3, smarts: 3, happiness: -2 }) }
+    ]
+  },
+  {
+    title: "Snake Doing Well Now",
+    text: () => {
+      const snake = pickRel(state.player, r => r.arc === "snake" && r.betrayed);
+      return `${snake?.name || "The one who burned you"} just got something big. Their name is everywhere.`;
+    },
+    when: p => p.age >= 25 && p.relationships.some(r => r.arc === "snake" && r.betrayed) && chance(2),
+    choices: [
+      { label: "Like and move on", run: () => applyEffects(`You hit like and put your phone down. That's the work.`, { happiness: 5, discipline: 5, smarts: 4, karma: 4 }, "good") },
+      { label: "Sub-tweet", run: () => applyEffects("You vented online and lost three hours of sleep over it.", { happiness: -8, fame: 1, karma: -2, discipline: -2 }, "bad") }
+    ]
+  },
+  {
+    title: "Best Friend Moving Away",
+    text: () => {
+      const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 70);
+      return `${f?.name || "Your closest friend"} is taking a job in another city.`;
+    },
+    when: p => p.age >= 22 && p.relationships.some(r => r.type === "friend" && r.bond >= 70) && chance(2),
+    choices: [
+      { label: "Throw them a send-off", run: () => {
+        const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 70);
+        if (f) changeBond(f, 6);
+        applyEffects(`Forty people showed up. You gave the toast.`, { money: -380, happiness: 10, karma: 4 }, "good");
+      } },
+      { label: "Just text 'good luck'", run: () => {
+        const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 70);
+        if (f) changeBond(f, -10);
+        applyEffects("You meant to reach out before they left. You didn't.", { happiness: -5, discipline: 1 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Your Kid Asked About You",
+    text: () => {
+      const kid = state.player.children?.[0];
+      return `${kid?.name || "Your kid"} sat across the table and asked what you were like at their age. Real question.`;
+    },
+    when: p => p.age >= 30 && p.children?.length > 0 && chance(2),
+    choices: [
+      { label: "Tell them the truth", run: () => applyEffects("You told the messy version. They listened. The room felt different after.", { happiness: 10, karma: 5, smarts: 4 }, "good") },
+      { label: "Tell the highlight reel", run: () => applyEffects("You gave them the polished version. They'll learn the rest eventually.", { happiness: 3, smarts: 2 }) }
+    ]
+  },
+  {
+    title: "Your Kid's Best Friend Is A Problem",
+    text: () => {
+      const kid = state.player.children?.[0];
+      return `${kid?.name || "Your kid"}'s new friend is everything you tried to keep them away from.`;
+    },
+    when: p => p.age >= 30 && p.children?.length > 0 && p.children[0].age >= 12 && chance(2),
+    choices: [
+      { label: "Forbid it", run: () => applyEffects("You drew the line. Predictably, they pushed back hard.", { happiness: -6, discipline: 4 }, "bad") },
+      { label: "Invite the friend to dinner", run: () => applyEffects("You watched the kid up close. Got a read. Your kid noticed you cared.", { karma: 5, smarts: 5, happiness: 6 }, "good") }
+    ]
+  },
+  {
+    title: "Old Teacher Reached Out",
+    text: () => `Email from a teacher you had in middle school. They've been following your life from a distance.`,
+    when: p => p.age >= 25 && p.age <= 55 && chance(1.5),
+    choices: [
+      { label: "Write back honest", run: () => applyEffects("You wrote three paragraphs. They wrote back four.", { happiness: 8, smarts: 4, karma: 4 }, "good") },
+      { label: "Ignore", run: () => applyEffects("You stared at the email for a week and never replied.", { happiness: -3, karma: -2 }, "bad") }
+    ]
+  },
+  {
+    title: "Cousin Asked For Money",
+    text: () => {
+      const fam = pickRel(state.player, r => r.role === "Cousin");
+      return `${fam?.name || "A cousin"} called. Eviction notice. Asking for help.`;
+    },
+    when: p => p.age >= 22 && p.relationships.some(r => r.role === "Cousin") && p.money >= 1000 && chance(2),
+    choices: [
+      { label: "Send the money", run: () => {
+        const fam = pickRel(state.player, r => r.role === "Cousin");
+        if (fam) changeBond(fam, 14);
+        applyEffects(`You wired ${money(800)}. They paid you back about half.`, { money: -800, happiness: 4, karma: 5 }, "good");
+      } },
+      { label: "Send half, no more", run: () => {
+        const fam = pickRel(state.player, r => r.role === "Cousin");
+        if (fam) changeBond(fam, 4);
+        applyEffects(`You sent ${money(400)} and the script for a real conversation. They got both.`, { money: -400, smarts: 4, karma: 3 }, "good");
+      } },
+      { label: "Decline", run: () => {
+        const fam = pickRel(state.player, r => r.role === "Cousin");
+        if (fam) changeBond(fam, -22);
+        applyEffects("You said no. The group chat heard about it.", { happiness: -6, discipline: 4 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Mentor Died",
+    text: () => `Somebody who taught you something real didn't wake up Tuesday.`,
+    when: p => p.age >= 30 && (p.therapyWeeks || 0) > 0 && chance(1),
+    choices: [
+      { label: "Go to the funeral", run: () => {
+        addCanonEvent(`${state.player.name}'s mentor died at ${state.player.age}.`, "bad");
+        applyEffects("You sat in the back. Spoke when asked. Drove home different.", { money: -240, happiness: -12, smarts: 5, discipline: 5, karma: 5 }, "bad");
+      } },
+      { label: "Stay home", run: () => applyEffects("You meant to go. You didn't. The guilt sits.", { happiness: -16, karma: -4 }, "bad") }
+    ]
+  },
+  {
+    title: "Friend Got Locked Up",
+    text: () => {
+      const f = pickRel(state.player, r => r.type === "friend" && !r.inJail);
+      return `${f?.name || "A friend"} just got picked up. Heavy charge.`;
+    },
+    when: p => p.age >= 18 && p.relationships.some(r => r.type === "friend") && chance(1.5),
+    choices: [
+      { label: "Put money on their books", run: () => {
+        const f = pickRel(state.player, r => r.type === "friend");
+        if (f) { f.inJail = true; f.jailYearsLeft = randomInt(1, 5); changeBond(f, 12); }
+        applyEffects(`You loaded ${money(400)} onto commissary. They wrote you a letter.`, { money: -400, karma: 8, happiness: -4 }, "good");
+      } },
+      { label: "Pretend you didn't see the post", run: () => applyEffects("You scrolled past. The decision sits in you for years.", { happiness: -8, karma: -6 }, "bad") }
+    ]
+  },
+  {
+    title: "Pet Got Sick",
+    text: () => {
+      const pet = pickRel(state.player, r => r.type === "pet");
+      return `${pet?.name || "Your pet"} isn't eating. Vet says it might be time.`;
+    },
+    when: p => p.age >= 16 && p.relationships.some(r => r.type === "pet") && chance(2),
+    choices: [
+      { label: "Treatment, whatever it costs", run: () => {
+        applyEffects(`Vet bills hit ${money(3200)}. Worth every dollar.`, { money: -3200, happiness: -4, karma: 5 }, "good");
+      } },
+      { label: "Make them comfortable", run: () => {
+        const pet = pickRel(state.player, r => r.type === "pet");
+        if (pet) {
+          addCanonEvent(`${pet.name} passed at ${state.player.age}.`, "bad");
+          state.player.relationships = state.player.relationships.filter(r => r !== pet);
+        }
+        applyEffects(`You held them. They went easy.`, { happiness: -18, discipline: 4, karma: 4 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Old Hookup Has News",
+    text: () => `Somebody you used to sleep with reached out. They said it's important.`,
+    when: p => p.age >= 22 && p.firstTimeDone && chance(1.5),
+    choices: [
+      { label: "Meet for coffee", run: () => {
+        const outcome = randomInt(1,100);
+        if (outcome <= 30) {
+          applyEffects("They have a kid. It's not yours. They wanted you to know anyway.", { happiness: 2, smarts: 4 });
+        } else if (outcome <= 60) {
+          applyEffects("They wanted closure. You gave it. Walked out lighter.", { happiness: 6, smarts: 4 }, "good");
+        } else {
+          applyEffects("They have a kid. The math works. You're a parent now.", { happiness: 6, money: -randomInt(1000, 8000), karma: 4 }, "good");
+          state.player.children.push({ name: pick(["Marley","Nico","Sage"]), age: randomInt(2,8), personality: pick(["wild","calm","hustler"]), milestonesReached: {} });
+          addCanonEvent(`${state.player.name} found out about a hidden kid at ${state.player.age}.`);
+        }
+      } },
+      { label: "Don't reply", run: () => applyEffects("You let it sit. The not-knowing lives rent free.", { happiness: -6, smarts: 2 }, "bad") }
+    ]
+  },
+  {
+    title: "Family Group Chat Beef",
+    text: () => `Family group chat. 47 unread. Two aunties are fighting about something from 1998.`,
+    when: p => p.age >= 18 && p.relationships.filter(r => r.type === "family").length >= 3 && chance(4),
+    choices: [
+      { label: "Stay out of it", run: () => applyEffects("You muted the chat. Bliss.", { happiness: 5, discipline: 4, smarts: 3 }, "good") },
+      { label: "Side with mom", run: () => {
+        state.player.relationships.filter(r => r.id === "guardian").forEach(p => changeBond(p, 6));
+        applyEffects("You took mom's side. Aunties hold a grudge until the next funeral.", { happiness: 2, karma: -1 }) ;
+      } }
+    ]
+  },
+  {
+    title: "Partner Brought Up Kids",
+    text: () => `${pickRel(state.player, r => r.type === "partner" || r.type === "spouse")?.name || "Your partner"} sat you down. They want to talk about the future.`,
+    when: p => p.age >= 26 && p.relationships.some(r => r.type === "partner" || r.type === "spouse") && p.children.length === 0 && chance(3),
+    choices: [
+      { label: "I want kids too", run: () => {
+        const partner = pickRel(state.player, r => r.type === "partner" || r.type === "spouse");
+        if (partner) changeBond(partner, 12);
+        applyEffects("Real conversation. Plans set. You're on the same page.", { happiness: 12, discipline: 3 }, "good");
+      } },
+      { label: "Honestly... I don't", run: () => {
+        const partner = pickRel(state.player, r => r.type === "partner" || r.type === "spouse");
+        if (partner) changeBond(partner, -22);
+        applyEffects("Honest answer. Hard answer. The room got smaller.", { happiness: -10, smarts: 5 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Stepkid Crisis",
+    text: () => `One of the kids isn't yours by blood. They're acting up. Their other parent isn't around.`,
+    when: p => p.age >= 28 && p.children.some(c => c.fostered || c.adopted) && chance(2),
+    choices: [
+      { label: "Show up like a real parent", run: () => applyEffects("You handled it. They saw it. Real parenthood is showing up.", { happiness: 10, karma: 10, discipline: 5 }, "good") },
+      { label: "Let their other parent deal", run: () => applyEffects("You let it slide. They noticed.", { happiness: -8, karma: -6 }, "bad") }
+    ]
+  },
+  {
+    title: "Old Crew Reunion Invite",
+    text: () => `A group chat from 12 years ago lit up. The old crew wants to do a reunion.`,
+    when: p => p.age >= 28 && p.relationships.filter(r => r.type === "friend").length >= 3 && chance(2),
+    choices: [
+      { label: "Pull up", run: () => {
+        state.player.relationships.filter(r => r.type === "friend").slice(0, 4).forEach(p => changeBond(p, 6));
+        applyEffects("Everybody got older. The jokes still landed.", { money: -200, happiness: 14, karma: 3 }, "good");
+      } },
+      { label: "Make an excuse", run: () => applyEffects("You said you had to work. Watched the photos later.", { happiness: -4, discipline: 1 }, "bad") }
+    ]
+  },
+  {
+    title: "Your AA Sponsor Relapsed",
+    text: () => `The person who got you clean isn't clean anymore.`,
+    when: p => p.age >= 22 && (p.recovery || 0) >= 4 && chance(2),
+    choices: [
+      { label: "Hold their hand through it", run: () => applyEffects("You sat with them. You called the meeting. The teacher needed the student.", { happiness: 6, karma: 12, discipline: 6 }, "good") },
+      { label: "Keep your own program", run: () => applyEffects("You sent love but stayed in your own lane. Hard call, right call.", { discipline: 8, smarts: 4, happiness: -3 }, "good") }
+    ]
+  },
+  {
+    title: "Spouse Has A Secret",
+    text: () => `Found something on their phone. Or the laptop. Or a receipt.`,
+    when: p => p.age >= 26 && p.married && chance(1.5),
+    choices: [
+      { label: "Ask straight up", run: () => {
+        const spouse = pickRel(state.player, r => r.type === "spouse");
+        const honest = chance(55);
+        if (honest && spouse) {
+          changeBond(spouse, 8);
+          applyEffects("They told the truth. It hurt. The honesty rebuilt something.", { happiness: -8, smarts: 5, discipline: 4 }, "good");
+        } else if (spouse) {
+          changeBond(spouse, -18);
+          applyEffects("They lied to your face. You know now.", { happiness: -14, smarts: 6 }, "bad");
+        }
+      } },
+      { label: "Snoop more", run: () => applyEffects("You went deeper. Found more. Trust never came back the same.", { happiness: -10, smarts: 3 }, "bad") }
+    ]
+  },
+  {
+    title: "Old Neighbor Died",
+    text: () => `The lady three doors down passed. You grew up with her on the block.`,
+    when: p => p.age >= 25 && chance(1.5),
+    choices: [
+      { label: "Help her family clean out", run: () => applyEffects("You helped pack a life into boxes. The family hugged you twice.", { happiness: -2, karma: 12, smarts: 4 }, "good") },
+      { label: "Sign the card", run: () => applyEffects("You signed the card and went back to your apartment.", { karma: 1, happiness: -3 }) }
+    ]
+  },
+  {
+    title: "Your Day-One's Marriage Is Falling Apart",
+    text: () => {
+      const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 70);
+      return `${f?.name || "Your closest friend"} called you crying. Spouse is leaving.`;
+    },
+    when: p => p.age >= 28 && p.relationships.some(r => r.type === "friend" && r.bond >= 70) && chance(2),
+    choices: [
+      { label: "Show up at their door", run: () => {
+        const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 70);
+        if (f) changeBond(f, 14);
+        applyEffects("You drove over with food. You stayed until 2 AM.", { happiness: -2, karma: 8, smarts: 3 }, "good");
+      } },
+      { label: "Listen on the phone", run: () => applyEffects("You stayed on the call. They didn't need solutions. They needed presence.", { happiness: 4, karma: 5 }, "good") }
+    ]
+  },
+  {
+    title: "Friend Asks You To Be Their Power Of Attorney",
+    text: () => {
+      const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 75);
+      return `${f?.name || "A friend"} got diagnosed. They want you to be their power of attorney.`;
+    },
+    when: p => p.age >= 32 && p.relationships.some(r => r.type === "friend" && r.bond >= 75) && chance(1),
+    choices: [
+      { label: "Yes", run: () => {
+        applyEffects("You said yes. It's the most meaningful no-fanfare role you'll ever hold.", { happiness: 8, karma: 14, discipline: 6 }, "good");
+      } },
+      { label: "Recommend a family member instead", run: () => applyEffects("You suggested their brother. They were quiet about it.", { karma: 1, smarts: 3, happiness: -4 }) }
+    ]
+  },
+  {
+    title: "Kid Got Suspended",
+    text: () => {
+      const k = state.player.children?.[0];
+      return `Got a call from ${k?.name || "your kid"}'s school. Fight. Suspended for three days.`;
+    },
+    when: p => p.age >= 30 && p.children?.length > 0 && p.children[0].age >= 8 && p.children[0].age <= 17 && chance(3),
+    choices: [
+      { label: "Hear them out first", run: () => applyEffects("You let them tell the story before you yelled. Earned trust.", { happiness: 8, karma: 5, smarts: 4 }, "good") },
+      { label: "Ground them for a month", run: () => applyEffects("You came in hot. They went silent. The lesson didn't land.", { happiness: -4, discipline: 3 }, "bad") }
+    ]
+  },
+  {
+    title: "Family Estrangement",
+    text: () => {
+      const f = pickRel(state.player, r => r.type === "family" && r.bond < 30);
+      return `${f?.name || "A relative"} hasn't spoken to you in years. Mom wants you to fix it.`;
+    },
+    when: p => p.age >= 28 && p.relationships.some(r => r.type === "family" && r.bond < 30) && chance(1.5),
+    choices: [
+      { label: "Reach out", run: () => {
+        const f = pickRel(state.player, r => r.type === "family" && r.bond < 30);
+        if (f && chance(45)) {
+          changeBond(f, 28);
+          applyEffects("You called. They picked up. Three hours of crying.", { happiness: 14, karma: 8, smarts: 4 }, "good");
+        } else {
+          applyEffects("You called. They hung up. The estrangement holds.", { happiness: -8, karma: 2 }, "bad");
+        }
+      } },
+      { label: "Tell mom to leave it", run: () => applyEffects("You held the boundary. Mom got mad. Right call, hard call.", { discipline: 5, smarts: 3, happiness: -3 }) }
+    ]
+  },
+  {
+    title: "Sibling Got Famous",
+    text: () => {
+      const sib = pickRel(state.player, r => r.id === "sibling");
+      return `${sib?.name || "Your sibling"} just made a national headline. Good headline. The family is rerouting attention.`;
+    },
+    when: p => p.age >= 22 && p.relationships.some(r => r.id === "sibling") && chance(1.5),
+    choices: [
+      { label: "Be proud, loud", run: () => {
+        const sib = pickRel(state.player, r => r.id === "sibling");
+        if (sib) changeBond(sib, 12);
+        applyEffects("You celebrated them out loud. People noticed who showed up.", { happiness: 8, karma: 5, fame: 2 }, "good");
+      } },
+      { label: "Be jealous in private", run: () => applyEffects("You smiled in public, spiraled at night. It made you smaller.", { happiness: -10, karma: -3 }, "bad") }
+    ]
+  },
+  {
+    title: "Foster Kid Aged Out",
+    text: () => `The teen you fostered is turning 18. They asked if they could stay.`,
+    when: p => p.age >= 35 && p.children?.some(c => c.fostered && c.age >= 17) && chance(15),
+    choices: [
+      { label: "This is your home", run: () => {
+        const kid = state.player.children.find(c => c.fostered && c.age >= 17);
+        if (kid) kid.fostered = false;
+        applyEffects("You said it plain. Their shoulders dropped two inches.", { happiness: 14, karma: 18, discipline: 4 }, "good");
+      } },
+      { label: "Help them find their own place", run: () => applyEffects("You helped them get a lease, a job, a future. Real love isn't always staying.", { money: -2400, happiness: 10, karma: 10 }, "good") }
+    ]
+  },
+  {
+    title: "Your Kid Is Coming Out",
+    text: () => {
+      const k = state.player.children?.[0];
+      return `${k?.name || "Your kid"} sat on the couch and asked to talk. Their voice was shaking.`;
+    },
+    when: p => p.age >= 32 && p.children?.length > 0 && p.children[0].age >= 11 && chance(1.5),
+    choices: [
+      { label: "I love you. Period.", run: () => applyEffects("You said it without thinking. They cried. So did you.", { happiness: 16, karma: 12, discipline: 3 }, "good") },
+      { label: "Pause. Process out loud", run: () => applyEffects("You said the wrong thing for ten seconds, then caught yourself. They forgave you. Slowly.", { happiness: 4, smarts: 6, karma: 4 }, "good") }
+    ]
+  },
+  {
+    title: "Mom Asked For Help With Tech",
+    text: () => `Mom can't get her email to load. Forty-five-minute phone call incoming.`,
+    when: p => p.age >= 22 && p.relationships.some(r => r.id === "guardian" && !r.deceased) && chance(2),
+    choices: [
+      { label: "Drive over and fix it", run: () => {
+        const mom = pickRel(state.player, r => r.id === "guardian");
+        if (mom) changeBond(mom, 10);
+        applyEffects("You fixed her email and stayed for dinner.", { money: -25, happiness: 8, karma: 5 }, "good");
+      } },
+      { label: "FaceTime walk-through", run: () => {
+        const mom = pickRel(state.player, r => r.id === "guardian");
+        if (mom) changeBond(mom, 3);
+        applyEffects("She kept hitting the wrong button. You stayed patient. Mostly.", { happiness: 2, discipline: 3 });
+      } }
+    ]
+  },
+  {
+    title: "Best Friend's Eulogy",
+    text: () => {
+      const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 70 && r.deceased);
+      return `${f?.name || "Your closest friend"}'s funeral is Saturday. Family asked you to speak.`;
+    },
+    when: p => p.age >= 30 && p.relationships.some(r => r.type === "friend" && r.bond >= 70 && r.deceased) && chance(15),
+    choices: [
+      { label: "Write the eulogy", run: () => {
+        addCanonEvent(`${state.player.name} eulogized a best friend at ${state.player.age}.`, "bad");
+        applyEffects("You spoke for nine minutes. Half the room cried. You held it together until the parking lot.", { happiness: -18, discipline: 6, smarts: 4, karma: 6 }, "bad");
+      } },
+      { label: "Can't, too heavy", run: () => applyEffects("You said no. They understood. You'll always wish you hadn't.", { happiness: -16, karma: -3 }, "bad") }
+    ]
+  },
+  // ============================================================
+  // PHASE C — ADULT-LIFE GAP FILL (25-50)
+  // ============================================================
+  {
+    title: "30th Birthday",
+    text: () => `You turn 30. Your group chat is sending the same gif. Your knees clicked when you stood up.`,
+    when: p => p.age === 30,
+    choices: [
+      { label: "Throw a real party", run: () => applyEffects("You hosted at a nice place. Eighty people came. Most stayed past midnight.", { money: -1200, happiness: 14, fame: 3, karma: 4 }, "good") },
+      { label: "Skip it, ride out", run: () => applyEffects("You spent it on the couch with takeout. Quiet, intentional.", { happiness: 5, discipline: 4, smarts: 3 }, "good") }
+    ]
+  },
+  {
+    title: "Co-Worker Beef",
+    text: () => `Somebody at work is making your week harder than it needs to be.`,
+    when: p => p.age >= 25 && p.age <= 55 && p.jobId !== "none" && chance(3),
+    choices: [
+      { label: "Confront them directly", run: () => applyEffects("You named it in a private convo. It worked. Cleared the air.", { smarts: 4, discipline: 4, happiness: 6 }, "good") },
+      { label: "Go to HR", run: () => applyEffects("HR opened a file. Everybody got weird. Took six months to settle.", { happiness: -6, businessReputation: -2, smarts: 3 }, "bad") },
+      { label: "Ride it out", run: () => applyEffects("You ignored it. The resentment compounded.", { happiness: -8, discipline: 2 }, "bad") }
+    ]
+  },
+  {
+    title: "Passed Over For Promotion",
+    text: () => `They gave it to somebody two years younger with worse numbers.`,
+    when: p => p.age >= 25 && p.age <= 55 && p.jobId !== "none" && chance(2),
+    choices: [
+      { label: "Ask for a real conversation", run: () => applyEffects("You walked into the office calm and asked the question plain. They respected it. Next round you got it.", { smarts: 6, discipline: 5, businessReputation: 4 }, "good") },
+      { label: "Start applying elsewhere", run: () => applyEffects("Within 90 days you had three offers. You took the best one.", { money: randomInt(8000, 32000), discipline: 4, businessReputation: 4 }, "good") },
+      { label: "Spiral on Glassdoor", run: () => applyEffects("You wrote a long review at 1 AM. You'll regret it in two weeks.", { happiness: -4, businessReputation: -3 }, "bad") }
+    ]
+  },
+  {
+    title: "Got Laid Off",
+    text: () => `Restructuring email. Your role got eliminated. Severance package on the desk.`,
+    when: p => p.age >= 23 && p.age <= 58 && p.jobId !== "none" && chance(2),
+    choices: [
+      { label: "Take it as a sign", run: () => {
+        state.player.jobId = "none";
+        state.player.salaryBonus = 0;
+        applyEffects("You took the severance and used it to figure out what you actually want.", { money: randomInt(4000, 28000), happiness: 4, smarts: 6, discipline: 4 }, "good");
+      } },
+      { label: "Hustle for next job", run: () => applyEffects("You had two interviews the next week and an offer by month-end.", { discipline: 6, smarts: 4, happiness: 2 }, "good") }
+    ]
+  },
+  {
+    title: "Body Audit At 30",
+    text: () => `You stood up and your knee made a noise. The shower glass showed you somebody new.`,
+    when: p => p.age >= 30 && p.age <= 33 && chance(2),
+    choices: [
+      { label: "Start lifting", run: () => applyEffects("Real program. Compound lifts three times a week. Body changed in eight weeks.", { health: 6, fitnessLevel: 6, looks: 3, discipline: 4 }, "good") },
+      { label: "Accept the slide", run: () => applyEffects("You shrugged. The slide continues.", { health: -4, looks: -2, discipline: -2 }, "bad") }
+    ]
+  },
+  {
+    title: "Aging Parent Asked For Help",
+    text: () => {
+      const mom = pickRel(state.player, r => r.id === "guardian" && !r.deceased);
+      return `${mom?.name || "A parent"} called. Their voice was different. They asked if you could come stay a few days.`;
+    },
+    when: p => p.age >= 35 && p.relationships.some(r => r.id === "guardian" && !r.deceased) && chance(3),
+    choices: [
+      { label: "Drop everything", run: () => {
+        const mom = pickRel(state.player, r => r.id === "guardian");
+        if (mom) changeBond(mom, 18);
+        applyEffects("You drove down that night. Spent a week. Saw how much had changed.", { money: -800, happiness: 4, karma: 12, discipline: 4 }, "good");
+      } },
+      { label: "Send a check", run: () => {
+        const mom = pickRel(state.player, r => r.id === "guardian");
+        if (mom) changeBond(mom, -2);
+        applyEffects("You wired money. They didn't ask for money.", { money: -1200, karma: -1, happiness: -4 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Career Pivot Itch",
+    text: () => `You sat in the parking lot before work staring at the steering wheel for twenty minutes.`,
+    when: p => p.age >= 28 && p.age <= 45 && p.jobId !== "none" && chance(3),
+    choices: [
+      { label: "Make a real plan to switch", run: () => applyEffects("You started taking courses at night. Two years later, different job.", { money: -1800, smarts: 6, discipline: 6, happiness: 8 }, "good") },
+      { label: "Talk yourself out of it", run: () => applyEffects("You decided to be grateful for what you have. The itch is still there.", { discipline: 3, happiness: -4 }) }
+    ]
+  },
+  {
+    title: "Old Hobby Calling",
+    text: () => `Cleaning out a closet you found something — a guitar, a sketchbook, a pair of cleats.`,
+    when: p => p.age >= 28 && p.age <= 50 && chance(3),
+    choices: [
+      { label: "Pick it back up", run: () => applyEffects("You spent the whole weekend with it. Felt twenty again.", { happiness: 10, smarts: 3, looks: 1 }, "good") },
+      { label: "Donate it", run: () => applyEffects("You let it go. Felt lighter.", { happiness: 3, discipline: 3 }) }
+    ]
+  },
+  {
+    title: "Friend Group Thinning",
+    text: () => `The group chat is quieter than it used to be. Two people moved. One had a kid.`,
+    when: p => p.age >= 30 && p.age <= 50 && chance(3),
+    choices: [
+      { label: "Lock in the ones left", run: () => {
+        state.player.relationships.filter(r => r.type === "friend").slice(0, 3).forEach(p => changeBond(p, 6));
+        applyEffects("You set a monthly. Three years later, those three are still your guys.", { happiness: 10, karma: 5, discipline: 3 }, "good");
+      } },
+      { label: "Make new ones", run: () => {
+        const newN = pick(peopleNames.filter(n => !state.player.relationships.some(r => r.name === n)));
+        if (newN) state.player.relationships.push({ id: `adult-friend-${Date.now()}`, name: newN, role: "Adult-life friend", bond: randomInt(48, 64), type: "friend" });
+        applyEffects(`Met ${newN || "somebody new"} at the gym. Real friend in your 30s. Different feel.`, { happiness: 8, karma: 3 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Real Estate: Bid Lost",
+    text: () => `The house you wanted went to somebody who paid 50k over asking in cash.`,
+    when: p => p.age >= 28 && p.age <= 55 && p.money >= 30000 && !hasAsset("rental") && chance(2),
+    choices: [
+      { label: "Bid harder next time", run: () => applyEffects("You raised your max. Lost the next two. Won the fourth.", { money: -5000, smarts: 5, discipline: 4 }, "good") },
+      { label: "Stay a renter", run: () => applyEffects("You decided the math doesn't work. Rented something better.", { money: -2400, happiness: 4, smarts: 3 }) }
+    ]
+  },
+  {
+    title: "Neighbor War",
+    text: () => `Your neighbor reported your music. Your upstairs reported your dog. The HOA is involved.`,
+    when: p => p.age >= 24 && p.hasApartment && chance(3),
+    choices: [
+      { label: "Bake them cookies", run: () => applyEffects("You knocked on their door with banana bread. Truce.", { money: -25, happiness: 6, karma: 5 }, "good") },
+      { label: "Document everything", run: () => applyEffects("You started recording timestamps. Got hostile fast.", { happiness: -8, discipline: 4 }, "bad") }
+    ]
+  },
+  {
+    title: "Annual Physical Found Something",
+    text: () => `Doctor flagged a number on your bloodwork. Could be nothing. Could be something.`,
+    when: p => p.age >= 35 && p.age <= 60 && chance(3),
+    choices: [
+      { label: "Follow up immediately", run: () => {
+        if (chance(75)) {
+          applyEffects("Specialist confirmed it was nothing. Lifestyle changes recommended.", { money: -400, happiness: 4, discipline: 4, health: 2 }, "good");
+        } else {
+          applyEffects("It was something. Caught early. Treatable.", { money: -randomInt(2000, 14000), health: -4, happiness: -8, discipline: 5 }, "bad");
+        }
+      } },
+      { label: "Ignore it", run: () => applyEffects("You buried it. The number got worse next year.", { health: -8, smarts: -2, happiness: -4 }, "bad") }
+    ]
+  },
+  {
+    title: "Class Reunion Invite",
+    text: () => `Your high school class is doing a reunion. The Facebook group is moving.`,
+    when: p => p.age >= 28 && (p.age - 18) % 10 === 0 && !p.dropout && chance(15),
+    choices: [
+      { label: "Pull up looking right", run: () => {
+        if (chance(58 + Math.floor(state.player.fame / 4))) {
+          applyEffects("You walked in like somebody. People who ignored you in school remembered your name.", { money: -200, happiness: 12, fame: 3, looks: 2 }, "good");
+        } else {
+          applyEffects("It felt smaller than you remembered. The popular kids peaked at 17.", { money: -200, happiness: 4, smarts: 3 });
+        }
+      } },
+      { label: "Skip it", run: () => applyEffects("You stayed home. Scrolled the pictures Monday.", { happiness: -3, discipline: 2 }) }
+    ]
+  },
+  {
+    title: "Childhood Crush Across The Bar",
+    text: () => `Same bar. Same eyes. Twenty years later.`,
+    when: p => p.age >= 28 && p.age <= 50 && chance(2),
+    choices: [
+      { label: "Send a drink", run: () => {
+        if (chance(54)) {
+          const name = pick(peopleNames);
+          state.player.relationships.push({ id: `crush-${Date.now()}`, name, role: "Childhood crush, reconnected", bond: randomInt(54, 78), type: "partner" });
+          applyEffects(`Their name is ${name}. Always was. You traded numbers and called Wednesday.`, { money: -45, happiness: 14, looks: 2 }, "good");
+        } else {
+          applyEffects("They didn't recognize you. Or pretended not to.", { happiness: -6, money: -25, smarts: 3 }, "bad");
+        }
+      } },
+      { label: "Stay in the past", run: () => applyEffects("You let it stay a memory. The right move, maybe.", { happiness: -2, smarts: 5 }) }
+    ]
+  },
+  {
+    title: "Got Ma'am'd / Sir'd Hard",
+    text: () => `Some twenty-year-old at the register called you sir. Or ma'am. With confidence.`,
+    when: p => p.age >= 32 && p.age <= 50 && chance(2),
+    choices: [
+      { label: "Laugh", run: () => applyEffects("You smiled. Tipped well. Drove home humming.", { happiness: 6, karma: 2 }, "good") },
+      { label: "Go to the gym", run: () => applyEffects("You signed up at 9 PM. Showed up at 6 AM.", { money: -80, health: 4, discipline: 5, looks: 2 }, "good") }
+    ]
+  },
+  {
+    title: "Saw A Peer Make It Big",
+    text: () => `Somebody you went to high school with just got profiled in Forbes.`,
+    when: p => p.age >= 28 && p.age <= 50 && chance(3),
+    choices: [
+      { label: "Reach out and congratulate", run: () => applyEffects("You sent a real message. They replied warm. Door opened.", { happiness: 6, businessReputation: 3, karma: 3 }, "good") },
+      { label: "Quietly feel small", run: () => applyEffects("You scrolled the piece three times. The night got long.", { happiness: -10, smarts: 3 }, "bad") }
+    ]
+  },
+  {
+    title: "Doctor Said Cut Back",
+    text: () => `You went in for a checkup. They said the drinking is showing up in your numbers.`,
+    when: p => p.age >= 28 && p.age <= 60 && p.risksTaken >= 3 && chance(3),
+    choices: [
+      { label: "Sober month", run: () => applyEffects("Thirty days no alcohol. The energy shift was real.", { health: 8, discipline: 8, looks: 3, happiness: 6 }, "good") },
+      { label: "Lie about your habits", run: () => applyEffects("You told the doctor you'd cut back. You didn't.", { health: -4, smarts: -2 }, "bad") }
+    ]
+  },
+  {
+    title: "Insurance Broker Called",
+    text: () => `Somebody from State Farm spent 45 minutes on the phone with you about life insurance.`,
+    when: p => p.age >= 30 && p.age <= 55 && (p.married || p.children.length > 0) && chance(4),
+    choices: [
+      { label: "Get a real policy", run: () => applyEffects("You signed for $500K term. The premium is annoying but you sleep better.", { money: -480, discipline: 5, happiness: 4, karma: 3 }, "good") },
+      { label: "Decide later", run: () => applyEffects("You said you'd think about it. You didn't.", { discipline: -2, smarts: 1 }) }
+    ]
+  },
+  {
+    title: "Started Running",
+    text: () => `Some friend you envy mentioned they run now. The idea won't leave you alone.`,
+    when: p => p.age >= 30 && p.age <= 50 && p.fitnessLevel < 30 && chance(3),
+    choices: [
+      { label: "Build the habit", run: () => applyEffects("Three months in you were doing five miles. Sleep changed. Skin changed.", { health: 8, fitnessLevel: 8, looks: 3, discipline: 6, happiness: 8 }, "good") },
+      { label: "Buy the shoes, never wear them", run: () => applyEffects("You bought New Balance 880s. They sit by the door.", { money: -140, happiness: -2 }, "bad") }
+    ]
+  },
+  {
+    title: "Moved Into Management",
+    text: () => `Your boss left. They want you to run the team.`,
+    when: p => p.age >= 28 && p.age <= 55 && p.jobId !== "none" && p.stats.discipline >= 60 && chance(2),
+    choices: [
+      { label: "Accept", run: () => {
+        state.player.salaryBonus += randomInt(12000, 38000);
+        applyEffects("You took the job. The first six months were brutal. Then you got good at it.", { happiness: 6, smarts: 5, discipline: 6, businessReputation: 6 }, "good");
+      } },
+      { label: "Decline, stay IC", run: () => applyEffects("You said you weren't ready. They moved on. You stayed comfortable.", { happiness: 4, smarts: 3, businessReputation: -2 }) }
+    ]
+  },
+  {
+    title: "Will Writing",
+    text: () => `An attorney suggested you draft a will. You laughed and then sat with it.`,
+    when: p => p.age >= 30 && (p.children.length > 0 || p.money >= 30000) && chance(4),
+    choices: [
+      { label: "Write it properly", run: () => applyEffects("You spent a Saturday in a lawyer's office. Real decisions made.", { money: -800, smarts: 4, discipline: 5, karma: 3 }, "good") },
+      { label: "Put it off another year", run: () => applyEffects("You closed the email. The thought won't leave.", { happiness: -3, smarts: 1 }) }
+    ]
+  },
+  // ============================================================
+  // PHASE D — CITY-SPECIFIC EVENTS
+  // ============================================================
+  {
+    title: "Paparazzi Mistake",
+    text: () => `Five photographers ambushed you at the airport. They had the wrong person.`,
+    when: p => p.location === "Los Angeles, CA" && p.age >= 18 && p.fame >= 8 && chance(2),
+    choices: [
+      { label: "Lean in, take the pics", run: () => applyEffects("You smiled, posed, walked off. Tabloid Monday said you were dating somebody you'd never met.", { fame: 6, followers: randomInt(800, 6400), happiness: 4 }, "good") },
+      { label: "Cover your face and run", run: () => applyEffects("Your hand-up-photo became a meme. Internet decided you were sketchy.", { fame: 3, happiness: -4 }, "bad") }
+    ]
+  },
+  {
+    title: "Freeway Shutdown",
+    text: () => `Police chase on the 405. Traffic stopped. You're stuck for four hours.`,
+    when: p => (p.location === "Los Angeles, CA" || p.location === "Hollywood, Los Angeles") && p.age >= 18 && chance(3),
+    choices: [
+      { label: "Make friends with the cars next to you", run: () => applyEffects("You handed out water, traded numbers, posted clips. Three new contacts.", { happiness: 6, fame: 2 }, "good") },
+      { label: "Lose your mind in the car", run: () => applyEffects("You yelled at nobody for forty minutes. Got home worse than you left.", { happiness: -8, discipline: -2 }, "bad") }
+    ]
+  },
+  {
+    title: "Walked Into A Casting Call",
+    text: () => `You were trying to get coffee and a casting director asked if you were here for the read.`,
+    when: p => (p.location === "Los Angeles, CA" || p.location === "Hollywood, Los Angeles") && p.age >= 16 && chance(2),
+    choices: [
+      { label: "Roll with it", run: () => {
+        if (chance(20 + Math.floor(state.player.stats.looks / 4))) {
+          applyEffects("They called you back. You booked a national commercial.", { money: randomInt(2000, 24000), fame: 8, looks: 2, happiness: 12 }, "good");
+        } else {
+          applyEffects("You read cold. Director said nice things and moved on. You got coffee.", { fame: 1, smarts: 3, happiness: 2 });
+        }
+      } },
+      { label: "Tell them you're just here for coffee", run: () => applyEffects("They laughed. You got an iced oat latte and a story.", { happiness: 3 }) }
+    ]
+  },
+  {
+    title: "Subway Encounter",
+    text: () => `4 train at midnight. Somebody started preaching. Then screaming. Then sat next to you.`,
+    when: p => (p.location === "New York City, NY" || p.location === "Brooklyn, NY" || p.location === "The Bronx, NY") && p.age >= 16 && chance(4),
+    choices: [
+      { label: "Stay calm, talk back", run: () => applyEffects("You listened. They calmed down. Got off at the next stop muttering thanks.", { karma: 5, smarts: 4, happiness: 2 }, "good") },
+      { label: "Get off at the next stop", run: () => applyEffects("You ran upstairs and took a cab. $40, peace of mind.", { money: -40, smarts: 3 }) }
+    ]
+  },
+  {
+    title: "Walked Into A Film Shoot",
+    text: () => `Whole block in Tribeca shut down. PA stopped you. Asked if you wanted to be a background extra.`,
+    when: p => (p.location === "New York City, NY" || p.location === "Brooklyn, NY") && p.age >= 18 && chance(2),
+    choices: [
+      { label: "Spend the day on set", run: () => applyEffects("Twelve hours, a sandwich, a paycheck. You're in the background of a movie now.", { money: 180, fame: 3, smarts: 3, happiness: 6 }, "good") },
+      { label: "Just need to get to work", run: () => applyEffects("You walked around the block. Boss didn't believe the reason you were late.", { happiness: -2 }) }
+    ]
+  },
+  {
+    title: "Apartment Fire Drill",
+    text: () => `2 AM alarm. Whole building on the street in bathrobes. Real fire on the 12th floor.`,
+    when: p => (p.location === "New York City, NY" || p.location === "Brooklyn, NY") && p.hasApartment && chance(2),
+    choices: [
+      { label: "Help the elderly couple on your floor", run: () => applyEffects("You helped the older neighbors down nine flights. They invited you for dim sum the next week.", { karma: 12, happiness: 6 }, "good") },
+      { label: "Get yourself out fast", run: () => applyEffects("You made it down in three minutes. Stood on the sidewalk shivering.", { happiness: -4, health: -1 }) }
+    ]
+  },
+  {
+    title: "Drunk Wedding Chapel",
+    text: () => `4 AM Vegas. The chapel had a neon sign. Your friend's joking. You're not sure if you are.`,
+    when: p => p.location === "Las Vegas, NV" && p.age >= 21 && !p.married && chance(3),
+    choices: [
+      { label: "Sign the papers", run: () => {
+        const partnerName = pick(peopleNames);
+        state.player.relationships.push({ id: `vegas-${Date.now()}`, name: partnerName, role: "Vegas spouse", bond: randomInt(30, 60), type: "spouse" });
+        state.player.married = true;
+        state.player.marriedAge = state.player.age;
+        addCanonEvent(`${state.player.name} married ${partnerName} in Vegas at 4 AM, age ${state.player.age}.`);
+        applyEffects(`You signed. ${partnerName} signed. Witness was a guy in an Elvis suit.`, { money: -180, happiness: 12, fame: 4, karma: -2 }, "good");
+      } },
+      { label: "Get a hot dog instead", run: () => applyEffects("You went to In-N-Out. Better call.", { money: -12, happiness: 5, smarts: 3 }, "good") }
+    ]
+  },
+  {
+    title: "Yacht Invite",
+    text: () => `Promoter you met last night texted at noon. Open invite for the yacht at 3.`,
+    when: p => p.location === "Miami, FL" && p.age >= 21 && chance(3),
+    choices: [
+      { label: "Pull up", run: () => {
+        if (chance(58)) {
+          applyEffects("Good crowd, real connections, golden-hour shots. Two contacts that became something.", { money: -120, happiness: 12, fame: 5, businessReputation: 4 }, "good");
+        } else {
+          applyEffects("Crowd was sketchy. Drinks were spiked-adjacent. You left at sunset.", { money: -120, happiness: -4, smarts: 4 }, "bad");
+        }
+      } },
+      { label: "Decline, beach day", run: () => applyEffects("You posted up on South Beach instead. Quieter, better.", { money: -40, happiness: 8, looks: 2 }, "good") }
+    ]
+  },
+  {
+    title: "Hurricane Evac",
+    text: () => `Category 4 spinning up. Mayor said leave by Tuesday.`,
+    when: p => p.location === "Miami, FL" && p.age >= 18 && chance(2),
+    choices: [
+      { label: "Drive north now", run: () => applyEffects("You left at 4 AM. Gas was scarce. You made Atlanta by midnight.", { money: -400, happiness: -4, smarts: 4, discipline: 4 }, "good") },
+      { label: "Ride it out", run: () => {
+        if (chance(50)) applyEffects("Storm shifted. You got lucky.", { happiness: 4, smarts: 2 });
+        else applyEffects("Direct hit. Roof damage. No power for two weeks.", { money: -randomInt(4000, 22000), health: -6, happiness: -14 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Tokyo Train You Don't Understand",
+    text: () => `You got on the right line going the wrong direction. Two hours later you're somewhere with no signal.`,
+    when: p => p.location === "Tokyo, Japan" && p.age >= 16 && chance(5),
+    choices: [
+      { label: "Treat it like an adventure", run: () => applyEffects("You found a ramen shop, a whiskey vending machine, and your way back by 11 PM.", { money: -45, happiness: 12, smarts: 5 }, "good") },
+      { label: "Panic-Uber back", run: () => applyEffects("You spent $120 on a 90-minute cab. You watched neighborhoods you'll never see again.", { money: -120, happiness: 3, smarts: 2 }) }
+    ]
+  },
+  {
+    title: "Earthquake Drill",
+    text: () => `Alert hit your phone before the shaking. Workplace evacuation. Three minutes of real fear.`,
+    when: p => (p.location === "Tokyo, Japan" || p.location === "Los Angeles, CA") && p.age >= 16 && chance(3),
+    choices: [
+      { label: "Stay calm, help others", run: () => applyEffects("You shepherded the office out. Boss noticed.", { karma: 6, businessReputation: 3, discipline: 5, happiness: 4 }, "good") },
+      { label: "Get yourself out fast", run: () => applyEffects("You made it to the parking lot first. Sat on the curb for an hour.", { health: -1, discipline: 2 }) }
+    ]
+  },
+  {
+    title: "Outreach Worker At Your Door",
+    text: () => `A peer outreach worker pulled up. Said they remembered you from county.`,
+    when: p => p.location === "Skid Row, Los Angeles" && p.age >= 18 && chance(5),
+    choices: [
+      { label: "Take the resources", run: () => applyEffects("They got you onto a waitlist and into a meal program. You woke up Thursday with a real plan.", { karma: 6, recovery: 4, happiness: 6, discipline: 4 }, "good") },
+      { label: "Wave them off", run: () => applyEffects("You said you were good. You weren't.", { happiness: -6, karma: -2 }, "bad") }
+    ]
+  },
+  {
+    title: "Slab Show Pull-Up",
+    text: () => `Sunday slab show off 288. Candy paint everywhere. Subwoofers vibrating the asphalt.`,
+    when: p => p.location === "Houston, TX" && p.age >= 16 && chance(4),
+    choices: [
+      { label: "Network among the candies", run: () => applyEffects("You met three real people. One owns a body shop. Connected.", { happiness: 8, businessReputation: 3, streetRep: 1 }, "good") },
+      { label: "Stunt your fit", run: () => applyEffects("You posted up by the loudest car. Got tagged in two stories.", { happiness: 5, fame: 2, followers: randomInt(40, 400) }, "good") }
+    ]
+  },
+  {
+    title: "Bachelorette Crashed Your Bar",
+    text: () => `Lower Broadway. A pedal tavern of twenty pink-sashed strangers just rolled into your spot.`,
+    when: p => p.location === "Nashville, TN" && p.age >= 21 && chance(5),
+    choices: [
+      { label: "Pull one aside", run: () => {
+        if (chance(48 + Math.floor(state.player.stats.looks / 5))) {
+          const name = pick(["Madison", "Avery", "Lauren", "Brooke"]);
+          state.player.relationships.push({ id: `nash-${Date.now()}`, name, role: "Nashville fling", bond: randomInt(50, 72), type: "partner" });
+          applyEffects(`Her name was ${name}. She lived in Birmingham. You traded numbers.`, { money: -25, happiness: 10, looks: 2 }, "good");
+        } else {
+          applyEffects("They were nice but already a unit. You got back to your conversation.", { happiness: 2 });
+        }
+      } },
+      { label: "Switch bars", run: () => applyEffects("You found a dive two blocks over with no plastic crowns in sight.", { happiness: 6, money: -15 }, "good") }
+    ]
+  },
+  {
+    title: "Song You Wrote Got Stolen",
+    text: () => `Friend played you a demo. The hook was yours from a writers' round eight months ago.`,
+    when: p => p.location === "Nashville, TN" && p.age >= 18 && hasClassTrack("music") && chance(2),
+    choices: [
+      { label: "Lawyer up", run: () => {
+        if (chance(45)) {
+          const settlement = randomInt(8000, 80000);
+          applyEffects(`Co-write credit and ${money(settlement)} settlement.`, { money: settlement, smarts: 5, businessReputation: 4 }, "good");
+        } else {
+          applyEffects("Couldn't prove it. Burned a year of legal fees on nothing.", { money: -randomInt(3000, 12000), happiness: -10, smarts: 5 }, "bad");
+        }
+      } },
+      { label: "Write a better one", run: () => applyEffects("You used the pain. Next song you wrote got cut by an artist who credited you.", { fame: 6, happiness: 8, discipline: 6 }, "good") }
+    ]
+  },
+  {
+    title: "Bluebird Writers' Round",
+    text: () => `Open mic at the Bluebird. Four songwriters in a circle. Somebody dropped out.`,
+    when: p => p.location === "Nashville, TN" && p.age >= 18 && hasClassTrack("music") && chance(3),
+    choices: [
+      { label: "Take the slot", run: () => {
+        if (chance(40 + Math.floor(state.player.stats.looks / 6) + Math.floor(state.player.fame / 5))) {
+          applyEffects("You played a song you wrote in your kitchen. Two A&R people approached after.", { fame: 6, followers: randomInt(80, 1400), happiness: 12, businessReputation: 4 }, "good");
+        } else {
+          applyEffects("Three people clapped. You got better at the song.", { fame: 1, smarts: 3, discipline: 3 });
+        }
+      } },
+      { label: "Sit in the back, take notes", run: () => applyEffects("You watched real songwriters work. Better than the slot.", { smarts: 5, happiness: 4 }, "good") }
+    ]
+  },
+  {
+    title: "Kurdish Wedding Invite",
+    text: () => `A whole neighborhood is invited to a Kurdish wedding at the community center. Three days of food and dancing.`,
+    when: p => p.location === "Hermitage, Nashville" && p.age >= 12 && chance(4),
+    choices: [
+      { label: "All three days", run: () => {
+        const name = pick(["Rezan", "Hawre", "Dilan", "Sera"]);
+        state.player.relationships.push({ id: `kurd-${Date.now()}`, name, role: "Hermitage family friend", bond: randomInt(58, 80), type: "friend" });
+        applyEffects(`You ate yourself sick, learned a halay step, and made a real friend named ${name}.`, { money: -60, happiness: 16, karma: 10, smarts: 3 }, "good");
+      } },
+      { label: "Stop by Saturday only", run: () => applyEffects("You showed face, danced once, ate twice. Respect maintained.", { money: -30, happiness: 8, karma: 4 }, "good") }
+    ]
+  },
+  {
+    title: "Backyard Soccer Pickup",
+    text: () => `The kids two doors down need a tenth player for their backyard match.`,
+    when: p => p.location === "Hermitage, Nashville" && p.age >= 14 && p.age <= 32 && chance(1),
+    choices: [
+      { label: "Lace up", run: () => applyEffects("You played for three hours. Came home covered in grass, knees aching, grinning.", { health: 4, happiness: 8, fitnessLevel: 2, karma: 3 }, "good") },
+      { label: "Watch from the porch", run: () => applyEffects("You sat on the porch with a thermos. Their grandma joined you.", { karma: 3, happiness: 4 }) }
+    ]
+  },
+  // ============================================================
+  // PHASE G — PAST-CHOICE READERS
+  // ============================================================
+  {
+    title: "Background Check Failed",
+    text: () => `Recruiter called back apologetic. The background check turned something up. Offer pulled.`,
+    when: p => p.age >= 28 && p.record >= 2 && p.jobId === "none" && chance(5),
+    choices: [
+      { label: "Lawyer the expungement", run: () => {
+        if (state.player.money >= 8000) {
+          state.player.record = Math.max(0, state.player.record - 1);
+          applyEffects(`You paid ${money(8000)} for an expungement attorney. Cleared one charge.`, { money: -8000, smarts: 5, discipline: 4, happiness: 4 }, "good");
+        } else {
+          applyEffects(`You couldn't afford the attorney. The record stays.`, { happiness: -10, smarts: 3 }, "bad");
+        }
+      } },
+      { label: "Pivot to self-employed", run: () => applyEffects("You started something they couldn't fire you from.", { businessReputation: 4, discipline: 5, happiness: 4 }, "good") }
+    ]
+  },
+  {
+    title: "Lung Scare",
+    text: () => `You've been smoking for a decade plus. The cough this winter didn't go away.`,
+    when: p => p.age >= 45 && p.yearsSmoking >= 10 && chance(1),
+    choices: [
+      { label: "Scan, biopsy, full work-up", run: () => {
+        if (chance(60)) {
+          applyEffects("Pre-cancerous, not cancer. Caught it before it became something. Quit on the spot.", { money: -randomInt(2000, 8000), health: 4, discipline: 8, happiness: 4 }, "good");
+          state.player.smokingLevel = 0;
+        } else {
+          applyEffects("Stage two. Treatment starts next month. Long road.", { money: -randomInt(20000, 80000), health: -22, happiness: -16, discipline: 6 }, "bad");
+        }
+      } },
+      { label: "Pretend the cough is normal", run: () => applyEffects("You buried it. Six months later it was a lot worse.", { health: -16, happiness: -10 }, "bad") }
+    ]
+  },
+  {
+    title: "Comeback Offer",
+    text: () => `Five years after cancellation, a producer reached out. Comeback feature.`,
+    when: p => p.age >= 24 && (p.fame <= 10 && state.player.canonEvents?.some(c => /cancel/i.test(c.text || ""))) && chance(2),
+    choices: [
+      { label: "Do the long interview", run: () => applyEffects("You sat down for three hours. Apologized real, didn't grovel. Career got a second act.", { fame: 14, followers: randomInt(8000, 80000), businessReputation: 4, happiness: 12 }, "good") },
+      { label: "Stay retired", run: () => applyEffects("You said no. Some things don't need answering.", { discipline: 6, smarts: 5, happiness: 4 }, "good") }
+    ]
+  },
+  {
+    title: "Hall Of Fame Induction",
+    text: () => `Industry committee voted you in. Ceremony in June.`,
+    when: p => p.age >= 60 && p.fame >= 50 && state.player.canonEvents?.some(c => /won/i.test(c.text || "")) && chance(8),
+    choices: [
+      { label: "Show up, give a real speech", run: () => {
+        addCanonEvent(`${state.player.name} got inducted into the Hall of Fame at ${state.player.age}.`);
+        applyEffects("You gave a speech that quoted three people who couldn't be there. The room stood up.", { fame: 12, happiness: 22, karma: 8 }, "good");
+      } },
+      { label: "Skip ceremony, accept by letter", run: () => applyEffects("You wrote a paragraph. They read it. You watched on YouTube.", { fame: 6, happiness: 8, discipline: 4 }) }
+    ]
+  },
+  {
+    title: "Cult Members Found You",
+    text: () => `Reporter knocked. Doc producer DMed. The compound thing from 20 years ago is back in the news.`,
+    when: p => p.age >= 40 && p.isCultLeader && chance(1),
+    choices: [
+      { label: "Talk on camera", run: () => applyEffects(`You sat for the doc. Got rich off licensing. Got hated.`, { money: randomInt(80000, 800000), fame: 22, karma: -8 }, "good") },
+      { label: "Disappear deeper", run: () => applyEffects("You moved twice and changed your number. The story still went.", { money: -randomInt(4000, 20000), fame: 8, happiness: -4 }) }
+    ]
+  },
+  {
+    title: "Cold Case Detective",
+    text: () => `Detective knocked. They want to talk about a robbery from 17 years ago. They have a partial print.`,
+    when: p => p.age >= 40 && p.bigScoreAttempted && p.alive && chance(4),
+    choices: [
+      { label: "Lawyer up and stay silent", run: () => applyEffects(`You said five words and let your attorney handle the rest. They couldn't make it stick.`, { money: -randomInt(8000, 40000), happiness: -6, smarts: 6, discipline: 4 }, "good") },
+      { label: "Confess for reduced sentence", run: () => {
+        addCanonEvent(`${state.player.name} confessed to a cold-case score at ${state.player.age}.`, "bad");
+        startJailSentence(state.player, randomInt(4, 8), "the score that finally caught up");
+      } }
+    ]
+  },
+  {
+    title: "Memoir Offer",
+    text: () => `Major publisher wants a memoir. Six-figure advance.`,
+    when: p => p.age >= 60 && (p.jobId === "president" || p.fame >= 60) && chance(3),
+    choices: [
+      { label: "Write the real one", run: () => applyEffects(`Six months later, you handed in 380 pages. ${money(400000)} advance, royalties for life.`, { money: 400000, fame: 12, smarts: 6, happiness: 16, businessReputation: 8 }, "good") },
+      { label: "Ghostwriter handles it", run: () => applyEffects(`The ghostwriter wrote a polite version. It sold mid.`, { money: 80000, fame: 4, businessReputation: 2 }) }
+    ]
+  },
+  {
+    title: "Crew Reunion Attempt",
+    text: () => `Old crew. Most dead, locked up, or out. Somebody's pushing a reunion.`,
+    when: p => p.age >= 30 && p.gang === null && state.player.canonEvents?.some(c => /crew|gang/i.test(c.text || "")) && chance(5),
+    choices: [
+      { label: "Pull up briefly", run: () => applyEffects("You hugged five people and stayed an hour. Honored the past, left clean.", { karma: 4, smarts: 4, happiness: 6, streetRep: 2 }, "good") },
+      { label: "Decline, stay out", run: () => applyEffects("You let it go. The past is a different person.", { discipline: 6, happiness: 3 }, "good") }
+    ]
+  },
+  {
+    title: "Hidden Kid Showed Up",
+    text: () => `Adult walked up at a coffee shop. They had your eyes. They had a DNA test result printed out.`,
+    when: p => p.age >= 35 && p.cheating && state.player.children?.length >= 1 && chance(3),
+    choices: [
+      { label: "Acknowledge, embrace", run: () => {
+        const name = pick(peopleNames);
+        state.player.relationships.push({ id: `hiddenkid-${Date.now()}`, name, role: "Hidden adult child", bond: randomInt(40, 70), type: "child" });
+        state.player.children.push({ name, age: randomInt(16, 25), personality: "hustler", milestonesReached: {}, hidden: true });
+        addCanonEvent(`${state.player.name}'s hidden child found them at ${state.player.age}.`);
+        applyEffects("You said yes before you said anything else. The next year was hard. Worth it.", { happiness: 8, karma: 8, smarts: 5, discipline: 4 }, "good");
+      } },
+      { label: "Demand proof, stall", run: () => applyEffects("You stalled them. They sued. Court confirmed it anyway.", { money: -randomInt(8000, 30000), happiness: -14, karma: -6 }, "bad") }
+    ]
+  },
+  {
+    title: "Class Action Against The MLM",
+    text: () => `Lawyer reached out. The MLM you ran years ago is the subject of a class action. They want to depose you.`,
+    when: p => p.age >= 30 && state.player.canonEvents?.some(c => /pyramid|essential|MLM|leggings/i.test(c.text || "")) && chance(5),
+    choices: [
+      { label: "Cooperate, return the money", run: () => applyEffects(`You wrote a settlement check and skipped trial.`, { money: -randomInt(8000, 60000), karma: 4, smarts: 5, happiness: -4 }, "good") },
+      { label: "Fight in court", run: () => {
+        if (chance(40)) applyEffects("Beat the suit on a technicality.", { smarts: 5, businessReputation: -4 });
+        else applyEffects("Lost. Judgment plus fees plus a media moment.", { money: -randomInt(80000, 280000), fame: 4, businessReputation: -10, happiness: -16 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Game Show Invited You Back",
+    text: () => `Producer called. Champions edition. They want you.`,
+    when: p => p.age >= 30 && p.wonGameShow && chance(1),
+    choices: [
+      { label: "Defend the title", run: () => {
+        if (chance(40)) {
+          const prize = randomInt(200000, 2000000);
+          applyEffects(`You won again. Two-time champion. ${money(prize)}.`, { money: prize, fame: 12, smarts: 4, happiness: 18 }, "good");
+        } else {
+          applyEffects("You came in third. Got a parting gift and a memory.", { money: 20000, fame: 4, happiness: 4 });
+        }
+      } },
+      { label: "Decline gracefully", run: () => applyEffects("You said you had your moment. Producer respected it.", { discipline: 4, happiness: 3 }) }
+    ]
+  },
+  {
+    title: "Relapse Temptation",
+    text: () => `You ran into a guy from before. He has the same drug. He held it out.`,
+    when: p => p.age >= 22 && (p.recovery || 0) >= 4 && p.usedHard === false && chance(5),
+    choices: [
+      { label: "Hard no, walk away", run: () => applyEffects("You said no and meant it. Drove straight to a meeting after.", { recovery: 4, discipline: 8, happiness: 6 }, "good") },
+      { label: "Just this once", run: () => {
+        state.player.usedHard = true;
+        state.player.recovery = Math.max(0, (state.player.recovery || 0) - 4);
+        applyEffects("You relapsed. The clock reset.", { happiness: -16, health: -8, discipline: -6 }, "bad");
+      } }
+    ]
+  },
+  // ============================================================
+  // PHASE F — LEGENDARY (0.2-1%)
+  // ============================================================
+  {
+    title: "Saved A Drowning Child",
+    text: () => `Beach day. Somebody's kid went under. You were the closest swimmer.`,
+    when: p => p.age >= 16 && p.stats.health >= 50 && chance(0.4),
+    choices: [
+      { label: "Swim out", run: () => {
+        if (chance(82)) {
+          addCanonEvent(`${state.player.name} pulled a drowning kid from the water at ${state.player.age}.`);
+          applyEffects("You got them to shore. Their mom couldn't speak for ten minutes. Local news picked it up.", { karma: 18, fame: 8, health: -4, happiness: 16 }, "good");
+        } else {
+          applyEffects("You both went under. Lifeguard got there in time. You woke up in the ambulance.", { health: -16, karma: 12, happiness: -4 }, "bad");
+        }
+      } },
+      { label: "Call for the lifeguard", run: () => applyEffects("Lifeguard reached them. You did the right thing for your own ability.", { karma: 5, smarts: 4, happiness: 4 }, "good") }
+    ]
+  },
+  {
+    title: "Hurricane Survivor",
+    text: () => `Category 5 made landfall. Roof gone. Neighborhood gone. You're alive.`,
+    when: p => (p.location === "Miami, FL" || p.location === "Houston, TX") && p.age >= 18 && chance(0.5),
+    choices: [
+      { label: "Help the neighborhood rebuild", run: () => {
+        addCanonEvent(`${state.player.name} survived a hurricane at ${state.player.age}.`, "bad");
+        applyEffects("You spent six months helping people get back on their feet. Whole block knows your name now.", { money: -randomInt(20000, 80000), karma: 22, happiness: 8, discipline: 8 }, "good");
+      } },
+      { label: "Take insurance and leave", run: () => applyEffects("You took the check and moved somewhere drier. Right call for you.", { money: randomInt(40000, 180000), happiness: 4, smarts: 5 }) }
+    ]
+  },
+  {
+    title: "Bumped Into Your Bio-Parent",
+    text: () => `On a sidewalk. Their face was your face in 30 years.`,
+    when: p => p.age >= 22 && (p.familyStyle === "absent" || p.familyStyle === "foster" || p.familyStyle === "orphan") && !p.metBioParent && chance(0.5),
+    choices: [
+      { label: "Cross the street", run: () => {
+        state.player.metBioParent = true;
+        if (chance(58)) {
+          const name = pick(peopleNames);
+          state.player.relationships.push({ id: `bio-${Date.now()}`, name, role: "Bio parent (found)", bond: randomInt(34, 64), type: "family" });
+          addCanonEvent(`${state.player.name} met their bio parent on the street at ${state.player.age}.`);
+          applyEffects(`Their name is ${name}. They cried in a coffee shop. So did you.`, { happiness: 18, karma: 6, smarts: 6 }, "good");
+        } else {
+          applyEffects("They denied it. Walked away. The math still adds up.", { happiness: -12, smarts: 6 }, "bad");
+        }
+      } },
+      { label: "Keep walking", run: () => {
+        state.player.metBioParent = true;
+        applyEffects("You kept walking. The decision lives in you.", { happiness: -6, smarts: 8, discipline: 4 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Plane Crash Survivor",
+    text: () => `Engine failure at 18,000 feet. Pilot put it down in a field. Six died. You walked out.`,
+    when: p => p.age >= 18 && p.trips?.length >= 2 && chance(0.3),
+    choices: [
+      { label: "Process publicly", run: () => {
+        addCanonEvent(`${state.player.name} survived a plane crash at ${state.player.age}.`, "bad");
+        applyEffects("You did the morning shows. Wrote about it. The PTSD was real for a year.", { fame: 14, money: randomInt(20000, 200000), happiness: -8, smarts: 8, discipline: 6 }, "good");
+      } },
+      { label: "Disappear from the news", run: () => applyEffects("You stayed off camera. Worked through it privately.", { happiness: -4, smarts: 8, discipline: 6, karma: 4 }, "good") }
+    ]
+  },
+  {
+    title: "Won A Free Scratcher",
+    text: () => `Gas-station scratcher you got with change. It hit.`,
+    when: p => p.age >= 21 && chance(0.4),
+    choices: [
+      { label: "Cash it", run: () => {
+        const prize = randomInt(40000, 1200000);
+        addCanonEvent(`${state.player.name} won ${money(prize)} on a free scratcher at ${state.player.age}.`);
+        applyEffects(`${money(prize)}. The clerk got a photo with you.`, { money: prize, fame: 4, happiness: 18 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Tornado Missed By Two Blocks",
+    text: () => `EF4 went through your town. Your house stood. Two blocks over, nothing did.`,
+    when: p => p.age >= 18 && chance(0.3),
+    choices: [
+      { label: "Help the neighborhood", run: () => {
+        addCanonEvent(`${state.player.name} got missed by a tornado at ${state.player.age}.`);
+        applyEffects("You spent two weeks pulling neighbors out of debris and feeding crews. Whole town knows your face.", { karma: 22, happiness: 4, discipline: 6, health: -4 }, "good");
+      } },
+      { label: "Move out of tornado alley", run: () => applyEffects("You decided you'd had enough. Sold and left within the year.", { money: -randomInt(4000, 20000), happiness: 8, smarts: 5 }, "good") }
+    ]
+  },
+  {
+    title: "Met Somebody Famous In A Bathroom Line",
+    text: () => `Concert venue. Bathroom line. The artist you came to see is two people ahead of you.`,
+    when: p => p.age >= 18 && p.fame < 30 && chance(0.5),
+    choices: [
+      { label: "Treat them like a person", run: () => {
+        if (chance(30)) {
+          applyEffects("They appreciated it. Followed you back. Started a thing.", { fame: 6, followers: randomInt(2000, 20000), happiness: 8, businessReputation: 2 }, "good");
+        } else {
+          applyEffects("Brief eye contact, professional nod, they peed and left.", { happiness: 4 });
+        }
+      } },
+      { label: "Pretend you don't recognize them", run: () => applyEffects("You did them the favor of treating them like a stranger. They noticed.", { fame: 2, karma: 3, happiness: 5 }, "good") }
+    ]
+  },
+  {
+    title: "Stopped A Stranger From Jumping",
+    text: () => `Bridge. Stranger. The wrong side of the railing. You said hi.`,
+    when: p => p.age >= 18 && p.stats.happiness >= 50 && chance(0.3),
+    choices: [
+      { label: "Stay until help came", run: () => {
+        if (chance(78)) {
+          addCanonEvent(`${state.player.name} talked a stranger off a bridge at ${state.player.age}.`);
+          applyEffects("Two hours of nothing-conversation. Ambulance came. They lived. Got a letter from them six months later.", { karma: 26, happiness: 10, smarts: 6, fame: 2 }, "good");
+        } else {
+          applyEffects("You did everything right. It didn't end the way it should have.", { happiness: -22, karma: 14, discipline: 5 }, "bad");
+        }
+      } },
+      { label: "Call 911 and back away", run: () => applyEffects("First responders took over. You went home shaken.", { karma: 4, happiness: -3, smarts: 3 }) }
+    ]
+  },
+  {
+    title: "Hit By A Car, Walked Away",
+    text: () => `Crosswalk. Driver on a phone. You went up onto the hood and back down.`,
+    when: p => p.age >= 16 && chance(0.4),
+    choices: [
+      { label: "Sue", run: () => {
+        const settlement = randomInt(40000, 800000);
+        applyEffects(`Settlement: ${money(settlement)}. The cracked rib was worth it.`, { money: settlement, health: -8, smarts: 5 }, "good");
+      } },
+      { label: "Skip the suit", run: () => applyEffects("You filed a police report and walked it off. The story is enough.", { health: -8, happiness: 4 }) }
+    ]
+  },
+  {
+    title: "Named In A Stranger's Will",
+    text: () => `Probate attorney called. Somebody you'd never met named you in their will.`,
+    when: p => p.age >= 25 && chance(0.3),
+    choices: [
+      { label: "Investigate before accepting", run: () => {
+        const inh = randomInt(8000, 240000);
+        applyEffects(`Turned out to be a regular at a diner you worked at in your 20s. They left you ${money(inh)}.`, { money: inh, karma: 6, happiness: 8 }, "good");
+      } },
+      { label: "Decline, no story is free", run: () => applyEffects("You signed away the inheritance. Felt cleaner.", { karma: 5, discipline: 6, happiness: 3 }) }
+    ]
+  },
+  // ============================================================
+  // PHASE E — CHAIN EVENTS (multi-year arcs with state)
+  // ============================================================
+  // FRIEND DRUG SPIRAL — 3 stages over 3-5 years
+  {
+    title: "Friend Started Using Hard",
+    text: () => {
+      const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 55 && !r.spiralStage);
+      return `${f?.name || "A close friend"} hasn't been answering the phone the same. Stories from mutuals all match: it's bad.`;
+    },
+    when: p => p.age >= 20 && p.relationships.some(r => r.type === "friend" && r.bond >= 55 && !r.spiralStage) && chance(2),
+    choices: [
+      { label: "Show up at their place", run: () => {
+        const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 55 && !r.spiralStage);
+        if (f) { f.spiralStage = 1; f.spiralStartedYear = state.player.age; changeBond(f, 8); }
+        applyEffects(`You sat in their living room for three hours. Got the truth. They said they'd try.`, { karma: 6, happiness: -4, smarts: 4 }, "good");
+      } },
+      { label: "Send a long text", run: () => {
+        const f = pickRel(state.player, r => r.type === "friend" && r.bond >= 55 && !r.spiralStage);
+        if (f) { f.spiralStage = 1; f.spiralIgnored = true; }
+        applyEffects("You sent paragraphs. They thumbs-up'd it.", { happiness: -4, karma: 2 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Friend Bottomed Out",
+    text: () => {
+      const f = pickRel(state.player, r => r.spiralStage === 1);
+      return `${f?.name || "Your friend"}'s family called. They're in the hospital. It's serious.`;
+    },
+    when: p => p.relationships.some(r => r.spiralStage === 1 && state.player.age - (r.spiralStartedYear || 0) >= 2) && chance(10),
+    choices: [
+      { label: "Pay for inpatient rehab", run: () => {
+        const f = pickRel(state.player, r => r.spiralStage === 1);
+        if (f) { f.spiralStage = 2; f.rehabPaid = true; changeBond(f, 16); }
+        if (state.player.money < 12000) {
+          applyEffects(`You couldn't cover the full ${money(12000)}. You sent what you could.`, { money: -state.player.money, karma: 8, happiness: -2 }, "good");
+        } else {
+          applyEffects(`You wrote a ${money(12000)} check. They went in.`, { money: -12000, karma: 14, happiness: 2 }, "good");
+        }
+      } },
+      { label: "Visit but don't pay", run: () => {
+        const f = pickRel(state.player, r => r.spiralStage === 1);
+        if (f) { f.spiralStage = 2; changeBond(f, 4); }
+        applyEffects("You showed up. Sat with them. Real love is showing up.", { karma: 5, happiness: -4 }, "good");
+      } },
+      { label: "Let the family handle it", run: () => {
+        const f = pickRel(state.player, r => r.spiralStage === 1);
+        if (f) { f.spiralStage = 2; changeBond(f, -12); }
+        applyEffects("You sent a card. The friendship cooled.", { karma: -4, happiness: -6 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Friend's Outcome",
+    text: () => {
+      const f = pickRel(state.player, r => r.spiralStage === 2);
+      return `${f?.name || "Your friend"} is at the fork. Either they make it or they don't.`;
+    },
+    when: p => p.relationships.some(r => r.spiralStage === 2) && chance(15),
+    choices: [
+      { label: "Stay in their corner", run: () => {
+        const f = pickRel(state.player, r => r.spiralStage === 2);
+        if (!f) return;
+        const lived = chance(f.rehabPaid ? 78 : 48);
+        if (lived) {
+          f.spiralStage = 3; f.recovered = true; f.role = `${f.role.replace(" (spiral)", "")} (recovered)`; changeBond(f, 22);
+          addCanonEvent(`${f.name} got clean at ${state.player.age}.`);
+          applyEffects(`${f.name} is sober a year later. They credit you.`, { karma: 18, happiness: 14, smarts: 4 }, "good");
+        } else {
+          f.spiralStage = 3; f.deceased = true; f.role = `Late ${f.role}`;
+          addCanonEvent(`${f.name} died of an overdose at ${state.player.age}.`, "bad");
+          applyEffects(`${f.name} didn't make it. You spoke at the funeral.`, { karma: 8, happiness: -28, discipline: 6 }, "bad");
+        }
+      } }
+    ]
+  },
+  // PARENT DECLINE — 3 stages
+  {
+    title: "Parent's First Scare",
+    text: () => {
+      const mom = pickRel(state.player, r => r.id === "guardian" && !r.deceased && !r.declineStage);
+      return `${mom?.name || "Your parent"} had a fall. Hospital overnight. Doctor said it's the first sign of something bigger.`;
+    },
+    when: p => p.age >= 35 && p.relationships.some(r => r.id === "guardian" && !r.deceased && !r.declineStage) && chance(2),
+    choices: [
+      { label: "Take charge of their care", run: () => {
+        const m = pickRel(state.player, r => r.id === "guardian" && !r.declineStage);
+        if (m) { m.declineStage = 1; m.declineStartedYear = state.player.age; changeBond(m, 14); }
+        applyEffects("You set up doctors, meds, a routine. Real work. Real love.", { money: -randomInt(4000, 14000), karma: 12, happiness: -4, discipline: 6 }, "good");
+      } },
+      { label: "Sibling handles it", run: () => {
+        const m = pickRel(state.player, r => r.id === "guardian" && !r.declineStage);
+        if (m) m.declineStage = 1;
+        applyEffects("You sent your sibling money. Stayed at arm's length.", { money: -randomInt(800, 4000), happiness: -6, karma: -2 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Parent's Diagnosis Got Real",
+    text: () => {
+      const m = pickRel(state.player, r => r.declineStage === 1);
+      return `${m?.name || "Your parent"}'s memory is going. Test results came back. Alzheimer's, early stage.`;
+    },
+    when: p => p.relationships.some(r => r.declineStage === 1 && state.player.age - (r.declineStartedYear || 0) >= 3) && chance(12),
+    choices: [
+      { label: "Move them in with you", run: () => {
+        const m = pickRel(state.player, r => r.declineStage === 1);
+        if (m) { m.declineStage = 2; m.livingWith = true; changeBond(m, 12); }
+        applyEffects("You renovated the guest room. They moved in. The hardest year of your life. Worth it.", { money: -randomInt(8000, 26000), karma: 18, happiness: -8, discipline: 8 }, "good");
+      } },
+      { label: "Memory care facility", run: () => {
+        const m = pickRel(state.player, r => r.declineStage === 1);
+        if (m) { m.declineStage = 2; }
+        applyEffects("You found a real place. Visited every Sunday. Right call, hard call.", { money: -randomInt(20000, 80000), karma: 8, happiness: -10, smarts: 5 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Parent Passed",
+    text: () => {
+      const m = pickRel(state.player, r => r.declineStage === 2);
+      return `${m?.name || "Your parent"} stopped breathing in their sleep.`;
+    },
+    when: p => p.relationships.some(r => r.declineStage === 2 && state.player.age - (r.declineStartedYear || 0) >= 6) && chance(15),
+    choices: [
+      { label: "Plan the funeral", run: () => {
+        const m = pickRel(state.player, r => r.declineStage === 2);
+        if (m) { m.deceased = true; m.role = `Late ${m.role}`; m.declineStage = 3; }
+        addCanonEvent(`${state.player.name} buried ${m?.name || "a parent"} at ${state.player.age}.`, "bad");
+        const inh = state.player.spawnClass === "nepo" ? randomInt(120000, 800000) : state.player.spawnClass === "comfortable" ? randomInt(20000, 120000) : randomInt(2000, 20000);
+        applyEffects(`You wrote the eulogy. Said the real thing. ${inh > 0 ? `Inheritance: ${money(inh)}.` : ""}`, { money: inh, happiness: -32, discipline: 6, karma: 4, smarts: 4 }, "bad");
+      } }
+    ]
+  },
+  // MARRIAGE DECAY — 3 stages
+  {
+    title: "Cold Spell",
+    text: () => {
+      const sp = pickRel(state.player, r => r.type === "spouse" && !r.decayStage);
+      return `${sp?.name || "Your spouse"} hasn't reached for you in months. The bed is the same size and twice as big.`;
+    },
+    when: p => p.married && p.age - (p.marriedAge || p.age) >= 5 && p.relationships.some(r => r.type === "spouse" && !r.decayStage) && chance(2),
+    choices: [
+      { label: "Plan a real trip together", run: () => {
+        const sp = pickRel(state.player, r => r.type === "spouse" && !r.decayStage);
+        if (sp) { sp.decayStage = 0; changeBond(sp, 10); }
+        applyEffects("You booked somewhere with no work signal. Phones in the safe. It worked.", { money: -randomInt(2400, 8000), happiness: 12 }, "good");
+      } },
+      { label: "Bring it up plain", run: () => {
+        const sp = pickRel(state.player, r => r.type === "spouse" && !r.decayStage);
+        if (sp) { sp.decayStage = 1; sp.decayStartedYear = state.player.age; changeBond(sp, 4); }
+        applyEffects("You said the words. They said theirs. Hard conversation, right conversation.", { happiness: -4, smarts: 5, discipline: 4 });
+      } },
+      { label: "Bury yourself in work", run: () => {
+        const sp = pickRel(state.player, r => r.type === "spouse" && !r.decayStage);
+        if (sp) { sp.decayStage = 1; sp.decayStartedYear = state.player.age; changeBond(sp, -10); }
+        applyEffects("You stayed late at the office for six months. It made everything worse.", { businessReputation: 3, happiness: -10 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "The Real Fight",
+    text: () => {
+      const sp = pickRel(state.player, r => r.type === "spouse" && r.decayStage === 1);
+      return `${sp?.name || "Your spouse"} packed a bag on Tuesday. By Friday they were back. But something is gone.`;
+    },
+    when: p => p.relationships.some(r => r.type === "spouse" && r.decayStage === 1 && state.player.age - (r.decayStartedYear || 0) >= 2) && chance(15),
+    choices: [
+      { label: "Couples therapy, real version", run: () => {
+        const sp = pickRel(state.player, r => r.type === "spouse" && r.decayStage === 1);
+        if (chance(58)) {
+          if (sp) { sp.decayStage = 0; changeBond(sp, 22); }
+          applyEffects("Eight months of sessions. You both did the work. Marriage rebuilt different.", { money: -randomInt(2400, 9600), happiness: 16, smarts: 6, discipline: 5 }, "good");
+        } else {
+          if (sp) { sp.decayStage = 2; }
+          applyEffects("Therapy didn't take. The drift continued.", { money: -randomInt(2400, 9600), happiness: -8, smarts: 4 }, "bad");
+        }
+      } },
+      { label: "File for separation", run: () => {
+        const sp = pickRel(state.player, r => r.type === "spouse" && r.decayStage === 1);
+        if (sp) { sp.decayStage = 2; }
+        applyEffects("You filed papers. The conversation got cleaner. So did the spiral.", { happiness: -12, smarts: 5 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Divorce Final",
+    text: () => `Papers signed. Lawyers paid. The apartment is half-empty.`,
+    when: p => p.relationships.some(r => r.type === "spouse" && r.decayStage === 2) && chance(18),
+    choices: [
+      { label: "Sign", run: () => {
+        const sp = pickRel(state.player, r => r.type === "spouse" && r.decayStage === 2);
+        if (sp) { sp.type = "family"; sp.role = `Ex-spouse`; }
+        state.player.married = false;
+        state.player.divorces = (state.player.divorces || 0) + 1;
+        const settlement = Math.max(0, Math.floor(state.player.money * 0.45));
+        addCanonEvent(`${state.player.name} divorced at ${state.player.age}.`, "bad");
+        applyEffects(`Settlement: ${money(settlement)}. The chapter closed.`, { money: -settlement, happiness: -18, discipline: 6, smarts: 6 }, "bad");
+      } }
+    ]
+  },
+  // KID TEEN REBELLION — 3 stages
+  {
+    title: "Your Kid Got An Attitude",
+    text: () => {
+      const k = state.player.children?.find(c => c.age >= 12 && c.age <= 15 && !c.rebelStage);
+      return `${k?.name || "Your kid"} slammed three doors this week. Started lying about small stuff.`;
+    },
+    when: p => p.age >= 30 && p.children?.some(c => c.age >= 12 && c.age <= 15 && !c.rebelStage) && chance(4),
+    choices: [
+      { label: "Listen more, talk less", run: () => {
+        const k = state.player.children.find(c => c.age >= 12 && c.age <= 15 && !c.rebelStage);
+        if (k) { k.rebelStage = 1; k.rebelStartedYear = state.player.age; k.rebelHandled = "well"; }
+        applyEffects("You sat with them. Asked real questions. They unclenched a little.", { karma: 5, smarts: 4, happiness: 6 }, "good");
+      } },
+      { label: "Lay down hard rules", run: () => {
+        const k = state.player.children.find(c => c.age >= 12 && c.age <= 15 && !c.rebelStage);
+        if (k) { k.rebelStage = 1; k.rebelStartedYear = state.player.age; k.rebelHandled = "harsh"; }
+        applyEffects("You drew the line. They pushed back harder.", { happiness: -4, discipline: 3 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Your Kid Caught Slipping",
+    text: () => {
+      const k = state.player.children?.find(c => c.rebelStage === 1);
+      return `Police called. ${k?.name || "Your kid"} got picked up at a party. Underage drinking, weed found.`;
+    },
+    when: p => p.children?.some(c => c.rebelStage === 1 && state.player.age - (c.rebelStartedYear || 0) >= 1) && chance(10),
+    choices: [
+      { label: "Bail, talk, no yelling", run: () => {
+        const k = state.player.children.find(c => c.rebelStage === 1);
+        if (k) { k.rebelStage = 2; k.rebelOutcome = "intervention"; }
+        applyEffects("You picked them up at 3 AM. Didn't yell once. The next conversation was different.", { money: -240, karma: 8, happiness: 4, smarts: 4 }, "good");
+      } },
+      { label: "Let them sit in it", run: () => {
+        const k = state.player.children.find(c => c.rebelStage === 1);
+        if (k) { k.rebelStage = 2; k.rebelOutcome = "harsh"; }
+        applyEffects("You left them overnight. They came home harder. Or quieter.", { happiness: -6, discipline: 3 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Your Kid's Outcome",
+    text: () => {
+      const k = state.player.children?.find(c => c.rebelStage === 2);
+      return `${k?.name || "Your kid"} is 17. The next year decides what kind of adult they're going to be.`;
+    },
+    when: p => p.children?.some(c => c.rebelStage === 2 && c.age >= 16) && chance(12),
+    choices: [
+      { label: "Stay engaged", run: () => {
+        const k = state.player.children.find(c => c.rebelStage === 2);
+        if (!k) return;
+        const wentWell = chance(k.rebelHandled === "well" && k.rebelOutcome === "intervention" ? 78 : 48);
+        if (wentWell) {
+          k.rebelStage = 3; k.rebelEnding = "graduated";
+          addCanonEvent(`${k.name} pulled themselves together at 17.`);
+          applyEffects(`${k.name} graduated. Real one. Looked you in the eye at the ceremony.`, { karma: 12, happiness: 18, discipline: 5 }, "good");
+        } else {
+          k.rebelStage = 3; k.rebelEnding = "spiral";
+          addCanonEvent(`${k.name} dropped out and disappeared at 17.`, "bad");
+          applyEffects(`${k.name} dropped out and moved out. You didn't see them for two years.`, { happiness: -24, karma: 4 }, "bad");
+        }
+      } }
+    ]
+  },
+  // CLIMATE CHAIN — gets worse with age
+  {
+    title: "Year Of Smoke",
+    text: () => `Wildfires hundreds of miles away made the sky orange for two weeks. Schools closed. Inhalers ran out.`,
+    when: p => p.age >= 20 && (p.location.includes("Los Angeles") || p.location.includes("Hollywood") || p.location.includes("Skid Row") || p.location.includes("San Francisco")) && chance(2),
+    choices: [
+      { label: "Buy an air purifier and ride it out", run: () => applyEffects("You sealed the apartment. Bought N95s. Made it through.", { money: -400, health: -3, smarts: 3 }) },
+      { label: "Leave for a month", run: () => applyEffects("You worked remote from somewhere with breathable air.", { money: -2400, happiness: 4, smarts: 3 }, "good") }
+    ]
+  },
+  {
+    title: "It Just Hit",
+    text: () => `${state.player.name} is staring at the ceiling at 2 AM. Something feels off about the box they got dropped in. Maybe always did.`,
+    when: p => p.age >= 13 && p.age <= 22 && !p.identityFlipped && chance(2),
+    choices: [
+      { label: "Come out as trans", run: () => {
+        const player = state.player;
+        player.identity = player.identity === "Guy" ? "Trans girl" : "Trans guy";
+        player.identityFlipped = true;
+        addCanonEvent(`${player.name} came out as ${player.identity} at ${player.age}.`);
+        applyEffects(`You said it out loud. Voice shaky. The room got smaller and then bigger.`, { happiness: 12, discipline: 5, looks: 2, karma: 2 }, "good");
+      } },
+      { label: "Come out as nonbinary", run: () => {
+        const player = state.player;
+        player.identity = "Nonbinary";
+        player.identityFlipped = true;
+        addCanonEvent(`${player.name} came out as nonbinary at ${player.age}.`);
+        applyEffects(`You named it. Friends caught up faster than family. You felt lighter.`, { happiness: 10, smarts: 4, karma: 2 }, "good");
+      } },
+      { label: "Stay where you are", run: () => applyEffects("You closed the notes app. The thought goes somewhere quieter.", { smarts: 3, discipline: 2 }) },
+      { label: "Full James Charles era", run: () => {
+        const player = state.player;
+        player.identity = "Genderfluid";
+        player.identityFlipped = true;
+        player.quirks = player.quirks || {};
+        player.quirks.flamboyant = true;
+        addCanonEvent(`${player.name} went full glow-up era at ${player.age}.`);
+        applyEffects(`Eyebrows arched, voice up an octave, the cousins on Facebook have OPINIONS.`, { happiness: 14, looks: 8, fame: 6, followers: randomInt(800, 8000), karma: 1 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Family Found Out",
+    text: () => `Somebody saw the search history. Or the Pinterest board. Or the second account. Conversation incoming.`,
+    when: p => p.age >= 14 && p.age <= 24 && p.identityFlipped && !p.familyKnows && chance(4),
+    choices: [
+      { label: "Lay it out plain", run: () => {
+        const player = state.player;
+        player.familyKnows = true;
+        const accepting = chance(parentsStrict(player) ? 32 : 70);
+        if (accepting) {
+          player.relationships.filter(r => r.type === "family").forEach(p => changeBond(p, 8));
+          applyEffects("They asked one or two questions. Then they hugged you. The good ending happens too.", { happiness: 16, karma: 4 }, "good");
+        } else {
+          player.relationships.filter(r => r.type === "family").forEach(p => changeBond(p, -28));
+          applyEffects("They didn't take it well. The house got cold. You started looking up where else you could live.", { happiness: -18, discipline: 5 }, "bad");
+        }
+      } },
+      { label: "Lie. Buy time.", run: () => applyEffects(`You walked it back. Bought another six months in the closet. The lie costs.`, { happiness: -8, discipline: -3, smarts: 3 }, "bad") }
+    ]
+  },
   {
     title: "First Words",
     text: () => `${state.player.name}'s family is huddled around waiting for the first word. Somebody is filming. The neighbors in ${originOf(state.player.location).short} could probably hear if you cried.`,
@@ -2748,7 +4438,7 @@ const events = [
       const lane = pick(classLabelList(state.player));
       return `${lane} is starting to become more than a class. A teacher noticed ${state.player.name} taking it seriously.`;
     },
-    when: p => p.age >= 10 && p.classes.length > 0 && chance(10),
+    when: p => p.age >= 10 && p.classes.length > 0 && chance(2),
     choices: [
       { label: "Ask for extra work", run: () => applyEffects("You took the extra assignment and turned a class into a lane.", { smarts: 5, discipline: 5, happiness: -1 }, "good") },
       { label: "Keep it casual", run: () => applyEffects("You kept the lane open without turning it into your whole life.", { happiness: 3, discipline: 1 }) }
@@ -2758,7 +4448,7 @@ const events = [
     title: "After-School Rival",
     tags: ["school", "drama"],
     text: () => `Somebody in your after-school scene is clearly trying to outshine ${state.player.name}. Friendly? Maybe. Annoying? Absolutely.`,
-    when: p => p.age >= 11 && p.afterSchool.length > 0 && chance(8),
+    when: p => p.age >= 11 && p.afterSchool.length > 0 && chance(2),
     choices: [
       { label: "Compete hard", run: () => applyEffects("You locked in and raised the standard. The rivalry got real.", { discipline: 5, fame: 3, happiness: 2 }, "good") },
       { label: "Make them an ally", run: () => {
@@ -2772,7 +4462,7 @@ const events = [
     title: "Coding Project Blows Up",
     tags: ["school", "business"],
     text: () => `${state.player.name}'s little project got shared around school and then outside school.`,
-    when: p => p.age >= 12 && ((p.interests || {}).tech || hasClassTrack("coding")) && chance(7),
+    when: p => p.age >= 12 && ((p.interests || {}).tech || hasClassTrack("coding")) && chance(2),
     choices: [
       { label: "Ship a real version", run: () => {
         rememberInterest("business", 2);
@@ -2785,7 +4475,7 @@ const events = [
     title: "Music Night",
     tags: ["fame"],
     text: () => `A local open mic needs one more person. Everyone looks at ${state.player.name}.`,
-    when: p => p.age >= 12 && ((p.interests || {}).music || hasClassTrack("music")) && chance(7),
+    when: p => p.age >= 12 && ((p.interests || {}).music || hasClassTrack("music")) && chance(2),
     choices: [
       { label: "Perform", run: perform },
       { label: "Record content instead", run: postReel }
@@ -2795,7 +4485,7 @@ const events = [
     title: "Crew Pressure",
     tags: ["street", "drama"],
     text: () => `${state.player.gang?.name || "The crew"} wants ${state.player.name} around more often. Family and school are already noticing.`,
-    when: p => p.age >= 14 && Boolean(p.gang) && chance(12),
+    when: p => p.age >= 14 && Boolean(p.gang) && chance(3),
     choices: [
       { label: "Show loyalty", run: crewLoyaltyTest },
       { label: "Make distance", run: leaveStreetCrew },
@@ -2806,7 +4496,7 @@ const events = [
     title: "Family Finds Out",
     tags: ["street", "family", "drama"],
     text: () => `Somebody at home found out about ${state.player.gang?.name || "the street crew"}. The conversation is not optional.`,
-    when: p => p.age >= 14 && Boolean(p.gang) && chance(8),
+    when: p => p.age >= 14 && Boolean(p.gang) && chance(2),
     choices: [
       { label: "Tell the truth", run: () => applyEffects("You told the truth. It hurt, but somebody finally understood the pressure.", { happiness: -3, karma: 5, discipline: 4 }, "good") },
       { label: "Lie clean", run: () => applyEffects("You lied well enough to buy time. The knot in your stomach stayed.", { smarts: 3, happiness: -5, karma: -4, gangHeat: 1 }, "bad") }
@@ -2816,7 +4506,7 @@ const events = [
     title: "Brand Wants Your School Story",
     tags: ["school", "fame", "money"],
     text: () => `A local brand wants to sponsor a post about ${state.player.name}'s school grind and hobbies.`,
-    when: p => p.age >= 15 && p.socialPage && (p.classes.length > 0 || topInterests(p).length > 0) && chance(7),
+    when: p => p.age >= 15 && p.socialPage && (p.classes.length > 0 || topInterests(p).length > 0) && chance(2),
     choices: [
       { label: "Keep it real", run: () => {
         const amount = randomInt(260, 3200);
@@ -2829,7 +4519,7 @@ const events = [
     title: "Escape Route",
     tags: ["street", "school"],
     text: () => `A mentor offers ${state.player.name} a cleaner path: training, job lead, or school help. The catch is showing up consistently.`,
-    when: p => p.age >= 15 && (p.dropout || p.streetRep > 8 || Boolean(p.gang)) && chance(8),
+    when: p => p.age >= 15 && (p.dropout || p.streetRep > 8 || Boolean(p.gang)) && chance(2),
     choices: [
       { label: "Take the help", run: () => {
         if (state.player.gang) state.player.gangHeat = Math.max(0, state.player.gangHeat - 4);
@@ -2845,7 +4535,7 @@ const events = [
       const o = originOf(state.player.location);
       return `People around ${o.short} are starting to recognize ${state.player.name}. Not famous-famous, but local enough that doors open weirdly.`;
     },
-    when: p => p.age >= 12 && localRep(p) >= 18 && chance(9),
+    when: p => p.age >= 12 && localRep(p) >= 18 && chance(2),
     choices: [
       { label: "Use the momentum", run: () => {
         const earned = randomInt(280, 4200) + localRep() * 12;
@@ -2865,7 +4555,7 @@ const events = [
       const o = originOf(state.player.location);
       return `${o.short} put a messy choice in front of ${state.player.name}: quick clout, quick money, or stay boring and safe.`;
     },
-    when: p => p.age >= 13 && localRep(p) >= 10 && chance(8),
+    when: p => p.age >= 13 && localRep(p) >= 10 && chance(2),
     choices: [
       { label: "Chase clout", run: () => {
         changeLocalRep(chance(55) ? 5 : -3);
@@ -2879,7 +4569,7 @@ const events = [
     title: "Hometown Pull",
     tags: ["city", "family"],
     text: () => `${state.player.origin} still has a grip on ${state.player.name}. Somebody from back there wants time, money, or attention.`,
-    when: p => p.age >= 16 && p.origin !== p.location && chance(7),
+    when: p => p.age >= 16 && p.origin !== p.location && chance(2),
     choices: [
       { label: "Visit home", run: () => {
         const old = state.player.location;
@@ -2900,7 +4590,7 @@ const events = [
       const person = localPerson();
       return `${person} says they can connect ${state.player.name} to a bigger opportunity if you front some cash and trust the process.`;
     },
-    when: p => p.age >= 18 && localRep(p) >= 14 && chance(7),
+    when: p => p.age >= 18 && localRep(p) >= 14 && chance(2),
     choices: [
       { label: "Take the meeting", run: () => {
         if (chance(42 + Math.floor(state.player.stats.smarts / 5) + Math.floor(localRep() / 3))) {
@@ -2951,7 +4641,7 @@ const events = [
   {
     title: "Random DM",
     text: () => `Someone you've never met DM'd you. They want to fly you out for "a project." It sounds either life-changing or extremely sketchy.`,
-    when: p => p.age >= 16 && p.socialPage && chance(8),
+    when: p => p.age >= 16 && p.socialPage && chance(2),
     choices: [
       { label: "Take the meeting", run: () => {
         if (chance(50 + Math.floor(state.player.stats.looks / 6))) {
@@ -2982,7 +4672,7 @@ const events = [
   {
     title: "Cancelled",
     text: () => `Something ${state.player.name} said years ago is being dragged across every feed today. The receipts are loud.`,
-    when: p => p.age >= 18 && p.fame >= 18 && chance(6),
+    when: p => p.age >= 18 && p.fame >= 18 && chance(1),
     choices: [
       { label: "Apologize publicly", run: () => {
         const lost = Math.floor(state.player.followers * 0.25);
@@ -3003,7 +4693,7 @@ const events = [
   {
     title: "Surprise Pregnancy",
     text: () => `One of your partners or hookups is pregnant. The conversation is happening whether you're ready or not.`,
-    when: p => p.age >= 18 && p.age <= 44 && chance(9) && p.relationships.some(r => r.type === "partner" || r.bond > 80),
+    when: p => p.age >= 18 && p.age <= 44 && chance(2) && p.relationships.some(r => r.type === "partner" || r.bond > 80),
     choices: [
       { label: "Step up", run: () => {
         const childName = pick(peopleNames);
@@ -3017,7 +4707,7 @@ const events = [
   {
     title: "Jumped Walking Home",
     text: () => `Three people stepped to ${state.player.name} on the way home in ${originOf(state.player.location).short}. They want your phone, your watch, everything.`,
-    when: p => p.age >= 14 && (originOf(p.location).streetMod || 0) > 1 && chance(8),
+    when: p => p.age >= 14 && (originOf(p.location).streetMod || 0) > 1 && chance(2),
     choices: [
       { label: "Hand it over", run: () => applyEffects("You gave it up. They left. You walked home shaking but breathing.", { money: -randomInt(80, 600), happiness: -8, health: -2, discipline: 4 }, "bad") },
       { label: "Fight back", run: () => {
@@ -3033,7 +4723,7 @@ const events = [
   {
     title: "Brand Cold Call",
     text: () => `A real brand DM'd ${state.player.handle || state.player.name} asking about a paid collaboration.`,
-    when: p => p.age >= 16 && p.fame >= 10 && chance(7),
+    when: p => p.age >= 16 && p.fame >= 10 && chance(2),
     choices: [
       { label: "Sign the deal", run: () => {
         const amount = randomInt(2000, 18000) + state.player.fame * 200;
@@ -3108,7 +4798,7 @@ const events = [
   {
     title: "Wrong Place Wrong Time",
     text: () => `${state.player.name} got picked up by cops for being near something that happened.`,
-    when: p => p.age >= 15 && (originOf(p.location).streetMod || 0) > 1 && chance(7),
+    when: p => p.age >= 15 && (originOf(p.location).streetMod || 0) > 1 && chance(2),
     choices: [
       { label: "Stay silent, call a lawyer", run: () => {
         if (state.player.money >= 800 || state.player.relationships.some(r => r.role.includes("lawyer"))) {
@@ -3132,7 +4822,7 @@ const events = [
   {
     title: "Sudden Romance",
     text: () => `Someone walked into ${state.player.name}'s life this week and it's been on your mind since.`,
-    when: p => p.age >= 16 && !p.relationships.some(r => r.type === "partner") && chance(8),
+    when: p => p.age >= 16 && !p.relationships.some(r => r.type === "partner") && chance(2),
     choices: [
       { label: "Shoot your shot", run: askOut },
       { label: "Let it pass", run: () => applyEffects("You let it pass. Years from now you'll think about them sometimes.", { happiness: -4, discipline: 4, smarts: 2 }) }
@@ -3161,7 +4851,7 @@ const events = [
   {
     title: "Old Friend Resurfaces",
     text: () => `Someone you haven't talked to in years just hit your phone. They want to catch up.`,
-    when: p => p.age >= 20 && chance(6),
+    when: p => p.age >= 20 && chance(1),
     choices: [
       { label: "Catch up", run: () => {
         const nm = pick(peopleNames);
@@ -3210,7 +4900,7 @@ const events = [
   {
     title: "Frat House at 2AM",
     text: () => `Pulled up to a house party near campus. Music's shaking the windows. Somebody just got pushed in the pool with their phone. ${localPerson()} hands you a red cup with something already in it.`,
-    when: p => p.age >= 17 && p.age <= 23 && isAdultUnlocked() && (p.educationRank >= 3 || p.personality === "wild" || p.personality === "big") && chance(12),
+    when: p => p.age >= 17 && p.age <= 23 && isAdultUnlocked() && (p.educationRank >= 3 || p.personality === "wild" || p.personality === "big") && chance(3),
     choices: [
       { label: "Take the cup, dive in", run: () => {
         const wild = chance(40);
@@ -3232,7 +4922,7 @@ const events = [
   {
     title: "The Hills Mansion",
     text: () => `Somebody knew somebody. You and three friends are at a mansion party in the Hills. There's a DJ on the balcony. A reality TV person just looked at you. The bathroom is rumored to have product in it.`,
-    when: p => p.age >= 17 && isAdultUnlocked() && (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles" || p.fame >= 12) && chance(10),
+    when: p => p.age >= 17 && isAdultUnlocked() && (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles" || p.fame >= 12) && chance(2),
     choices: [
       { label: "Work the crowd", run: () => {
         const hit = chance(35 + Math.floor(state.player.stats.looks / 5));
@@ -3257,7 +4947,7 @@ const events = [
   {
     title: "Cocaine in the Bathroom",
     text: () => `Bathroom door at the club opens, somebody hands you a small bag and a rolled bill like it's a handshake. You barely know them.`,
-    when: p => p.age >= 18 && isAdultUnlocked() && (p.personality === "wild" || p.personality === "reckless" || p.personality === "big") && chance(7),
+    when: p => p.age >= 18 && isAdultUnlocked() && (p.personality === "wild" || p.personality === "reckless" || p.personality === "big") && chance(2),
     choices: [
       { label: "Just this once", run: () => {
         if (chance(35)) {
@@ -3325,7 +5015,7 @@ const events = [
   {
     title: "Mexico City After-Hours",
     text: () => `Somebody in CDMX brought you to a place that opens after 4AM. The DJ is wearing a balaclava. The crowd is dressed like a Helmut Lang lookbook. Everybody knows everybody.`,
-    when: p => p.age >= 18 && isAdultUnlocked() && p.location === "Mexico City, Mexico" && chance(8),
+    when: p => p.age >= 18 && isAdultUnlocked() && p.location === "Mexico City, Mexico" && chance(2),
     choices: [
       { label: "Stay until the lights come on", run: () => {
         addCanonEvent(`Closed out an after-hours in CDMX with people you'll never see again. The kind of night you keep to yourself.`, "good");
@@ -3338,7 +5028,7 @@ const events = [
   {
     title: "Tokyo Host Club",
     text: () => `Walked past a host club in Shinjuku. Somebody waved you in. Inside it's gold, mirrors, and bottles with sparklers. They want you to order champagne.`,
-    when: p => p.age >= 20 && isAdultUnlocked() && p.location === "Tokyo, Japan" && p.money >= 800 && chance(7),
+    when: p => p.age >= 20 && isAdultUnlocked() && p.location === "Tokyo, Japan" && p.money >= 800 && chance(2),
     choices: [
       { label: "Buy a bottle", run: () => {
         const cost = randomInt(800, 4200);
@@ -3352,7 +5042,7 @@ const events = [
   {
     title: "London Drill Scene",
     text: () => `Somebody you know on the ends invited you to a basement studio in South London. There's a producer with a Roland and three guys who haven't taken their balaclavas off. The smoke is thick.`,
-    when: p => p.age >= 16 && isAdultUnlocked() && p.location === "London, UK" && chance(8),
+    when: p => p.age >= 16 && isAdultUnlocked() && p.location === "London, UK" && chance(2),
     choices: [
       { label: "Stay and record", run: () => {
         const viral = chance(20 + Math.floor(state.player.stats.discipline / 5));
@@ -3370,7 +5060,7 @@ const events = [
   {
     title: "Atlanta Studio Session",
     text: () => `An A&R you DM'd two weeks ago hit you back. There's a session tonight at a studio in Buckhead. ${pick(["Quavo", "21 Savage's engineer", "Future's writer"])}'s assistant is in there.`,
-    when: p => p.age >= 14 && isAdultUnlocked() && p.location === "Atlanta, GA" && (p.fame >= 5 || p.stats.smarts >= 60 || p.socialPage) && chance(10),
+    when: p => p.age >= 14 && isAdultUnlocked() && p.location === "Atlanta, GA" && (p.fame >= 5 || p.stats.smarts >= 60 || p.socialPage) && chance(2),
     choices: [
       { label: "Spit your best verse", run: () => {
         const heat = chance(35 + Math.floor(state.player.fame / 4));
@@ -3401,7 +5091,7 @@ const events = [
   {
     title: "First Real Tinder Date",
     text: () => `You're meeting them at a bar in ${originOf(state.player.location).short}. Their pictures looked like a Pinterest board. They walk in and... do not.`,
-    when: p => p.age >= 18 && isAdultUnlocked() && !p.relationships.some(r => r.type === "partner") && chance(8),
+    when: p => p.age >= 18 && isAdultUnlocked() && !p.relationships.some(r => r.type === "partner") && chance(2),
     choices: [
       { label: "Be cool about it", run: () => {
         if (chance(40)) {
@@ -3485,7 +5175,7 @@ const events = [
   {
     title: "Famous Person DM",
     text: () => `${pick(["A reality TV star", "An NBA player's cousin", "A rapper with 800K followers", "An OnlyFans top earner"])} just DM'd ${state.player.handle || state.player.name}. They want to "link."`,
-    when: p => p.age >= 18 && isAdultUnlocked() && p.fame >= 10 && p.socialPage && chance(6),
+    when: p => p.age >= 18 && isAdultUnlocked() && p.fame >= 10 && p.socialPage && chance(1),
     choices: [
       { label: "Pull up", run: () => {
         const win = chance(45 + Math.floor(state.player.stats.looks / 6));
@@ -3576,7 +5266,7 @@ const events = [
   {
     title: "Therapy Breakthrough",
     text: () => `${state.player.name}'s therapist asked one question today that broke open something old. There's no script for what comes next.`,
-    when: p => p.age >= 20 && (p.personality === "storm" || p.personality === "romantic" || p.personality === "bookworm" || p.personality === "calm") && p.money >= 200 && chance(8),
+    when: p => p.age >= 20 && (p.personality === "storm" || p.personality === "romantic" || p.personality === "bookworm" || p.personality === "calm") && p.money >= 200 && chance(2),
     choices: [
       { label: "Sit in it", run: () => {
         addCanonEvent(`Had a real breakthrough in therapy. Old patterns started loosening.`, "good");
@@ -3612,7 +5302,7 @@ const events = [
   {
     title: "Slow Romance, Right Person",
     text: () => `${state.player.name} kept running into the same person at the coffee shop / gym / corner store in ${originOf(state.player.location).short}. Today they finally asked your name.`,
-    when: p => p.age >= 18 && (p.personality === "romantic" || p.personality === "calm" || p.personality === "storm") && !p.relationships.some(r => r.type === "partner") && chance(8),
+    when: p => p.age >= 18 && (p.personality === "romantic" || p.personality === "calm" || p.personality === "storm") && !p.relationships.some(r => r.type === "partner") && chance(2),
     choices: [
       { label: "Take it slow", run: () => {
         const name = pick(originOf(state.player.location).locals.concat(peopleNames));
@@ -3640,7 +5330,7 @@ const events = [
   {
     title: "Medellín Hillside Story",
     text: () => `Old man at the panadería told ${state.player.name} about his comuna in the 90s. Then he changed the subject. Some stories Medellín still doesn't tell out loud.`,
-    when: p => p.age >= 12 && p.location === "Medellín, Colombia" && chance(8),
+    when: p => p.age >= 12 && p.location === "Medellín, Colombia" && chance(2),
     choices: [
       { label: "Ask him to keep going", run: () => applyEffects(`He told you what the city used to look like. You understood something old in your blood.`, { smarts: 6, karma: 4, happiness: 2 }, "good") },
       { label: "Let the silence sit", run: () => applyEffects(`You finished your café tinto, paid, walked home. Some things don't need words.`, { discipline: 5, smarts: 3 }) }
@@ -3664,7 +5354,7 @@ const events = [
   {
     title: "Paragliding Over the Valley",
     text: () => `Friends booked paragliding over the Aburrá valley. Strapped in next to a guy who looked like he didn't speak Spanish OR English. The ground is far away.`,
-    when: p => p.age >= 14 && p.location === "Medellín, Colombia" && chance(7),
+    when: p => p.age >= 14 && p.location === "Medellín, Colombia" && chance(2),
     choices: [
       { label: "Send it", run: () => applyEffects(`Twenty minutes in the sky over Medellín. Photos became your most-saved screenshots. Slept like a kid.`, { happiness: 14, looks: 2, money: -randomInt(60, 180), fame: chance(20) ? 3 : 0 }, "good") },
       { label: "Stay on the ground", run: () => applyEffects(`You took the photos from the lookout. Less crazy, still beautiful.`, { happiness: 4, discipline: 3 }) }
@@ -3675,7 +5365,7 @@ const events = [
   {
     title: "Smoke Break in the 11e",
     text: () => `${state.player.name} ended up at a bar in Oberkampf. Everybody smokes outside, talks fast, switches to English when they hear your accent.`,
-    when: p => p.age >= 16 && isAdultUnlocked() && p.location === "Paris, France" && chance(8),
+    when: p => p.age >= 16 && isAdultUnlocked() && p.location === "Paris, France" && chance(2),
     choices: [
       { label: "Stay all night", run: () => applyEffects(`You closed the bar. Made friends with a film school student and a guy who works at the museum at night. Your French got 12% better.`, { happiness: 12, smarts: 4, looks: 2, health: -3, discipline: -2 }, "good") },
       { label: "Leave at midnight", run: () => applyEffects(`You took the last metro home. Read a book in bed. Felt like a Parisian for one evening.`, { happiness: 6, smarts: 5, discipline: 6 }, "good") }
@@ -3684,7 +5374,7 @@ const events = [
   {
     title: "Fashion Week Side Door",
     text: () => `Someone slipped ${state.player.name} a pass to a side show at Paris Fashion Week. The dress code is "expensive and bored."`,
-    when: p => p.age >= 17 && p.location === "Paris, France" && (p.stats.looks >= 60 || p.fame >= 8) && chance(6),
+    when: p => p.age >= 17 && p.location === "Paris, France" && (p.stats.looks >= 60 || p.fame >= 8) && chance(1),
     choices: [
       { label: "Pull up dressed right", run: () => {
         if (chance(50 + Math.floor(state.player.stats.looks / 5))) {
@@ -3700,7 +5390,7 @@ const events = [
   {
     title: "Romance on the Seine",
     text: () => `${state.player.name} crossed paths with somebody on a bridge over the Seine. They asked for a cigarette. You don't smoke but you stood there for forty minutes anyway.`,
-    when: p => p.age >= 17 && p.location === "Paris, France" && (p.personality === "romantic" || p.personality === "storm") && !p.relationships.some(r => r.type === "partner") && chance(8),
+    when: p => p.age >= 17 && p.location === "Paris, France" && (p.personality === "romantic" || p.personality === "storm") && !p.relationships.some(r => r.type === "partner") && chance(2),
     choices: [
       { label: "Get their number", run: () => {
         const name = pick(["Camille", "Léo", "Inès", "Chloé", "Mathéo"]);
@@ -3716,7 +5406,7 @@ const events = [
   {
     title: "Brunch at the Burj",
     text: () => `Friends booked a brunch at the Burj Al Arab. The bill at the end is rumored to be its own kind of party trick.`,
-    when: p => p.age >= 18 && isAdultUnlocked() && p.location === "Dubai, UAE" && p.money >= 2500 && chance(7),
+    when: p => p.age >= 18 && isAdultUnlocked() && p.location === "Dubai, UAE" && p.money >= 2500 && chance(2),
     choices: [
       { label: "Eat like an emir", run: () => {
         const cost = randomInt(1800, 8500);
@@ -3754,7 +5444,7 @@ const events = [
   {
     title: "Ipanema Sunset",
     text: () => `Sunset at Posto 9. Everybody clapping when the sun drops. ${state.player.name} is barefoot. The beach is the friendliest part of the city.`,
-    when: p => p.age >= 12 && p.location === "Rio de Janeiro, Brazil" && chance(10),
+    when: p => p.age >= 12 && p.location === "Rio de Janeiro, Brazil" && chance(2),
     choices: [
       { label: "Stay through dark", run: () => applyEffects(`You stayed. Met three locals. Drank caipirinha from a styrofoam cup. Walked home through a city that knows how to live.`, { happiness: 12, looks: 3, money: -randomInt(20, 80) }, "good") },
       { label: "Head home for dinner", run: () => applyEffects(`You went home before the sand cooled. Slept early. Wholesome.`, { discipline: 4, happiness: 4 }) }
@@ -3763,7 +5453,7 @@ const events = [
   {
     title: "Funk Party in the Favela",
     text: () => `Cousin took ${state.player.name} to a baile funk party in Rocinha. Loud, sweaty, the bass shakes the wall, and the police aren't coming up the hill tonight.`,
-    when: p => p.age >= 16 && isAdultUnlocked() && p.location === "Rio de Janeiro, Brazil" && chance(7),
+    when: p => p.age >= 16 && isAdultUnlocked() && p.location === "Rio de Janeiro, Brazil" && chance(2),
     choices: [
       { label: "Dance until 5AM", run: () => {
         if (chance(70)) {
@@ -3778,7 +5468,7 @@ const events = [
   {
     title: "Carnival Block Party",
     text: () => `Carnival. ${state.player.name} is at a bloco in Lapa. Glitter, beer, somebody in a sequin thong, the entire city wearing the same costume of "free."`,
-    when: p => p.age >= 16 && isAdultUnlocked() && p.location === "Rio de Janeiro, Brazil" && chance(8),
+    when: p => p.age >= 16 && isAdultUnlocked() && p.location === "Rio de Janeiro, Brazil" && chance(2),
     choices: [
       { label: "Lose yourself in it", run: () => {
         addCanonEvent(`Did Carnival in Rio properly. ${state.player.name} won't remember half of it.`, "good");
@@ -3792,7 +5482,7 @@ const events = [
   {
     title: "K-Pop Audition Day",
     text: () => `Friend forwarded ${state.player.name} a flyer for an open call at SM / JYP / HYBE. They're picking new trainees. The line goes around the block.`,
-    when: p => p.age >= 14 && p.age <= 22 && p.location === "Seoul, South Korea" && p.stats.looks >= 55 && chance(7),
+    when: p => p.age >= 14 && p.age <= 22 && p.location === "Seoul, South Korea" && p.stats.looks >= 55 && chance(2),
     choices: [
       { label: "Wait in line", run: () => {
         if (chance(15 + Math.floor(state.player.stats.looks / 5))) {
@@ -3825,7 +5515,7 @@ const events = [
   {
     title: "Hagwon All-Nighter",
     text: () => `${state.player.name} is in cram school until 11PM. Then there's another two hours of homework. Then there's the test on Monday.`,
-    when: p => p.age >= 13 && p.age <= 19 && p.location === "Seoul, South Korea" && p.educationRank >= 2 && chance(10),
+    when: p => p.age >= 13 && p.age <= 19 && p.location === "Seoul, South Korea" && p.educationRank >= 2 && chance(2),
     choices: [
       { label: "Grind through it", run: () => applyEffects(`You pushed through. Stats up. Sleep down. Your mom said she's proud, then asked about the next test.`, { smarts: 8, discipline: 6, health: -4, happiness: -3 }, "good") },
       { label: "Sneak out for jjajangmyeon", run: () => applyEffects(`You and three friends slipped out for noodles at midnight. Got back two hours later. The bond was worth the test grade.`, { happiness: 8, karma: 4, smarts: -2, discipline: -3 }) }
@@ -3836,7 +5526,7 @@ const events = [
   {
     title: "Mom's Pit Boss",
     text: () => `${state.player.name}'s mom works the casino floor. She brought home a "friend". the pit boss. who's been buying you new clothes lately.`,
-    when: p => p.age >= 10 && p.age <= 18 && p.location === "Las Vegas, NV" && chance(7),
+    when: p => p.age >= 10 && p.age <= 18 && p.location === "Las Vegas, NV" && chance(2),
     choices: [
       { label: "Accept the clothes", run: () => applyEffects(`You wore the Foot Lockers. The other kids noticed. Mom was happy. You stayed quiet about the weird parts.`, { looks: 4, money: 0, happiness: 2, karma: -2 }) },
       { label: "Refuse them", run: () => applyEffects(`You said no thank you. Mom was upset. You learned to read a room early.`, { discipline: 8, smarts: 6, happiness: -4 }) }
@@ -3845,7 +5535,7 @@ const events = [
   {
     title: "Off-Strip Hustle",
     text: () => `A guy who works at one of the strip clubs offered ${state.player.name} a side gig: hand out cards to tourists on Fremont. $200 a night cash.`,
-    when: p => p.age >= 17 && isAdultUnlocked() && p.location === "Las Vegas, NV" && p.money < 800 && chance(6),
+    when: p => p.age >= 17 && isAdultUnlocked() && p.location === "Las Vegas, NV" && p.money < 800 && chance(1),
     choices: [
       { label: "Take the gig", run: () => {
         const earned = randomInt(180, 480);
@@ -3857,7 +5547,7 @@ const events = [
   {
     title: "Pool Party at the Cosmo",
     text: () => `Free pool party invite at the Cosmopolitan. Friends say it's "wild but chill." You know exactly what that means.`,
-    when: p => p.age >= 21 && isAdultUnlocked() && p.location === "Las Vegas, NV" && chance(8),
+    when: p => p.age >= 21 && isAdultUnlocked() && p.location === "Las Vegas, NV" && chance(2),
     choices: [
       { label: "Pull up", run: () => {
         if (chance(50)) {
@@ -3937,7 +5627,7 @@ const events = [
   {
     title: "New Year's Eve",
     text: () => `Last night of ${currentYear(state.player)}. Where ${state.player.name} ends up tonight will say everything about who they are right now.`,
-    when: p => p.age >= 16 && chance(14),
+    when: p => p.age >= 16 && chance(3),
     choices: [
       { label: "Penthouse party with the boys/girls", run: () => {
         const cost = randomInt(120, 800);
@@ -3962,7 +5652,7 @@ const events = [
         ? `Valentine's. ${partner.name} is expecting something. The bar is whatever you set last year.`
         : `Valentine's. Single. Every restaurant booked. Every couple visible. The day is louder when you're not in it.`;
     },
-    when: p => p.age >= 14 && chance(10),
+    when: p => p.age >= 14 && chance(2),
     choices: [
       { label: "Go big", run: () => {
         const cost = randomInt(180, 1800);
@@ -3989,7 +5679,7 @@ const events = [
   {
     title: "Super Bowl Weekend",
     text: () => `Super Bowl is on. Friends in ${originOf(state.player.location).short} are throwing the party. Wings, bets, screaming at the TV. ${pick(["The Chiefs", "The Eagles", "The 49ers", "The Cowboys"])} are favored.`,
-    when: p => p.age >= 14 && currentYear(p) >= 1985 && chance(7),
+    when: p => p.age >= 14 && currentYear(p) >= 1985 && chance(2),
     choices: [
       { label: "Bet on the underdog", run: () => {
         const bet = randomInt(80, 800);
@@ -4006,7 +5696,7 @@ const events = [
   {
     title: "Halloween Night",
     text: () => `Halloween in ${originOf(state.player.location).short}. Costume's in the closet. Three parties on the group chat. ${state.player.name} has to pick.`,
-    when: p => p.age >= 14 && chance(11),
+    when: p => p.age >= 14 && chance(2),
     choices: [
       { label: "Wear the wildest fit", run: () => {
         const fol = randomInt(50, 1800);
@@ -4027,7 +5717,7 @@ const events = [
       const family = state.player.relationships.find(r => r.type === "family");
       return `Thanksgiving. ${family?.name || "Family"} cooked. Everybody is asking when ${state.player.name} is going to figure their life out.`;
     },
-    when: p => p.age >= 18 && currentYear(p) >= 1990 && p.relationships.some(r => r.type === "family") && chance(8),
+    when: p => p.age >= 18 && currentYear(p) >= 1990 && p.relationships.some(r => r.type === "family") && chance(2),
     choices: [
       { label: "Bring up your wins", run: () => {
         if (chance(45)) {
@@ -4046,7 +5736,7 @@ const events = [
   {
     title: "Christmas Morning",
     text: () => `Christmas morning. Kids are up at 6. The tree has more under it than the budget said it should.`,
-    when: p => p.age >= 5 && (p.children?.length > 0 || p.age <= 17) && chance(10),
+    when: p => p.age >= 5 && (p.children?.length > 0 || p.age <= 17) && chance(2),
     choices: [
       { label: "Be present", run: () => {
         if (state.player.children?.length > 0) {
@@ -4063,7 +5753,7 @@ const events = [
   {
     title: "Summer Block Party",
     text: () => `Summer in ${originOf(state.player.location).short}. The block has tables out, smoke from the grill, somebody's speaker pointed at the street, kids running through the hydrant.`,
-    when: p => p.age >= 8 && chance(11),
+    when: p => p.age >= 8 && chance(2),
     choices: [
       { label: "Stay all day", run: () => {
         changeLocalRep(randomInt(3, 8));
@@ -4076,7 +5766,7 @@ const events = [
   {
     title: "Spring Break Pressure",
     text: () => `Group chat is exploding. Spring Break is two weeks out. They're booking ${pick(["Cabo", "Miami", "Cancún", "Tulum", "Lake Havasu"])}. ${state.player.name} has to commit by Friday.`,
-    when: p => p.age >= 18 && p.age <= 24 && p.educationRank >= 3 && chance(9),
+    when: p => p.age >= 18 && p.age <= 24 && p.educationRank >= 3 && chance(2),
     choices: [
       { label: "Book it", run: bookTrip },
       { label: "Stay home and study", run: () => applyEffects(`You stayed. Got ahead on the semester. Watched them post from Cabo. Mixed feelings.`, { discipline: 12, smarts: 6, happiness: -6 }) },
@@ -4100,7 +5790,7 @@ const events = [
   {
     title: "Election Year",
     text: () => `${currentYear(state.player)} is an election year. Everybody is mad at each other online. ${state.player.name} got tagged in three political posts this week.`,
-    when: p => p.age >= 18 && currentYear(p) % 4 === 0 && currentYear(p) >= 1996 && chance(12),
+    when: p => p.age >= 18 && currentYear(p) % 4 === 0 && currentYear(p) >= 1996 && chance(3),
     choices: [
       { label: "Get loud online", run: () => {
         const swing = chance(40);
@@ -4118,7 +5808,7 @@ const events = [
   {
     title: "Prom Night",
     text: () => `Prom is next Saturday. The dress / suit is in the closet. The group is taking limos. ${state.player.name} is supposed to ask somebody by Wednesday.`,
-    when: p => p.age >= 16 && p.age <= 18 && p.educationRank >= 2 && chance(15),
+    when: p => p.age >= 16 && p.age <= 18 && p.educationRank >= 2 && chance(3),
     choices: [
       { label: "Ask the person you actually like", run: () => {
         if (chance(45 + Math.floor(state.player.stats.looks / 5))) {
@@ -4138,7 +5828,7 @@ const events = [
   {
     title: "Y2K Panic",
     text: () => `It's December ${currentYear(state.player)}. Everybody is convinced the world's computers are about to crash at midnight. Your dad bought canned beans.`,
-    when: p => p.age >= 10 && currentYear(p) === 1999 && chance(50),
+    when: p => p.age >= 10 && currentYear(p) === 1999 && chance(15),
     choices: [
       { label: "Party like nothing's wrong", run: () => applyEffects(`Midnight came. Nothing happened. The beans are still in the basement to this day.`, { happiness: 12, smarts: 3 }, "good") },
       { label: "Help dad stockpile", run: () => applyEffects(`You hauled cases of water. Felt useful. Your dad was your hero for a week.`, { discipline: 6, karma: 4 }) }
@@ -4152,7 +5842,7 @@ const events = [
   {
     title: "Rapper Slid In Your DMs",
     text: () => `${pick(["A platinum-selling rapper from Atlanta", "A drill artist from Chicago", "A rapper Drake co-signed", "A trap artist who just sold out arenas", "An LA rapper everyone's talking about"])} just DM'd ${state.player.handle || state.player.name}. They like your vibe. They want to "link."`,
-    when: p => p.age >= 18 && isAdultUnlocked() && p.fame >= 15 && p.socialPage && chance(10),
+    when: p => p.age >= 18 && isAdultUnlocked() && p.fame >= 15 && p.socialPage && chance(2),
     choices: [
       { label: "Pull up to the studio", run: () => {
         if (chance(40)) {
@@ -4169,7 +5859,7 @@ const events = [
   {
     title: "NBA Player's Cousin",
     text: () => `${pick(["LeBron's", "Steph's", "Giannis's", "an All-Star's", "a top-5 pick's"])} cousin showed up at the same bottle service. They're holding court. ${state.player.name} got eye contact.`,
-    when: p => p.age >= 19 && isAdultUnlocked() && (p.fame >= 8 || p.stats.looks >= 65) && chance(10),
+    when: p => p.age >= 19 && isAdultUnlocked() && (p.fame >= 8 || p.stats.looks >= 65) && chance(2),
     choices: [
       { label: "Slide over", run: () => {
         const hit = chance(40);
@@ -4203,7 +5893,7 @@ const events = [
   {
     title: "Reality TV Star Cameo",
     text: () => `${pick(["A Kardashian-adjacent", "a Real Housewives", "a Love Island", "a Selling Sunset"])} reality star posted a photo from a place you can recognize. You're in the background. The internet found you.`,
-    when: p => p.age >= 17 && p.location.includes("Los Angeles") && chance(8),
+    when: p => p.age >= 17 && p.location.includes("Los Angeles") && chance(2),
     choices: [
       { label: "Comment on the post", run: () => {
         if (chance(25)) {
@@ -4219,7 +5909,7 @@ const events = [
   {
     title: "A-list Actor in Your Spot",
     text: () => `${pick(["A Marvel actor", "an Oscar nominee", "a Netflix lead", "Timothée Chalamet-type"])} walked into the cafe ${state.player.name} works at / hangs out at. They're alone. They look tired.`,
-    when: p => p.age >= 16 && (p.location.includes("Los Angeles") || p.location === "New York City, NY") && chance(7),
+    when: p => p.age >= 16 && (p.location.includes("Los Angeles") || p.location === "New York City, NY") && chance(2),
     choices: [
       { label: "Treat them normal", run: () => applyEffects(`You did NOT freak out. They appreciated it. Tipped 100%. Maybe a story for life. Maybe nothing.`, { happiness: 8, money: randomInt(80, 400), karma: 4 }, "good") },
       { label: "Ask for a selfie", run: () => {
@@ -4266,7 +5956,7 @@ const events = [
   {
     title: "Got Featured by a Magazine",
     text: () => `${pick(["Forbes 30 Under 30", "Vogue", "GQ", "Complex", "Hypebeast"])} reached out. They want ${state.player.name} for a feature. Three-hour photo shoot included.`,
-    when: p => p.age >= 21 && (p.fame >= 35 || p.company || p.followers >= 50000) && chance(7),
+    when: p => p.age >= 21 && (p.fame >= 35 || p.company || p.followers >= 50000) && chance(2),
     choices: [
       { label: "Do the feature", run: () => {
         const fol = randomInt(5000, 80000);
@@ -4286,7 +5976,7 @@ const events = [
   {
     title: "Cotillion / Debutante Ball",
     text: () => `Your parents enrolled ${state.player.name} in cotillion. White gloves, waltz lessons, name engraved on a list everyone in the city already knows.`,
-    when: p => p.age === 16 && p.spawnClass === "nepo" && chance(80),
+    when: p => p.age === 16 && p.spawnClass === "nepo" && chance(25),
     choices: [
       { label: "Walk the floor properly", run: () => applyEffects(`You did the bow, the curtsey, the waltz. Three families now consider you marriage material.`, { looks: 6, fame: 6, happiness: 4, discipline: 4 }, "good") },
       { label: "Refuse the whole thing", run: () => applyEffects(`You bailed. Your mother didn't speak to you for three weeks. Aunt called it 'a phase.'`, { happiness: 4, karma: 4, looks: -1 }) }
@@ -4295,7 +5985,7 @@ const events = [
   {
     title: "Aspen / St. Moritz Family Trip",
     text: () => `Annual family ski trip. ${pick(["Aspen", "St. Moritz", "Vail", "Whistler"])}. Same chalet every year. You barely have to pack.`,
-    when: p => p.age >= 12 && p.age <= 30 && p.spawnClass === "nepo" && chance(20),
+    when: p => p.age >= 12 && p.age <= 30 && p.spawnClass === "nepo" && chance(4),
     choices: [
       { label: "Hit the slopes black diamond", run: () => applyEffects(`Photos from the lift hit your feed. ${pick(["A Hadid", "an Olsen", "a Roy heir"])} commented "snow looks good on you."`, { looks: 4, happiness: 10, followers: randomInt(200, 4000), fame: 4 }, "good") },
       { label: "Stay at the chalet, snort coke with cousins", run: () => applyEffects(`Mountain stayed quiet. Your cousins are nightmare people. You learned things about your family you can't unlearn.`, { happiness: 6, health: -6, discipline: -6, smarts: 5, risksTaken: 1 }) }
@@ -4304,7 +5994,7 @@ const events = [
   {
     title: "Trust Fund Activates",
     text: () => `${state.player.name} just turned 21. The trust fund activates today. Lawyer's office, paperwork, a wire transfer that doesn't feel real.`,
-    when: p => p.age === 21 && p.spawnClass === "nepo" && chance(85),
+    when: p => p.age === 21 && p.spawnClass === "nepo" && chance(28),
     choices: [
       { label: "Take the full payout", run: () => {
         const amount = randomInt(180000, 1200000);
@@ -4317,7 +6007,7 @@ const events = [
   {
     title: "Parents' Divorce Settlement",
     text: () => `Your parents are splitting. Lawyers are arguing about who keeps which house. ${state.player.name} is technically a beneficiary in three trusts that just got contested.`,
-    when: p => p.age >= 14 && p.age <= 28 && p.spawnClass === "nepo" && chance(8),
+    when: p => p.age >= 14 && p.age <= 28 && p.spawnClass === "nepo" && chance(2),
     choices: [
       { label: "Side with mom", run: () => applyEffects(`You picked a side. Dad cut the allowance. Mom doubled hers. Your relationships shifted permanently.`, { money: randomInt(20000, 120000), happiness: -10, karma: -2 }) },
       { label: "Side with dad", run: () => applyEffects(`You picked a side. Mom called you a traitor. Dad bought you a new car.`, { money: randomInt(15000, 90000), happiness: -8, karma: -2 }) },
@@ -4327,7 +6017,7 @@ const events = [
   {
     title: "Hamptons Summer",
     text: () => `Summer in the Hamptons. ${pick(["Sag Harbor", "East Hampton", "Bridgehampton", "Montauk"])}. The family compound is full. Tennis, boats, somebody's catered clambake. You're 22.`,
-    when: p => p.age >= 18 && p.age <= 35 && p.spawnClass === "nepo" && chance(12),
+    when: p => p.age >= 18 && p.age <= 35 && p.spawnClass === "nepo" && chance(3),
     choices: [
       { label: "Network at the clambake", run: () => applyEffects(`Three hedge fund kids took your number. A board seat got mentioned. The summer paid for itself.`, { fame: 6, money: randomInt(2000, 18000), happiness: 10, smarts: 4 }, "good") },
       { label: "Hook up in the pool house", run: () => applyEffects(`Old money + bad decisions. Their parents heard. Yours heard louder.`, { happiness: 12, looks: 2, karma: -4, discipline: -3 }) }
@@ -4336,7 +6026,7 @@ const events = [
   {
     title: "Board Seat Offer (Family Friend)",
     text: () => `${state.player.name}'s godfather called. There's a board seat opening at his firm. "It's mostly ceremonial." Pays well. Comes with a Tesla.`,
-    when: p => p.age >= 30 && p.spawnClass === "nepo" && chance(20),
+    when: p => p.age >= 30 && p.spawnClass === "nepo" && chance(4),
     choices: [
       { label: "Take it", run: () => {
         const yearly = randomInt(80000, 380000);
@@ -4351,7 +6041,7 @@ const events = [
   {
     title: "Family Vacation to Disney",
     text: () => `${state.player.name}'s family booked Disney World. Two days at Magic Kingdom, one at Epcot. Dad bought the photo package. Mom packed sandwiches.`,
-    when: p => p.age >= 6 && p.age <= 12 && p.spawnClass === "comfortable" && chance(30),
+    when: p => p.age >= 6 && p.age <= 12 && p.spawnClass === "comfortable" && chance(7),
     choices: [
       { label: "Live it up", run: () => applyEffects(`You met Mickey, ate three Dole Whips, threw up on Space Mountain. Best week of your life so far.`, { happiness: 16, health: -2 }, "good") },
       { label: "Stay annoyed teen-style", run: () => applyEffects(`You wore headphones the whole trip. Family photos look weird. Mom still has them in the album.`, { happiness: -2, smarts: 3, discipline: 4 }) }
@@ -4360,7 +6050,7 @@ const events = [
   {
     title: "Mom's Modest IRA Inheritance",
     text: () => `Aunt passed. Mom got the IRA. She wants to give ${state.player.name} a chunk to "help you get started."`,
-    when: p => p.age >= 22 && p.age <= 40 && p.spawnClass === "comfortable" && chance(15),
+    when: p => p.age >= 22 && p.age <= 40 && p.spawnClass === "comfortable" && chance(3),
     choices: [
       { label: "Take it gratefully", run: () => {
         const amount = randomInt(8000, 45000);
@@ -4372,7 +6062,7 @@ const events = [
   {
     title: "Dad's Garage Project",
     text: () => `Dad's been working on a ${pick(["Mustang", "VW bus", "Bronco", "Camaro"])} in the garage for three years. He wants ${state.player.name} to help him finish it.`,
-    when: p => p.age >= 12 && p.age <= 30 && p.spawnClass === "comfortable" && chance(15),
+    when: p => p.age >= 12 && p.age <= 30 && p.spawnClass === "comfortable" && chance(3),
     choices: [
       { label: "Show up every weekend", run: () => {
         const dad = state.player.relationships.find(r => r.role?.toLowerCase().includes("father") || r.id === "guardian2");
@@ -4389,7 +6079,7 @@ const events = [
   {
     title: "First Real Apartment with Mom Helping",
     text: () => `${state.player.name}'s moving out. Mom is at IKEA at 9AM. She brought labels. She brought lunch.`,
-    when: p => p.age >= 18 && p.age <= 25 && p.spawnClass === "comfortable" && chance(20),
+    when: p => p.age >= 18 && p.age <= 25 && p.spawnClass === "comfortable" && chance(4),
     choices: [
       { label: "Let her help", run: () => applyEffects(`She organized your kitchen. Cried in the parking lot. It was a moment.`, { money: -800, happiness: 12, karma: 8 }, "good") },
       { label: "Insist on doing it alone", run: () => applyEffects(`You set up the apartment yourself. Took three days. The bed is still on the floor.`, { money: -400, discipline: 8, happiness: -2 }) }
@@ -4398,7 +6088,7 @@ const events = [
   {
     title: "Suburban Driveway Talk",
     text: () => `Dad cornered ${state.player.name} on the driveway. "You good? Seriously." Suburban silence around it.`,
-    when: p => p.age >= 16 && p.age <= 30 && p.spawnClass === "comfortable" && chance(10),
+    when: p => p.age >= 16 && p.age <= 30 && p.spawnClass === "comfortable" && chance(2),
     choices: [
       { label: "Tell him the truth", run: () => applyEffects(`You opened up for the first time in years. Neither of you knew what to do with it. It mattered.`, { happiness: 14, karma: 8, smarts: 4 }, "good") },
       { label: "Say 'I'm fine'", run: () => applyEffects(`Conversation ended. Both of you went back inside. Mom asked what you talked about. You didn't know.`, { happiness: -4, discipline: 2 }) }
@@ -4409,7 +6099,7 @@ const events = [
   {
     title: "First Real Paycheck",
     text: () => `${state.player.name}'s first paycheck cleared. ${money(randomInt(200, 800))}. You're 15. You held it up to the light.`,
-    when: p => p.age >= 15 && p.age <= 18 && p.spawnClass === "working" && chance(30),
+    when: p => p.age >= 15 && p.age <= 18 && p.spawnClass === "working" && chance(7),
     choices: [
       { label: "Give half to mom", run: () => {
         const mom = state.player.relationships.find(r => r.role?.toLowerCase().includes("mother") || r.id === "guardian");
@@ -4422,7 +6112,7 @@ const events = [
   {
     title: "Mom Working Double Shifts",
     text: () => `Mom hasn't been home before midnight in three weeks. She's working two jobs. ${state.player.name} can see it in her face.`,
-    when: p => p.age >= 10 && p.age <= 18 && p.spawnClass === "working" && chance(18),
+    when: p => p.age >= 10 && p.age <= 18 && p.spawnClass === "working" && chance(4),
     choices: [
       { label: "Make dinner every night", run: () => {
         const mom = state.player.relationships.find(r => r.role?.toLowerCase().includes("mother") || r.id === "guardian");
@@ -4435,7 +6125,7 @@ const events = [
   {
     title: "Trade School Pitch",
     text: () => `Uncle ${pick(["Frank", "Mike", "Carlos", "Tito"])} cornered ${state.player.name} at the cookout. "Forget college. You learn a trade, you own your time."`,
-    when: p => p.age >= 16 && p.age <= 20 && p.spawnClass === "working" && chance(25),
+    when: p => p.age >= 16 && p.age <= 20 && p.spawnClass === "working" && chance(5),
     choices: [
       { label: "Take it seriously", run: () => {
         state.player.certifications.push("trade");
@@ -4448,7 +6138,7 @@ const events = [
   {
     title: "Union Meeting Pulls You In",
     text: () => `Work called a union meeting. Steward asked ${state.player.name} to speak. turns out you're respected.`,
-    when: p => p.age >= 22 && p.age <= 50 && p.spawnClass === "working" && p.jobId !== "none" && chance(15),
+    when: p => p.age >= 22 && p.age <= 50 && p.spawnClass === "working" && p.jobId !== "none" && chance(3),
     choices: [
       { label: "Stand up and speak", run: () => applyEffects(`The room listened. Floor came to a vote. You're now somebody's "guy." Union representative offered to mentor you.`, { politicalCapital: 8, karma: 8, happiness: 8, discipline: 6 }, "good") },
       { label: "Stay quiet", run: () => applyEffects(`You let it ride. Same wages, same conditions. Felt the weight of it.`, { discipline: 3, happiness: -2 }) }
@@ -4457,7 +6147,7 @@ const events = [
   {
     title: "Bills Hit Harder Than Expected",
     text: () => `Rent, electric, phone, groceries, car. ${state.player.name} sat at the kitchen table doing math. The numbers don't add up.`,
-    when: p => p.age >= 19 && p.age <= 30 && p.spawnClass === "working" && p.money < 1000 && chance(20),
+    when: p => p.age >= 19 && p.age <= 30 && p.spawnClass === "working" && p.money < 1000 && chance(4),
     choices: [
       { label: "Pick up a second job", run: () => applyEffects(`Two jobs. You sleep four hours. The numbers work. Barely.`, { money: randomInt(800, 2400), discipline: 8, health: -6, happiness: -4 }, "good") },
       { label: "Borrow from family", run: () => {
@@ -4473,7 +6163,7 @@ const events = [
   {
     title: "SNAP Card Line",
     text: () => `Mom needed help with the SNAP renewal. ${state.player.name} sat in line at the office for four hours holding paperwork.`,
-    when: p => p.age >= 10 && p.age <= 16 && p.spawnClass === "struggling" && chance(20),
+    when: p => p.age >= 10 && p.age <= 16 && p.spawnClass === "struggling" && chance(4),
     choices: [
       { label: "Help her through it", run: () => {
         const mom = state.player.relationships.find(r => r.role?.toLowerCase().includes("mother") || r.id === "guardian");
@@ -4486,7 +6176,7 @@ const events = [
   {
     title: "Free School Lunch",
     text: () => `Cafeteria switched to a "rainbow card" system so the free-lunch kids weren't singled out. Everyone knows anyway.`,
-    when: p => p.age >= 8 && p.age <= 16 && p.spawnClass === "struggling" && chance(20),
+    when: p => p.age >= 8 && p.age <= 16 && p.spawnClass === "struggling" && chance(4),
     choices: [
       { label: "Skip lunch instead", run: () => applyEffects(`You said you weren't hungry. Your friend slipped you half a sandwich. You'll never forget that.`, { health: -3, karma: 8, discipline: 6 }) },
       { label: "Eat the lunch", run: () => applyEffects(`You ate it. Some kid said something. You didn't react. You ate again the next day. And the day after.`, { discipline: 8, smarts: 4, happiness: -2 }, "good") }
@@ -4495,7 +6185,7 @@ const events = [
   {
     title: "Grandma's Check",
     text: () => `Grandma sent ${state.player.name} a card with ${money(randomInt(20, 100))} in it. Handwriting shaky. Note says "for whatever you need, baby."`,
-    when: p => p.age >= 12 && p.age <= 25 && p.spawnClass === "struggling" && chance(20),
+    when: p => p.age >= 12 && p.age <= 25 && p.spawnClass === "struggling" && chance(4),
     choices: [
       { label: "Save it untouched", run: () => applyEffects(`You put it in an envelope in your sock drawer. Saw it every day for a year before you used it.`, { happiness: 6, discipline: 10, karma: 4 }, "good") },
       { label: "Spend it on something necessary", run: () => applyEffects(`Books, food, a phone bill. It went where it needed to. Grandma's check did its job.`, { money: randomInt(20, 100), discipline: 4, happiness: 4 }, "good") },
@@ -4505,7 +6195,7 @@ const events = [
   {
     title: "GED Counselor",
     text: () => `${state.player.name} sat down with a GED counselor. Free program at the community center. She believes you can do it.`,
-    when: p => p.age >= 17 && p.age <= 22 && p.spawnClass === "struggling" && p.dropout && chance(50),
+    when: p => p.age >= 17 && p.age <= 22 && p.spawnClass === "struggling" && p.dropout && chance(15),
     choices: [
       { label: "Commit to it", run: () => {
         state.player.certifications.push("ged");
@@ -4518,7 +6208,7 @@ const events = [
   {
     title: "Free Clinic Visit",
     text: () => `Tooth hurts. ${state.player.name} can't afford a regular dentist. The free clinic has a 4-hour wait.`,
-    when: p => p.age >= 16 && p.age <= 40 && p.spawnClass === "struggling" && chance(15),
+    when: p => p.age >= 16 && p.age <= 40 && p.spawnClass === "struggling" && chance(3),
     choices: [
       { label: "Wait it out", run: () => applyEffects(`Four hours in plastic chairs. They fixed it. You met two people you'll never forget waiting in the same room.`, { health: 8, karma: 4, happiness: -2 }) },
       { label: "Ignore the pain", run: () => applyEffects(`You sucked it up. It got worse. Two years later it cost ten times more.`, { health: -6, happiness: -6, money: -randomInt(800, 3500), debt: randomInt(400, 1800) }, "bad") }
@@ -4529,7 +6219,7 @@ const events = [
   {
     title: "Foster Placement",
     text: () => `${state.player.name} got placed with a new family. Third home this year. Suitcase still packed.`,
-    when: p => p.age >= 5 && p.age <= 17 && p.spawnClass === "survival" && chance(20),
+    when: p => p.age >= 5 && p.age <= 17 && p.spawnClass === "survival" && chance(4),
     choices: [
       { label: "Try with this family", run: () => applyEffects(`You let yourself hope a little. They were kind. You stayed two years before the next move.`, { happiness: 8, discipline: 4, karma: 4, smarts: 3 }, "good") },
       { label: "Keep your guard up", run: () => applyEffects(`You stayed sealed shut. Easier to leave. Harder to be known.`, { discipline: 8, smarts: 6, happiness: -6 }) }
@@ -4538,7 +6228,7 @@ const events = [
   {
     title: "Aging Out at 18",
     text: () => `${state.player.name} aged out of the foster system. Caseworker handed you a duffel bag and ${money(randomInt(200, 600))}. "Good luck."`,
-    when: p => p.age === 18 && p.spawnClass === "survival" && chance(85),
+    when: p => p.age === 18 && p.spawnClass === "survival" && chance(28),
     choices: [
       { label: "Apply to the transitional housing program", run: () => {
         applyEffects(`You got in. Six months of stability. You're going to need every minute of it.`, { money: randomInt(200, 600), discipline: 14, smarts: 8, happiness: 6 }, "good");
@@ -4549,7 +6239,7 @@ const events = [
   {
     title: "Caseworker Drops By",
     text: () => `Ms. ${pick(["Lopez", "Davidson", "Park", "Williams"])} stopped by unannounced. ${state.player.name}'s caseworker for years.`,
-    when: p => p.age >= 8 && p.age <= 19 && p.spawnClass === "survival" && chance(20),
+    when: p => p.age >= 8 && p.age <= 19 && p.spawnClass === "survival" && chance(4),
     choices: [
       { label: "Let her in, talk", run: () => {
         const cw = state.player.relationships.find(r => r.role?.toLowerCase().includes("caseworker") || r.role?.toLowerCase().includes("mentor"));
@@ -4562,7 +6252,7 @@ const events = [
   {
     title: "Scholarship for Foster Kids",
     text: () => `${state.player.name} got mailed a scholarship pamphlet. full ride to a state school, only for kids who aged out. Deadline next week.`,
-    when: p => p.age >= 17 && p.age <= 22 && p.spawnClass === "survival" && p.dropout !== true && chance(30),
+    when: p => p.age >= 17 && p.age <= 22 && p.spawnClass === "survival" && p.dropout !== true && chance(7),
     choices: [
       { label: "Apply hard", run: () => {
         if (chance(55)) {
@@ -4579,7 +6269,7 @@ const events = [
   {
     title: "Found Family",
     text: () => `${state.player.name} found people. Not blood. Not foster. People who just decided to show up. They're cooking for you.`,
-    when: p => p.age >= 16 && p.age <= 35 && p.spawnClass === "survival" && chance(15),
+    when: p => p.age >= 16 && p.age <= 35 && p.spawnClass === "survival" && chance(3),
     choices: [
       { label: "Let them in", run: () => {
         const name = pick(peopleNames);
@@ -4599,7 +6289,7 @@ const events = [
   {
     title: "Tokyo Karaoke Box",
     text: () => `${state.player.name} and four coworkers/friends crammed into a karaoke box in Shibuya. Whiskey highball pitcher. Mic doesn't stop moving.`,
-    when: p => p.age >= 16 && (p.location === "Tokyo, Japan" || p.currentTrip === "Tokyo, Japan") && chance(15),
+    when: p => p.age >= 16 && (p.location === "Tokyo, Japan" || p.currentTrip === "Tokyo, Japan") && chance(3),
     choices: [
       { label: "Sing the X Japan ballad", run: () => applyEffects(`You sang "Endless Rain" while three Japanese salarymen filmed you. The video is on someone's IG to this day.`, { happiness: 14, looks: 2, fame: 3, money: -randomInt(40, 180) }, "good") },
       { label: "Pass the mic", run: () => applyEffects(`You sang one verse, passed it. The group respected the move. Saved face.`, { happiness: 8, smarts: 4 }) }
@@ -4608,7 +6298,7 @@ const events = [
   {
     title: "Tsukiji Fish Market 5AM",
     text: () => `Friend dragged ${state.player.name} to Tsukiji at 5AM. Tuna auction. Sushi breakfast. Salt and diesel air.`,
-    when: p => p.age >= 14 && (p.location === "Tokyo, Japan" || p.currentTrip === "Tokyo, Japan") && chance(10),
+    when: p => p.age >= 14 && (p.location === "Tokyo, Japan" || p.currentTrip === "Tokyo, Japan") && chance(2),
     choices: [
       { label: "Stay for the freshest sushi of your life", run: () => applyEffects(`You ate otoro that ruined every other meal forever. Spent ${money(randomInt(40, 180))}. Worth every yen.`, { money: -randomInt(40, 180), happiness: 12, health: 4, smarts: 4 }, "good") },
       { label: "Skip to a Lawson sandwich", run: () => applyEffects(`You bought an egg sando at the convenience store. Surprisingly elite.`, { money: -8, happiness: 5 }) }
@@ -4617,7 +6307,7 @@ const events = [
   {
     title: "Salaryman Drinking Night",
     text: () => `Your boss insisted on nomikai. after-work drinking with the team. The hierarchy is sharper when everyone's drunk.`,
-    when: p => p.age >= 22 && (p.location === "Tokyo, Japan" || p.currentTrip === "Tokyo, Japan") && p.jobId !== "none" && chance(12),
+    when: p => p.age >= 22 && (p.location === "Tokyo, Japan" || p.currentTrip === "Tokyo, Japan") && p.jobId !== "none" && chance(3),
     choices: [
       { label: "Drink, pour, work the room", run: () => applyEffects(`You poured for everyone correctly. Boss nodded. Promotion conversation got mentioned twice.`, { money: -randomInt(40, 220), happiness: 6, discipline: 6, fame: 4 }, "good") },
       { label: "Excuse yourself early", run: () => applyEffects(`You said you had an appointment. Boss noticed. The team noticed louder.`, { discipline: 4, karma: 2, happiness: -3 }) }
@@ -4626,7 +6316,7 @@ const events = [
   {
     title: "Anime Convention Cameo",
     text: () => `Comiket weekend. ${state.player.name} got swept along by a friend. The line is six blocks. The cosplayers are professional grade.`,
-    when: p => p.age >= 14 && (p.location === "Tokyo, Japan" || p.currentTrip === "Tokyo, Japan") && chance(8),
+    when: p => p.age >= 14 && (p.location === "Tokyo, Japan" || p.currentTrip === "Tokyo, Japan") && chance(2),
     choices: [
       { label: "Go full cosplay", run: () => applyEffects(`You committed. Photo got shared in three subreddits. New niche followers.`, { followers: randomInt(200, 4500), fame: 4, looks: 2, happiness: 10, money: -randomInt(80, 380) }, "good") },
       { label: "Just buy doujinshi", run: () => applyEffects(`You walked the aisles, bought weird art. Slept hard that night.`, { money: -randomInt(40, 200), smarts: 3, happiness: 4 }) }
@@ -4637,7 +6327,7 @@ const events = [
   {
     title: "Erewhon Smoothie Run",
     text: () => `${state.player.name} pulled up to Erewhon for the ${pick(["$22 Hailey Bieber", "$18 Bella Hadid", "$25 Kendall"])} smoothie. The line out front is half models, half tourists pretending to be models.`,
-    when: p => p.age >= 16 && (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles" || p.currentTrip?.includes("Los Angeles")) && chance(10),
+    when: p => p.age >= 16 && (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles" || p.currentTrip?.includes("Los Angeles")) && chance(2),
     choices: [
       { label: "Buy it, post it", run: () => applyEffects(`You drank it. You photographed it. The Reel did 8K views. Worth the $22.`, { money: -22, fame: 3, followers: randomInt(80, 1200), happiness: 6 }, "good") },
       { label: "Buy bananas and leave", run: () => applyEffects(`You spent $4 on bananas and left feeling smug. Smug is its own currency in LA.`, { money: -4, discipline: 6, happiness: 4 }) }
@@ -4646,7 +6336,7 @@ const events = [
   {
     title: "Coachella Weekend",
     text: () => `Coachella weekend. ${state.player.name} got passes (somehow). The desert dust is in your lungs and the lineup is your Spotify Wrapped.`,
-    when: p => p.age >= 18 && (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles") && p.money >= 600 && chance(8),
+    when: p => p.age >= 18 && (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles") && p.money >= 600 && chance(2),
     choices: [
       { label: "Camping, full weekend", run: () => {
         const cost = randomInt(600, 2400);
@@ -4661,7 +6351,7 @@ const events = [
   {
     title: "Valet at the Hotel Bel-Air",
     text: () => `${state.player.name} got a valet shift at a real hotel. The tips are good. The cars are insane. The owners are weirder.`,
-    when: p => p.age >= 17 && p.age <= 24 && (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles") && p.money < 4000 && chance(15),
+    when: p => p.age >= 17 && p.age <= 24 && (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles") && p.money < 4000 && chance(3),
     choices: [
       { label: "Work the shift right", run: () => {
         const tips = randomInt(180, 800);
@@ -4681,7 +6371,7 @@ const events = [
   {
     title: "Subway Delay Drama",
     text: () => `${state.player.name} is stuck on a stalled F train under the East River. AC is off. Phone is dying. Three passengers are arguing.`,
-    when: p => p.age >= 14 && (p.location.includes("New York") || p.location === "Brooklyn, NY" || p.location === "The Bronx, NY" || p.currentTrip?.includes("New York")) && chance(15),
+    when: p => p.age >= 14 && (p.location.includes("New York") || p.location === "Brooklyn, NY" || p.location === "The Bronx, NY" || p.currentTrip?.includes("New York")) && chance(3),
     choices: [
       { label: "Mediate the argument", run: () => applyEffects(`You de-escalated it. The car gave you a quiet round of nods. Conductor announced "10 more minutes" and meant it.`, { karma: 6, smarts: 4, happiness: 4 }, "good") },
       { label: "Mind your business", run: () => applyEffects(`You put your AirPods back in. Two of them got off at York. You're still on the train.`, { discipline: 4, happiness: -2 }) }
@@ -4690,7 +6380,7 @@ const events = [
   {
     title: "Rooftop Apartment Party",
     text: () => `Somebody you barely know is throwing a rooftop party in ${pick(["Bushwick", "Long Island City", "Williamsburg", "Crown Heights"])}. The view is the whole skyline.`,
-    when: p => p.age >= 18 && (p.location.includes("New York") || p.location === "Brooklyn, NY" || p.currentTrip?.includes("New York")) && chance(11),
+    when: p => p.age >= 18 && (p.location.includes("New York") || p.location === "Brooklyn, NY" || p.currentTrip?.includes("New York")) && chance(2),
     choices: [
       { label: "Stay all night", run: () => applyEffects(`You watched the sun come up over Manhattan. Met a writer, a chef, a DJ. New York validated you for one evening.`, { happiness: 14, fame: 4, looks: 2, money: -randomInt(40, 200) }, "good") },
       { label: "Leave at 1AM", run: () => applyEffects(`You took the L home. Slept hard. Felt mature.`, { discipline: 6, happiness: 4 }) }
@@ -4699,7 +6389,7 @@ const events = [
   {
     title: "Bodega Cat Night Shift",
     text: () => `2AM run to the corner bodega. Hat low. ${state.player.name} grabs a chopped cheese, a Snapple, talks to the bodega cat. The clerk knows you by face.`,
-    when: p => p.age >= 14 && (p.location.includes("New York") || p.location === "Brooklyn, NY" || p.location === "The Bronx, NY") && chance(13),
+    when: p => p.age >= 14 && (p.location.includes("New York") || p.location === "Brooklyn, NY" || p.location === "The Bronx, NY") && chance(3),
     choices: [
       { label: "Tip the clerk an extra $5", run: () => {
         changeLocalRep(randomInt(3, 8));
@@ -4713,7 +6403,7 @@ const events = [
   {
     title: "Lenox Mall Saturday",
     text: () => `${state.player.name} hit Lenox on a Saturday. Half ATL is there. Including ${pick(["a rapper's entourage", "an NFL player", "the girl from your high school who got famous"])} you definitely recognize.`,
-    when: p => p.age >= 14 && (p.location === "Atlanta, GA" || p.currentTrip === "Atlanta, GA") && chance(12),
+    when: p => p.age >= 14 && (p.location === "Atlanta, GA" || p.currentTrip === "Atlanta, GA") && chance(3),
     choices: [
       { label: "Pull up to the photo op", run: () => {
         if (chance(35)) {
@@ -4728,7 +6418,7 @@ const events = [
   {
     title: "Edgewood Strip Friday",
     text: () => `Edgewood on a Friday. Strip clubs, hookah lounges, ${state.player.name} can hear three different sound systems competing.`,
-    when: p => p.age >= 18 && isAdultUnlocked() && (p.location === "Atlanta, GA" || p.currentTrip === "Atlanta, GA") && chance(10),
+    when: p => p.age >= 18 && isAdultUnlocked() && (p.location === "Atlanta, GA" || p.currentTrip === "Atlanta, GA") && chance(2),
     choices: [
       { label: "Hop spots all night", run: () => applyEffects(`Three lounges, two restaurants, one strip club. ${money(randomInt(140, 800))} gone. Photos legendary.`, { money: -randomInt(140, 800), happiness: 14, fame: 3, looks: 2, health: -2 }, "good") },
       { label: "One quiet spot only", run: () => applyEffects(`You picked one bar, stayed two hours, left. The right move 1 out of 10 times.`, { money: -randomInt(40, 180), discipline: 4, happiness: 6 }) }
@@ -4739,7 +6429,7 @@ const events = [
   {
     title: "Roma Norte Cantina",
     text: () => `${state.player.name} ended up at a cantina in Roma Norte. Mezcal, micheladas, somebody's grandma is on the patio at 1AM.`,
-    when: p => p.age >= 18 && isAdultUnlocked() && (p.location === "Mexico City, Mexico" || p.currentTrip === "Mexico City, Mexico") && chance(12),
+    when: p => p.age >= 18 && isAdultUnlocked() && (p.location === "Mexico City, Mexico" || p.currentTrip === "Mexico City, Mexico") && chance(3),
     choices: [
       { label: "Sit at the bar, talk to locals", run: () => applyEffects(`Your Spanish got better in three hours. Three guys taught you the right way to drink mezcal. You felt like CDMX adopted you.`, { happiness: 12, smarts: 6, money: -randomInt(60, 240), looks: 2 }, "good") },
       { label: "Just eat and go", run: () => applyEffects(`Tacos al pastor, two beers, walked home. CDMX at its best.`, { money: -randomInt(20, 80), happiness: 8, health: -1 }, "good") }
@@ -4748,7 +6438,7 @@ const events = [
   {
     title: "Polanco Brunch",
     text: () => `Polanco. Brunch place where everyone speaks English and the avocado toast costs more than dinner at the cantina. ${state.player.name} is here because somebody invited you.`,
-    when: p => p.age >= 22 && (p.location === "Mexico City, Mexico" || p.currentTrip === "Mexico City, Mexico") && p.money >= 200 && chance(10),
+    when: p => p.age >= 22 && (p.location === "Mexico City, Mexico" || p.currentTrip === "Mexico City, Mexico") && p.money >= 200 && chance(2),
     choices: [
       { label: "Order the works", run: () => applyEffects(`Mimosas, eggs, designer bag table next to you. You're not sure if you fit in. The Instagram looks elite.`, { money: -randomInt(60, 240), fame: 4, looks: 2, followers: randomInt(80, 1200), happiness: 6 }) },
       { label: "Order coffee only", run: () => applyEffects(`You sipped slowly, took the table for 90 minutes, saw who was who. Useful day.`, { money: -8, smarts: 5, discipline: 4 }) }
@@ -4765,7 +6455,7 @@ const events = [
       const spouse = state.player.relationships.find(r => r.type === "spouse" || r.type === "partner");
       return `Wedding planning is happening. ${spouse?.name || "Your partner"}'s mother wants a 200-person guest list. Your mom wants 40. The venue costs are doubling.`;
     },
-    when: p => p.married && (p.age - (p.marriedAge || p.age)) <= 1 && chance(85),
+    when: p => p.married && (p.age - (p.marriedAge || p.age)) <= 1 && chance(28),
     choices: [
       { label: "Big wedding, full production", run: () => {
         const cost = randomInt(18000, 80000);
@@ -4787,7 +6477,7 @@ const events = [
   {
     title: "Honeymoon",
     text: () => `Where are you taking ${state.player.relationships.find(r => r.type === "spouse")?.name || "your spouse"} for the honeymoon?`,
-    when: p => p.married && (p.age - (p.marriedAge || p.age)) <= 2 && p.money >= 1500 && chance(70),
+    when: p => p.married && (p.age - (p.marriedAge || p.age)) <= 2 && p.money >= 1500 && chance(22),
     choices: [
       { label: "Bali / Maldives all-inclusive", run: () => {
         const cost = randomInt(4500, 14000);
@@ -4805,7 +6495,7 @@ const events = [
   {
     title: "5-Year Anniversary",
     text: () => `Five years married. ${state.player.relationships.find(r => r.type === "spouse")?.name || "Your spouse"} has been quiet about it. They're hoping you remember.`,
-    when: p => p.married && (p.age - (p.marriedAge || p.age)) >= 4 && (p.age - (p.marriedAge || p.age)) <= 6 && chance(40),
+    when: p => p.married && (p.age - (p.marriedAge || p.age)) >= 4 && (p.age - (p.marriedAge || p.age)) <= 6 && chance(10),
     choices: [
       { label: "Plan something big", run: () => {
         const cost = randomInt(800, 4500);
@@ -4829,7 +6519,7 @@ const events = [
   {
     title: "Seven-Year Itch",
     text: () => `Seven years in. ${state.player.relationships.find(r => r.type === "spouse")?.name || "Your spouse"} feels like a roommate. ${pick(["A coworker", "An old flame", "Someone from the gym", "A stranger at a wedding"])} keeps texting.`,
-    when: p => p.married && (p.age - (p.marriedAge || p.age)) >= 6 && (p.age - (p.marriedAge || p.age)) <= 9 && chance(20),
+    when: p => p.married && (p.age - (p.marriedAge || p.age)) >= 6 && (p.age - (p.marriedAge || p.age)) <= 9 && chance(4),
     choices: [
       { label: "Cheat", run: () => {
         const spouse = state.player.relationships.find(r => r.type === "spouse");
@@ -4860,7 +6550,7 @@ const events = [
   {
     title: "Empty Nest",
     text: () => `Kids are out. House is too quiet. ${state.player.relationships.find(r => r.type === "spouse")?.name || "Your spouse"} keeps suggesting hobbies.`,
-    when: p => p.married && p.children?.length > 0 && p.age >= 48 && chance(15),
+    when: p => p.married && p.children?.length > 0 && p.age >= 48 && chance(3),
     choices: [
       { label: "Take a couples trip", run: () => {
         const cost = randomInt(2000, 8000);
@@ -4880,7 +6570,7 @@ const events = [
   {
     title: "Divorce Ultimatum",
     text: () => `${state.player.relationships.find(r => r.type === "spouse")?.name || "Your spouse"} sat you down. "Something has to change or we're done."`,
-    when: p => p.married && p.relationships.some(r => r.type === "spouse" && r.bond < 35) && chance(40),
+    when: p => p.married && p.relationships.some(r => r.type === "spouse" && r.bond < 35) && chance(10),
     choices: [
       { label: "Beg, change, fight for it", run: () => {
         const saved = chance(40);
@@ -4905,7 +6595,7 @@ const events = [
   {
     title: "Post-Divorce Dating",
     text: () => `${state.player.divorces || 0} divorce${(state.player.divorces || 0) === 1 ? "" : "s"} in. ${state.player.name} is dating again. The apps are different now.`,
-    when: p => !p.married && (p.divorces || 0) >= 1 && !p.relationships.some(r => r.type === "partner") && p.age <= 60 && chance(15),
+    when: p => !p.married && (p.divorces || 0) >= 1 && !p.relationships.some(r => r.type === "partner") && p.age <= 60 && chance(3),
     choices: [
       { label: "Date hard", run: () => {
         if (chance(45 + Math.floor(state.player.stats.looks / 6))) {
@@ -4929,7 +6619,7 @@ const events = [
   {
     title: "Free Meal at the Mission",
     text: () => `Dinner line at the Midnight Mission goes around the block. ${state.player.name} stood in it with ${randomInt(180, 400)} other people. Volunteers handed out trays.`,
-    when: p => p.location === "Skid Row, Los Angeles" && p.age >= 8 && chance(15),
+    when: p => p.location === "Skid Row, Los Angeles" && p.age >= 8 && chance(3),
     choices: [
       { label: "Eat, talk to the volunteers", run: () => applyEffects(`A woman named ${pick(["Carla", "Janine", "Dolores"])} talked to you for twenty minutes. She gave you her number "for emergencies."`, { karma: 8, happiness: 4, smarts: 4, health: 2 }, "good") },
       { label: "Take the tray and dip", run: () => applyEffects(`You ate alone on a curb. Watched the block. Saw too much.`, { health: 2, smarts: 6, happiness: -3 }) }
@@ -4938,7 +6628,7 @@ const events = [
   {
     title: "Tent City Neighbor",
     text: () => `Two tents over, an older guy named ${pick(["Sticks", "Pops Reggie", "Marco"])} has been there longer than anyone else. He waves ${state.player.name} over.`,
-    when: p => p.location === "Skid Row, Los Angeles" && p.age >= 14 && chance(12),
+    when: p => p.location === "Skid Row, Los Angeles" && p.age >= 14 && chance(3),
     choices: [
       { label: "Sit with him, listen", run: () => applyEffects(`Three hours of stories. He used to be a session drummer. He knows everyone. The block is a network.`, { karma: 10, smarts: 8, streetRep: 6, happiness: 6 }, "good") },
       { label: "Keep your distance", run: () => applyEffects(`You nodded, kept walking. Self-preservation. He nodded back. Respect.`, { discipline: 6, smarts: 2 }) }
@@ -4947,7 +6637,7 @@ const events = [
   {
     title: "Camera Crew on the Row",
     text: () => `Documentary crew rolled up to Skid Row. They want ${state.player.name} to "share your story." Promise of payment after, "minimum $200."`,
-    when: p => p.location === "Skid Row, Los Angeles" && p.age >= 16 && chance(10),
+    when: p => p.location === "Skid Row, Los Angeles" && p.age >= 16 && chance(2),
     choices: [
       { label: "Tell your story", run: () => {
         const pay = chance(60) ? randomInt(200, 800) : 0;
@@ -4961,7 +6651,7 @@ const events = [
   {
     title: "Sunday BBQ on the Block",
     text: () => `Auntie ${pick(["Tee", "Renee", "Crystal"])} fires up the grill on Saturday. Half the block shows up. Speakers are out, dominos on the table, kids running through the yard.`,
-    when: p => p.location === "Compton, CA" && p.age >= 8 && chance(15),
+    when: p => p.location === "Compton, CA" && p.age >= 8 && chance(3),
     choices: [
       { label: "Stay all day", run: () => {
         changeLocalRep(randomInt(4, 9));
@@ -4973,7 +6663,7 @@ const events = [
   {
     title: "Sunday Lowrider Cruise",
     text: () => `Sundays on Crenshaw. Lowriders out, candy paint, hydraulics bouncing. ${pick(["Jaiden", "Mecca", "Tito"])} pulled up on you, "Get in."`,
-    when: p => p.location === "Compton, CA" && p.age >= 14 && chance(12),
+    when: p => p.location === "Compton, CA" && p.age >= 14 && chance(3),
     choices: [
       { label: "Ride from Slauson to Florence", run: () => applyEffects(`Four hours, two stops at the gas station, photos for life. You'll remember this Sunday at 60.`, { happiness: 14, looks: 3, streetRep: 6, fame: 2 }, "good") },
       { label: "Pass, you don't ride", run: () => applyEffects(`You said you had homework. They drove off. You watched from the porch.`, { discipline: 4, happiness: -2 }) }
@@ -4982,7 +6672,7 @@ const events = [
   {
     title: "High School Football Friday",
     text: () => `Centennial vs Dominguez. Whole city out. ${state.player.name} is in the stands or on the field, depending.`,
-    when: p => p.location === "Compton, CA" && p.age >= 13 && p.age <= 19 && chance(15),
+    when: p => p.location === "Compton, CA" && p.age >= 13 && p.age <= 19 && chance(3),
     choices: [
       { label: "Lock in if you play", run: () => {
         if (state.player.stats.health >= 60 && chance(40)) {
@@ -4999,7 +6689,7 @@ const events = [
   {
     title: "Casino Cocktail Job Offer",
     text: () => `A manager at ${pick(["Cosmopolitan", "Aria", "Bellagio", "Caesars"])} watched ${state.player.name} hand out drinks at a friend's house party. "We're hiring. Tips are real."`,
-    when: p => p.location === "Las Vegas, NV" && p.age >= 21 && p.age <= 35 && chance(13),
+    when: p => p.location === "Las Vegas, NV" && p.age >= 21 && p.age <= 35 && chance(3),
     choices: [
       { label: "Take the gig", run: () => {
         applyEffects(`Six months of cocktail shifts. ${money(randomInt(20000, 65000))} in tips alone. Saw everything. Won't unsee it.`, { money: randomInt(20000, 65000), looks: 3, smarts: 6, health: -3, discipline: 4 }, "good");
@@ -5010,7 +6700,7 @@ const events = [
   {
     title: "Boxing Match at the MGM",
     text: () => `Big fight at the MGM. ${pick(["Canelo", "Crawford", "Davis", "Garcia"])} headlines. Friend got ringside seats. ${state.player.name} is going.`,
-    when: p => p.location === "Las Vegas, NV" && p.age >= 18 && isAdultUnlocked() && chance(10),
+    when: p => p.location === "Las Vegas, NV" && p.age >= 18 && isAdultUnlocked() && chance(2),
     choices: [
       { label: "Bet on the underdog", run: () => {
         const bet = randomInt(200, 1800);
@@ -5026,7 +6716,7 @@ const events = [
   {
     title: "Wedding Chapel Bachelorette",
     text: () => `Friend's bachelorette party rolled into Vegas. They're trying to drag ${state.player.name} into a fake wedding at a drive-through chapel "for the bit."`,
-    when: p => p.location === "Las Vegas, NV" && p.age >= 21 && p.age <= 32 && chance(10),
+    when: p => p.location === "Las Vegas, NV" && p.age >= 21 && p.age <= 32 && chance(2),
     choices: [
       { label: "Do the fake wedding", run: () => {
         applyEffects(`Elvis officiated. You're "married" on paper for 6 hours until the annulment. Pictures are unhinged.`, { money: -randomInt(80, 400), happiness: 16, fame: 4, looks: 2, followers: randomInt(200, 3000) }, "good");
@@ -5039,7 +6729,7 @@ const events = [
   {
     title: "Sunday Marché",
     text: () => `Marché des Enfants Rouges on Sunday. ${state.player.name} ordered ${pick(["a couscous plate", "Moroccan tagine", "Vietnamese soup", "Italian risotto"])} and ate elbow-to-elbow with strangers.`,
-    when: p => p.location === "Paris, France" && p.age >= 14 && chance(12),
+    when: p => p.location === "Paris, France" && p.age >= 14 && chance(3),
     choices: [
       { label: "Talk to your bench neighbor", run: () => applyEffects(`They were a writer / chef / retired actor. Forty-minute conversation. You exchanged numbers. Paris does this.`, { happiness: 10, smarts: 5, karma: 4, money: -randomInt(15, 45) }, "good") },
       { label: "Eat and observe", run: () => applyEffects(`Twenty bites, no words. Best meal of the month.`, { money: -randomInt(12, 35), happiness: 6, smarts: 3 }) }
@@ -5048,7 +6738,7 @@ const events = [
   {
     title: "Grève. Strike Day",
     text: () => `Metro is down. RER is down. Half the city is walking. ${state.player.name} is across town from where they need to be.`,
-    when: p => p.location === "Paris, France" && p.age >= 12 && chance(13),
+    when: p => p.location === "Paris, France" && p.age >= 12 && chance(3),
     choices: [
       { label: "Walk it, take photos", run: () => applyEffects(`Two-hour walk. You saw four neighborhoods you'd never have seen. Found a bakery you'll go back to.`, { happiness: 8, smarts: 4, health: 3 }, "good") },
       { label: "Splurge on a Uber", run: () => applyEffects(`Surge pricing. ${money(randomInt(40, 180))} for a 15-minute ride. Felt like a tourist.`, { money: -randomInt(40, 180), discipline: -2, happiness: 2 }) }
@@ -5057,7 +6747,7 @@ const events = [
   {
     title: "Père Lachaise Wandering",
     text: () => `${state.player.name} went to Père Lachaise to see ${pick(["Jim Morrison", "Oscar Wilde", "Édith Piaf", "Proust"])}'s grave. Got lost in the cemetery for two hours.`,
-    when: p => p.location === "Paris, France" && p.age >= 14 && chance(8),
+    when: p => p.location === "Paris, France" && p.age >= 14 && chance(2),
     choices: [
       { label: "Stay until they close it", run: () => applyEffects(`You sat by a tomb writing in your phone notes. Came out with three new beliefs about life.`, { smarts: 10, happiness: 6, karma: 4, discipline: 4 }, "good") },
       { label: "Find the famous grave, leave", run: () => applyEffects(`You touched the marble. Took the photo. Took the metro home before dark.`, { smarts: 4, happiness: 4 }) }
@@ -5068,7 +6758,7 @@ const events = [
   {
     title: "Indoor Ski at Mall of Emirates",
     text: () => `Dubai is 105°F outside. Inside the mall there's a ski slope. ${state.player.name}'s friend rented gear. Pretending winter exists for 90 minutes.`,
-    when: p => (p.location === "Dubai, UAE" || p.currentTrip === "Dubai, UAE") && p.age >= 14 && chance(10),
+    when: p => (p.location === "Dubai, UAE" || p.currentTrip === "Dubai, UAE") && p.age >= 14 && chance(2),
     choices: [
       { label: "Ski like an idiot", run: () => applyEffects(`You fell three times. Photos are gold. The simulation is wild.`, { money: -randomInt(120, 400), happiness: 12, health: -2, fame: 2 }, "good") },
       { label: "Watch from the cafe", run: () => applyEffects(`You drank a $14 latte at the slopeside cafe. Felt like a Bond villain.`, { money: -randomInt(15, 50), discipline: 4, happiness: 4 }) }
@@ -5077,7 +6767,7 @@ const events = [
   {
     title: "Marina Yacht Friday",
     text: () => `Friday in Dubai. Friend's yacht. Marina view. Bottle service offshore. ${state.player.name} got the invite via someone you met once.`,
-    when: p => (p.location === "Dubai, UAE" || p.currentTrip === "Dubai, UAE") && p.age >= 18 && isAdultUnlocked() && chance(12),
+    when: p => (p.location === "Dubai, UAE" || p.currentTrip === "Dubai, UAE") && p.age >= 18 && isAdultUnlocked() && chance(3),
     choices: [
       { label: "All-day yacht", run: () => {
         const cost = randomInt(800, 4500);
@@ -5089,7 +6779,7 @@ const events = [
   {
     title: "Desert Safari with Falcons",
     text: () => `Tour through the dunes. Quad bikes. A bedouin camp at dusk. A trainer with a falcon. ${state.player.name} is wearing the wrong shoes.`,
-    when: p => (p.location === "Dubai, UAE" || p.currentTrip === "Dubai, UAE") && p.age >= 12 && chance(8),
+    when: p => (p.location === "Dubai, UAE" || p.currentTrip === "Dubai, UAE") && p.age >= 12 && chance(2),
     choices: [
       { label: "Try the falcon on your arm", run: () => applyEffects(`The bird landed on you. Talons through the glove. Photos are unreal. New core memory.`, { money: -randomInt(150, 600), happiness: 14, looks: 2, fame: 4 }, "good") },
       { label: "Stay near the fire", run: () => applyEffects(`You drank cardamom coffee and listened to drums. Quiet day in the desert.`, { money: -randomInt(100, 350), happiness: 8, smarts: 4 }) }
@@ -5100,7 +6790,7 @@ const events = [
   {
     title: "Soccer at Maracanã",
     text: () => `Flamengo vs Fluminense at Maracanã. ${state.player.name} got a ticket. The stadium is shaking before kickoff.`,
-    when: p => (p.location === "Rio de Janeiro, Brazil" || p.currentTrip === "Rio de Janeiro, Brazil") && p.age >= 10 && chance(12),
+    when: p => (p.location === "Rio de Janeiro, Brazil" || p.currentTrip === "Rio de Janeiro, Brazil") && p.age >= 10 && chance(3),
     choices: [
       { label: "Stand in the torcida", run: () => applyEffects(`You stood in the supporters' section. Lost your voice. Got hugged by ${randomInt(8, 18)} strangers when ${pick(["Gabigol", "Pedro", "Arrascaeta"])} scored.`, { money: -randomInt(40, 200), happiness: 18, fame: 2, health: -2 }, "good") },
       { label: "Sit in the calmer side", run: () => applyEffects(`Polite cheering. Nice view. Felt like a tourist.`, { money: -randomInt(80, 350), happiness: 8 }) }
@@ -5109,7 +6799,7 @@ const events = [
   {
     title: "Christ the Redeemer Hike",
     text: () => `${state.player.name} woke up at 5AM to climb Corcovado on foot. The van costs $20. The hike is harder than it looks.`,
-    when: p => (p.location === "Rio de Janeiro, Brazil" || p.currentTrip === "Rio de Janeiro, Brazil") && p.age >= 14 && chance(8),
+    when: p => (p.location === "Rio de Janeiro, Brazil" || p.currentTrip === "Rio de Janeiro, Brazil") && p.age >= 14 && chance(2),
     choices: [
       { label: "Hike to the top", run: () => applyEffects(`Three hours, two stops, monkeys on the trail. Photos at the statue at 9AM. Bragging rights for life.`, { happiness: 14, health: 6, fame: 2, smarts: 4 }, "good") },
       { label: "Take the train up", run: () => applyEffects(`Easy way. Crowded. Still the view. Tourist accomplishment.`, { money: -randomInt(20, 60), happiness: 8, fame: 1 }) }
@@ -5118,7 +6808,7 @@ const events = [
   {
     title: "Botafogo Bar Crawl",
     text: () => `Botafogo on a Friday. ${state.player.name} ended up at a "boteco" that locals don't tell tourists about. Cachaça flights. Chopp on the table. Samba in the background.`,
-    when: p => (p.location === "Rio de Janeiro, Brazil" || p.currentTrip === "Rio de Janeiro, Brazil") && p.age >= 18 && isAdultUnlocked() && chance(11),
+    when: p => (p.location === "Rio de Janeiro, Brazil" || p.currentTrip === "Rio de Janeiro, Brazil") && p.age >= 18 && isAdultUnlocked() && chance(2),
     choices: [
       { label: "Stay till 4AM", run: () => applyEffects(`You learned three new dance moves. Three locals adopted you for the night. Phone died at 1AM.`, { money: -randomInt(60, 280), happiness: 18, looks: 3, smarts: 4, health: -3 }, "good") },
       { label: "One round, head home", run: () => applyEffects(`One round. Two locals. Forty minutes. Best $15 you spent in Rio.`, { money: -15, happiness: 6, smarts: 3 }) }
@@ -5129,7 +6819,7 @@ const events = [
   {
     title: "Hongdae Saturday Night",
     text: () => `Hongdae. Live music spilling out of every basement. ${state.player.name} is at a vinyl bar with three friends from class.`,
-    when: p => (p.location === "Seoul, South Korea" || p.currentTrip === "Seoul, South Korea") && p.age >= 19 && isAdultUnlocked() && chance(12),
+    when: p => (p.location === "Seoul, South Korea" || p.currentTrip === "Seoul, South Korea") && p.age >= 19 && isAdultUnlocked() && chance(3),
     choices: [
       { label: "Bar hop till sunrise", run: () => applyEffects(`Four bars, two soju bottles, one moment dancing in the street at 4AM. Hongdae validated.`, { money: -randomInt(60, 280), happiness: 16, looks: 2, health: -3 }, "good") },
       { label: "One bar, leave at midnight", run: () => applyEffects(`You took the last subway. Smart move. The friends are still drunk in your group chat photos.`, { money: -randomInt(20, 80), discipline: 6, happiness: 6 }) }
@@ -5138,7 +6828,7 @@ const events = [
   {
     title: "Jjimjilbang Overnight",
     text: () => `${state.player.name} spent the night at a 24-hour jjimjilbang. Hot rooms, cold rooms, sleeping pods, banana milk at 3AM.`,
-    when: p => (p.location === "Seoul, South Korea" || p.currentTrip === "Seoul, South Korea") && p.age >= 14 && chance(10),
+    when: p => (p.location === "Seoul, South Korea" || p.currentTrip === "Seoul, South Korea") && p.age >= 14 && chance(2),
     choices: [
       { label: "Do every room", run: () => applyEffects(`Five hours of saunas. Skin reset. Slept on the floor. Best sleep in months.`, { money: -randomInt(15, 50), health: 10, happiness: 8, looks: 4, discipline: 4 }, "good") },
       { label: "Two rooms, nap, leave", run: () => applyEffects(`You did the basics. Felt new. Walked home through the morning.`, { money: -randomInt(10, 25), health: 5, happiness: 4 }) }
@@ -5147,7 +6837,7 @@ const events = [
   {
     title: "Buddhist Temple Stay",
     text: () => `${state.player.name} signed up for a weekend templestay at a mountain temple. Wake at 4AM, 108 prostrations, vegetarian meals, silence.`,
-    when: p => (p.location === "Seoul, South Korea" || p.currentTrip === "Seoul, South Korea") && p.age >= 17 && chance(7),
+    when: p => (p.location === "Seoul, South Korea" || p.currentTrip === "Seoul, South Korea") && p.age >= 17 && chance(2),
     choices: [
       { label: "Commit to the silence", run: () => applyEffects(`48 hours without speaking. You cried during the prostrations. Came back with a different posture.`, { money: -randomInt(80, 200), happiness: 16, discipline: 14, smarts: 10, karma: 8 }, "good") },
       { label: "Bail Saturday morning", run: () => applyEffects(`You left after the first 4AM bell. The monk smiled like he expected it.`, { money: -randomInt(40, 100), discipline: 2, smarts: 4 }) }
@@ -5163,7 +6853,7 @@ const events = [
   {
     title: "First Show at a Dive Bar",
     text: () => `${state.player.name} got booked at ${pick(["The Smell", "The Echoplex", "a hookah lounge", "a basement house show", "an open mic"])} in ${originOf(state.player.location).short}. Two opening slots before the headliner. The room holds 80 people. Forty showed up.`,
-    when: p => p.age >= 15 && (p.interests?.music >= 2 || p.personality === "wild" || p.personality === "romantic" || p.personality === "big") && !p.musicCareer && chance(10),
+    when: p => p.age >= 15 && (p.interests?.music >= 2 || p.personality === "wild" || p.personality === "romantic" || p.personality === "big") && !p.musicCareer && chance(2),
     choices: [
       { label: "Pour your soul into it", run: () => {
         state.player.musicCareer = { stage: 1 };
@@ -5177,7 +6867,7 @@ const events = [
   {
     title: "Demo Tape Gets Heard",
     text: () => `An A&R at ${pick(["Interscope", "Def Jam", "RCA", "an indie boutique label"])} stumbled on ${state.player.name}'s demo. They want a meeting next week. Coffee, no commitment.`,
-    when: p => p.age >= 17 && p.musicCareer?.stage === 1 && chance(35),
+    when: p => p.age >= 17 && p.musicCareer?.stage === 1 && chance(8),
     choices: [
       { label: "Take the meeting", run: () => {
         state.player.musicCareer.stage = 2;
@@ -5193,7 +6883,7 @@ const events = [
   {
     title: "Sign the Contract",
     text: () => `The label sent the contract. 360 deal. They own everything for 5 years. You'd get a $30K advance.`,
-    when: p => p.age >= 18 && p.musicCareer?.stage === 2 && chance(60),
+    when: p => p.age >= 18 && p.musicCareer?.stage === 2 && chance(18),
     choices: [
       { label: "Sign. take the advance", run: () => {
         state.player.musicCareer.stage = 3;
@@ -5218,7 +6908,7 @@ const events = [
   {
     title: "Debut Album Drops",
     text: () => `Your album is out. ${pick(["Pitchfork", "Complex", "Fader", "Rolling Stone"])} reviewed it. Spotify added you to two playlists.`,
-    when: p => p.age >= 19 && p.musicCareer?.stage >= 3 && !p.musicCareer?.albumDropped && chance(50),
+    when: p => p.age >= 19 && p.musicCareer?.stage >= 3 && !p.musicCareer?.albumDropped && chance(15),
     choices: [
       { label: "Tour it hard", run: () => {
         state.player.musicCareer.albumDropped = true;
@@ -5237,7 +6927,7 @@ const events = [
   {
     title: "The Spiral Year",
     text: () => `Touring did things. ${state.player.name}'s been drinking before noon. Doing things in green rooms. Friends are quietly worried.`,
-    when: p => p.age >= 20 && p.musicCareer?.stage >= 4 && !p.musicCareer?.spiral && chance(40),
+    when: p => p.age >= 20 && p.musicCareer?.stage >= 4 && !p.musicCareer?.spiral && chance(10),
     choices: [
       { label: "Lean all the way in", run: () => {
         state.player.musicCareer.spiral = true;
@@ -5256,7 +6946,7 @@ const events = [
   {
     title: "Grammy Nomination",
     text: () => `The Recording Academy announced nominations. ${state.player.name}'s name is on it. Twice.`,
-    when: p => p.age >= 21 && p.musicCareer?.stage >= 4 && p.fame >= 40 && !p.musicCareer?.grammyNom && chance(35),
+    when: p => p.age >= 21 && p.musicCareer?.stage >= 4 && p.fame >= 40 && !p.musicCareer?.grammyNom && chance(8),
     choices: [
       { label: "Show up, walk the carpet", run: () => {
         state.player.musicCareer.grammyNom = true;
@@ -5281,7 +6971,7 @@ const events = [
   {
     title: "High School Varsity Tryout",
     text: () => `Tryouts for the varsity ${pick(["basketball", "football", "track", "soccer", "baseball"])} team. ${state.player.name} can make the cut. or watch from the stands.`,
-    when: p => p.age >= 14 && p.age <= 17 && p.stats.health >= 55 && !p.sportsCareer && chance(15),
+    when: p => p.age >= 14 && p.age <= 17 && p.stats.health >= 55 && !p.sportsCareer && chance(3),
     choices: [
       { label: "Try out hard", run: () => {
         if (chance(40 + Math.floor(state.player.stats.health / 5))) {
@@ -5298,7 +6988,7 @@ const events = [
   {
     title: "Recruitment Letter",
     text: () => `Mail came. ${pick(["UCLA", "Texas", "Duke", "Florida State", "Michigan"])} sent ${state.player.name} a recruitment letter. A coach will be at next Friday's game.`,
-    when: p => p.age >= 16 && p.age <= 18 && p.sportsCareer?.stage === 1 && chance(60),
+    when: p => p.age >= 16 && p.age <= 18 && p.sportsCareer?.stage === 1 && chance(18),
     choices: [
       { label: "Play the game of your life", run: () => {
         if (chance(45 + Math.floor(state.player.stats.health / 6))) {
@@ -5316,7 +7006,7 @@ const events = [
   {
     title: "Draft Day",
     text: () => `Draft day. ${state.player.name} is at the green room with family. The TV cameras pan. Picks happening.`,
-    when: p => p.age >= 19 && p.age <= 23 && p.sportsCareer?.stage === 2 && chance(40),
+    when: p => p.age >= 19 && p.age <= 23 && p.sportsCareer?.stage === 2 && chance(10),
     choices: [
       { label: "Wait for the call", run: () => {
         const round = chance(35) ? 1 : chance(50) ? 2 : 4;
@@ -5332,7 +7022,7 @@ const events = [
   {
     title: "Major Injury",
     text: () => `${pick(["ACL tear", "Achilles rupture", "concussion protocol", "broken collarbone", "ruptured disc"])}. The doctor says season's over. Maybe career.`,
-    when: p => p.age >= 20 && p.sportsCareer?.stage >= 3 && !p.sportsCareer?.injured && chance(30),
+    when: p => p.age >= 20 && p.sportsCareer?.stage >= 3 && !p.sportsCareer?.injured && chance(7),
     choices: [
       { label: "Rehab back, full comeback", run: () => {
         state.player.sportsCareer.injured = true;
@@ -5354,7 +7044,7 @@ const events = [
   {
     title: "Championship Run",
     text: () => `Your team is in the finals. ${state.player.name} is starting. The other guys have ${pick(["LeBron", "Mahomes", "Messi", "Curry"])}.`,
-    when: p => p.age >= 21 && p.sportsCareer?.stage >= 3 && !p.sportsCareer?.retired && !p.sportsCareer?.champion && chance(30),
+    when: p => p.age >= 21 && p.sportsCareer?.stage >= 3 && !p.sportsCareer?.retired && !p.sportsCareer?.champion && chance(7),
     choices: [
       { label: "Play to win", run: () => {
         if (chance(45)) {
@@ -5375,7 +7065,7 @@ const events = [
   {
     title: "City Council Race",
     text: () => `Local city council seat is open. People in ${originOf(state.player.location).short} keep telling ${state.player.name} "you should run."`,
-    when: p => p.age >= 25 && (p.politicalCapital >= 15 || p.fame >= 15 || p.karma >= 70) && !p.politicsCareer && chance(20),
+    when: p => p.age >= 25 && (p.politicalCapital >= 15 || p.fame >= 15 || p.karma >= 70) && !p.politicsCareer && chance(4),
     choices: [
       { label: "File the paperwork", run: () => {
         state.player.politicsCareer = { stage: 1 };
@@ -5394,7 +7084,7 @@ const events = [
   {
     title: "Lobbyist Approaches You",
     text: () => `A lobbyist from ${pick(["a pharma company", "an oil major", "a real estate developer", "a tech firm"])} took ${state.player.name} to a $400 lunch. Their ask is in the envelope.`,
-    when: p => p.politicsCareer?.stage >= 2 && !p.politicsCareer?.bought && chance(30),
+    when: p => p.politicsCareer?.stage >= 2 && !p.politicsCareer?.bought && chance(7),
     choices: [
       { label: "Take the deal quietly", run: () => {
         state.player.politicsCareer.bought = true;
@@ -5408,7 +7098,7 @@ const events = [
   {
     title: "Statewide Run",
     text: () => `Party leadership wants ${state.player.name} to run for ${pick(["governor", "state senate", "congressional seat", "lieutenant governor"])}. The fundraising starts now.`,
-    when: p => p.age >= 32 && p.politicsCareer?.stage >= 2 && p.politicalCapital >= 40 && chance(35),
+    when: p => p.age >= 32 && p.politicsCareer?.stage >= 2 && p.politicalCapital >= 40 && chance(8),
     choices: [
       { label: "Run statewide", run: () => {
         state.player.politicsCareer.stage = 3;
@@ -5427,7 +7117,7 @@ const events = [
   {
     title: "Political Scandal",
     text: () => `Tabloid has a story dropping Friday. ${pick(["Old tweets", "An affair", "A donor connection", "A misuse of funds"])}. ${state.player.name}'s team is in the war room at 9PM.`,
-    when: p => p.politicsCareer?.stage >= 3 && !p.politicsCareer?.scandal && chance(25),
+    when: p => p.politicsCareer?.stage >= 3 && !p.politicsCareer?.scandal && chance(5),
     choices: [
       { label: "Get ahead of it. full transparency", run: () => {
         state.player.politicsCareer.scandal = true;
@@ -5453,7 +7143,7 @@ const events = [
   {
     title: "National Bid",
     text: () => `Party wants ${state.player.name} on the national ticket. ${pick(["VP nominee", "Presidential primary run", "Cabinet position", "UN Ambassador"])}.`,
-    when: p => p.age >= 45 && p.politicsCareer?.stage >= 4 && p.politicalCapital >= 70 && !p.politicsCareer?.national && chance(40),
+    when: p => p.age >= 45 && p.politicsCareer?.stage >= 4 && p.politicalCapital >= 70 && !p.politicsCareer?.national && chance(10),
     choices: [
       { label: "Accept the bid", run: () => {
         state.player.politicsCareer.national = true;
@@ -5476,7 +7166,7 @@ const events = [
   {
     title: "AIDS Crisis Spreads",
     text: () => `${currentYear(state.player)}. The news is panicked. Friends are getting sick. Half the country thinks it's a moral judgment.`,
-    when: p => p.age >= 16 && currentYear(p) >= 1983 && currentYear(p) <= 1991 && chance(15),
+    when: p => p.age >= 16 && currentYear(p) >= 1983 && currentYear(p) <= 1991 && chance(3),
     choices: [
       { label: "Volunteer at a hospice", run: () => applyEffects(`You showed up. Held hands. Buried friends. The years marked you forever.`, { karma: 22, happiness: -8, smarts: 8, discipline: 6 }, "good") },
       { label: "Get tested, take precautions", run: () => applyEffects(`You learned. You taught friends. You lived through it scared but informed.`, { smarts: 10, discipline: 6 }) }
@@ -5486,7 +7176,7 @@ const events = [
   {
     title: "Berlin Wall Falls",
     text: () => `November 1989. ${state.player.name} watched it on TV. People with hammers, the wall coming down piece by piece.`,
-    when: p => p.age >= 10 && currentYear(p) === 1989 && chance(50),
+    when: p => p.age >= 10 && currentYear(p) === 1989 && chance(15),
     choices: [
       { label: "Watch the whole night", run: () => applyEffects(`You stayed up until 3AM. Felt like the world was rearranging itself. It was.`, { smarts: 10, happiness: 12, karma: 4 }, "good") },
       { label: "Wonder what it changes", run: () => applyEffects(`You went to bed. The 90s started that night.`, { smarts: 4, discipline: 3 }) }
@@ -5496,7 +7186,7 @@ const events = [
   {
     title: "Dot-com Bubble",
     text: () => `${currentYear(state.player)}. Everybody has a .com. Your cousin just made $400K on a stock that did nothing. The Nasdaq is moonshot.`,
-    when: p => p.age >= 18 && currentYear(p) >= 1998 && currentYear(p) <= 2000 && chance(20),
+    when: p => p.age >= 18 && currentYear(p) >= 1998 && currentYear(p) <= 2000 && chance(4),
     choices: [
       { label: "All in on tech stocks", run: () => {
         const investment = Math.min(state.player.money, randomInt(2000, 50000));
@@ -5515,7 +7205,7 @@ const events = [
   {
     title: "9/11",
     text: () => `September 11, 2001. The TV is on at school / work / the airport. The second plane hits live.`,
-    when: p => p.age >= 8 && currentYear(p) === 2001 && chance(80),
+    when: p => p.age >= 8 && currentYear(p) === 2001 && chance(25),
     choices: [
       { label: "Watch it unfold all day", run: () => {
         addCanonEvent(`Remembers exactly where they were on 9/11.`, "bad");
@@ -5531,7 +7221,7 @@ const events = [
   {
     title: "Hurricane Katrina",
     text: () => `August 2005. New Orleans under water. ${state.player.name} watched the rooftops on TV.`,
-    when: p => p.age >= 14 && currentYear(p) === 2005 && chance(40),
+    when: p => p.age >= 14 && currentYear(p) === 2005 && chance(10),
     choices: [
       { label: "Volunteer, fly down", run: () => applyEffects(`Two weeks gutting houses. The Lower 9th will never leave you. New perspective.`, { karma: 22, smarts: 8, money: -randomInt(400, 1800), happiness: -4 }, "good") },
       { label: "Donate what you can", run: () => applyEffects(`Sent a check. Felt small. Was still helpful.`, { karma: 8, money: -randomInt(50, 300) }, "good") }
@@ -5541,7 +7231,7 @@ const events = [
   {
     title: "Obama Wins",
     text: () => `November 4, 2008. ${state.player.name} is watching the returns. Grant Park is on every screen.`,
-    when: p => p.age >= 12 && currentYear(p) === 2008 && chance(60),
+    when: p => p.age >= 12 && currentYear(p) === 2008 && chance(18),
     choices: [
       { label: "Stay up for the speech", run: () => applyEffects(`You watched. People in the streets. A neighbor knocked on your door crying. Historic night.`, { happiness: 16, karma: 6, smarts: 6 }, "good") },
       { label: "Stay neutral, go to bed", run: () => applyEffects(`You went to bed. Saw the headlines Wednesday. Felt the shift anyway.`, { smarts: 4 }) }
@@ -5551,7 +7241,7 @@ const events = [
   {
     title: "Housing Crash",
     text: () => `${currentYear(state.player)}. Your neighbors lost the house. Two friends moved back in with parents. ${state.player.name}'s 401k looks like a horror movie.`,
-    when: p => p.age >= 22 && currentYear(p) >= 2008 && currentYear(p) <= 2010 && chance(25),
+    when: p => p.age >= 22 && currentYear(p) >= 2008 && currentYear(p) <= 2010 && chance(5),
     choices: [
       { label: "Buy when everyone is panicking", run: () => {
         if (state.player.money >= 10000) {
@@ -5570,7 +7260,7 @@ const events = [
   {
     title: "iPhone Launch",
     text: () => `${currentYear(state.player)}. The line at the Apple Store is around the block. $499 for the first iPhone. ${state.player.name} is debating.`,
-    when: p => p.age >= 14 && currentYear(p) === 2007 && chance(40),
+    when: p => p.age >= 14 && currentYear(p) === 2007 && chance(10),
     choices: [
       { label: "Buy it day one", run: () => applyEffects(`You held the first iPhone. The future fit in your pocket. You knew everything was about to change.`, { money: -499, happiness: 16, fame: 4, looks: 2, smarts: 4 }, "good") },
       { label: "Wait for the second gen", run: () => applyEffects(`You bought the 3G a year later for $199. Smart move. Mostly.`, { money: -199, smarts: 6, discipline: 6 }) }
@@ -5580,7 +7270,7 @@ const events = [
   {
     title: "Trump Wins / Obama Era Ends",
     text: () => `November 9, 2016. ${state.player.name}'s timeline is on fire. Half the country is celebrating, the other half is processing.`,
-    when: p => p.age >= 16 && currentYear(p) === 2016 && chance(60),
+    when: p => p.age >= 16 && currentYear(p) === 2016 && chance(18),
     choices: [
       { label: "Engage online aggressively", run: () => applyEffects(`Your timeline became a war zone. You unfollowed 60 people. Gained 200. Felt nothing.`, { fame: 6, happiness: -8, karma: -4, smarts: 4 }) },
       { label: "Log off, focus on your life", run: () => applyEffects(`You deleted the apps for 6 months. Started running. Read books. Best decision of the year.`, { discipline: 12, happiness: 10, health: 6, smarts: 6 }, "good") }
@@ -5590,7 +7280,7 @@ const events = [
   {
     title: "COVID Lockdown",
     text: () => `March 2020. Schools closed. Bars closed. Restaurants closed. ${state.player.name} is suddenly working / studying / parenting from home.`,
-    when: p => p.age >= 10 && currentYear(p) >= 2020 && currentYear(p) <= 2021 && chance(70),
+    when: p => p.age >= 10 && currentYear(p) >= 2020 && currentYear(p) <= 2021 && chance(22),
     choices: [
       { label: "Start a side hustle online", run: () => {
         if (chance(40)) {
@@ -5609,7 +7299,7 @@ const events = [
   {
     title: "George Floyd Summer",
     text: () => `June 2020. Cities on fire. Cameras everywhere. ${state.player.name} has a choice about what to do this summer.`,
-    when: p => p.age >= 14 && currentYear(p) === 2020 && chance(45),
+    when: p => p.age >= 14 && currentYear(p) === 2020 && chance(12),
     choices: [
       { label: "March in the streets", run: () => applyEffects(`You marched. Got tear-gassed once. Made friends you'd never have made. The summer reshaped you.`, { politicalCapital: 14, karma: 18, happiness: 8, discipline: 6, fame: 4 }, "good") },
       { label: "Donate and post", run: () => applyEffects(`Sent the donations. Black square on the grid. Logged off the rest of the year.`, { karma: 6, fame: 2, money: -randomInt(50, 500) }) },
@@ -5620,7 +7310,7 @@ const events = [
   {
     title: "Crypto Boom",
     text: () => `${currentYear(state.player)}. Bitcoin is at ${pick(["$30K", "$60K", "$45K", "$20K"])}. Everyone's cousin made a million on shitcoins. ${state.player.name} can still get in.`,
-    when: p => p.age >= 18 && currentYear(p) >= 2017 && currentYear(p) <= 2022 && state.player.money >= 1000 && chance(20),
+    when: p => p.age >= 18 && currentYear(p) >= 2017 && currentYear(p) <= 2022 && state.player.money >= 1000 && chance(4),
     choices: [
       { label: "All in on BTC", run: () => {
         const investment = Math.min(state.player.money, randomInt(2000, 30000));
@@ -5651,7 +7341,7 @@ const events = [
   {
     title: "AI Boom",
     text: () => `${currentYear(state.player)}. ChatGPT-style AI is in every meeting. ${state.player.name}'s job is suddenly "at risk" or "10x better" depending on who's talking.`,
-    when: p => p.age >= 18 && currentYear(p) >= 2023 && currentYear(p) <= 2030 && chance(25),
+    when: p => p.age >= 18 && currentYear(p) >= 2023 && currentYear(p) <= 2030 && chance(5),
     choices: [
       { label: "Learn the tools, become the AI person at work", run: () => applyEffects(`Three months of nights. You became the office AI expert. Salary bumped 30%. New title.`, { money: randomInt(15000, 80000), smarts: 14, discipline: 10, fame: 4 }, "good") },
       { label: "Build something with AI", run: () => {
@@ -5678,7 +7368,7 @@ const events = [
       const kid = state.player.children.find(c => c.age >= 1 && c.age <= 2 && !c.milestonesReached?.firstWord);
       return `${kid?.name || "Your kid"} said their first word today.`;
     },
-    when: p => p.children.some(c => c.age >= 1 && c.age <= 2 && !c.milestonesReached?.firstWord) && chance(80),
+    when: p => p.children.some(c => c.age >= 1 && c.age <= 2 && !c.milestonesReached?.firstWord) && chance(25),
     choices: [
       { label: "Capture it on film", run: () => {
         const kid = state.player.children.find(c => c.age >= 1 && c.age <= 2 && !c.milestonesReached?.firstWord);
@@ -5706,7 +7396,7 @@ const events = [
       const kid = state.player.children.find(c => c.age === 5 && !c.milestonesReached?.school);
       return `${kid?.name || "Your kid"} starts kindergarten today. Backpack bigger than they are.`;
     },
-    when: p => p.children.some(c => c.age === 5 && !c.milestonesReached?.school) && chance(80),
+    when: p => p.children.some(c => c.age === 5 && !c.milestonesReached?.school) && chance(25),
     choices: [
       { label: "Walk them in, take the photo", run: () => {
         const kid = state.player.children.find(c => c.age === 5 && !c.milestonesReached?.school);
@@ -5731,7 +7421,7 @@ const events = [
       const kid = state.player.children.find(c => c.age >= 10 && c.age <= 13 && !c.milestonesReached?.crush);
       return `${kid?.name || "Your kid"} came home weird. Won't talk. Phone keeps buzzing.`;
     },
-    when: p => p.children.some(c => c.age >= 10 && c.age <= 13 && !c.milestonesReached?.crush) && chance(60),
+    when: p => p.children.some(c => c.age >= 10 && c.age <= 13 && !c.milestonesReached?.crush) && chance(18),
     choices: [
       { label: "Ask about it carefully", run: () => {
         const kid = state.player.children.find(c => c.age >= 10 && c.age <= 13 && !c.milestonesReached?.crush);
@@ -5754,7 +7444,7 @@ const events = [
       const kid = state.player.children.find(c => c.age >= 14 && c.age <= 17 && !c.milestonesReached?.rebellion);
       return `${kid?.name || "Your teen"} got caught ${pick(["smoking on the porch", "sneaking out at 2AM", "skipping school", "lying about where they were", "fighting at school"])}.`;
     },
-    when: p => p.children.some(c => c.age >= 14 && c.age <= 17 && !c.milestonesReached?.rebellion) && chance(45),
+    when: p => p.children.some(c => c.age >= 14 && c.age <= 17 && !c.milestonesReached?.rebellion) && chance(12),
     choices: [
       { label: "Crack down hard", run: () => {
         const kid = state.player.children.find(c => c.age >= 14 && c.age <= 17 && !c.milestonesReached?.rebellion);
@@ -5779,7 +7469,7 @@ const events = [
       const kid = state.player.children.find(c => c.age === 18 && !c.milestonesReached?.graduation);
       return `${kid?.name || "Your kid"} is graduating high school. Cap and gown. You're in the third row.`;
     },
-    when: p => p.children.some(c => c.age === 18 && !c.milestonesReached?.graduation) && chance(85),
+    when: p => p.children.some(c => c.age === 18 && !c.milestonesReached?.graduation) && chance(28),
     choices: [
       { label: "Throw the biggest party", run: () => {
         const kid = state.player.children.find(c => c.age === 18 && !c.milestonesReached?.graduation);
@@ -5805,7 +7495,7 @@ const events = [
       const kid = state.player.children.find(c => c.age >= 18 && c.age <= 22 && !c.milestonesReached?.movedOut);
       return `${kid?.name || "Your kid"} is moving out. Their boxes are in the hallway. ${pick(["First apartment", "Dorm", "Moving in with a partner", "Across the country for work"])}.`;
     },
-    when: p => p.children.some(c => c.age >= 18 && c.age <= 22 && !c.milestonesReached?.movedOut) && chance(70),
+    when: p => p.children.some(c => c.age >= 18 && c.age <= 22 && !c.milestonesReached?.movedOut) && chance(22),
     choices: [
       { label: "Help with deposit + first month", run: () => {
         const kid = state.player.children.find(c => c.age >= 18 && c.age <= 22 && !c.milestonesReached?.movedOut);
@@ -5828,7 +7518,7 @@ const events = [
       const kid = state.player.children.find(c => c.age >= 22 && !c.milestonesReached?.married);
       return `${kid?.name || "Your kid"} is getting married. Save the date came. You'll be giving them away or walking them down the aisle.`;
     },
-    when: p => p.children.some(c => c.age >= 22 && !c.milestonesReached?.married) && chance(20),
+    when: p => p.children.some(c => c.age >= 22 && !c.milestonesReached?.married) && chance(4),
     choices: [
       { label: "Pay for the whole thing", run: () => {
         const kid = state.player.children.find(c => c.age >= 22 && !c.milestonesReached?.married);
@@ -5851,7 +7541,7 @@ const events = [
   {
     title: "Grandma's Funeral",
     text: () => `Grandma passed at ${randomInt(76, 92)}. The whole family is flying in. ${state.player.name} is helping plan.`,
-    when: p => p.age >= 10 && p.age <= 50 && !p.grandmaPassed && chance(8),
+    when: p => p.age >= 10 && p.age <= 50 && !p.grandmaPassed && chance(2),
     choices: [
       { label: "Speak at the service", run: () => {
         state.player.grandmaPassed = true;
@@ -5868,7 +7558,7 @@ const events = [
   {
     title: "Grandpa's Last Visit",
     text: () => `Grandpa is in hospice. ${pick(["Stage 4", "Heart's giving out", "Pneumonia", "Just tired"])}. Family says go now.`,
-    when: p => p.age >= 14 && p.age <= 45 && !p.grandpaPassed && chance(7),
+    when: p => p.age >= 14 && p.age <= 45 && !p.grandpaPassed && chance(2),
     choices: [
       { label: "Fly out, sit with him", run: () => {
         state.player.grandpaPassed = true;
@@ -5888,7 +7578,7 @@ const events = [
       const mom = state.player.relationships.find(r => r.role?.toLowerCase().includes("mom") || r.role?.toLowerCase().includes("mother"));
       return `${mom?.name || "Mom"} keeps forgetting things. The doctor said it. Early stage. There's no good version of this.`;
     },
-    when: p => p.age >= 35 && p.age <= 65 && p.relationships.some(r => r.id === "guardian" || (r.role || "").toLowerCase().includes("mother")) && !p.parentSick && chance(8),
+    when: p => p.age >= 35 && p.age <= 65 && p.relationships.some(r => r.id === "guardian" || (r.role || "").toLowerCase().includes("mother")) && !p.parentSick && chance(2),
     choices: [
       { label: "Move closer, become caregiver", run: () => {
         state.player.parentSick = true;
@@ -5912,7 +7602,7 @@ const events = [
   {
     title: "Cousin Lands in Your City",
     text: () => `Your cousin ${pick(["Nia", "Marcus", "Crystal", "DeShawn", "Ari"])} is moving to ${originOf(state.player.location).short} for ${pick(["college", "a job", "to escape something", "an art residency"])}. They need a place to crash for a month.`,
-    when: p => p.age >= 18 && chance(8),
+    when: p => p.age >= 18 && chance(2),
     choices: [
       { label: "Take them in", run: () => {
         const name = pick(["Nia", "Marcus", "Crystal", "DeShawn", "Ari", "Kai", "Sage"]);
@@ -5929,7 +7619,7 @@ const events = [
       const spouse = state.player.relationships.find(r => r.type === "spouse");
       return `${spouse?.name || "Your spouse"}'s mother showed up unannounced. She has opinions about ${pick(["your house", "your job", "your parenting", "your money", "your weight"])}.`;
     },
-    when: p => p.married && chance(12),
+    when: p => p.married && chance(3),
     choices: [
       { label: "Stand your ground", run: () => {
         const spouse = state.player.relationships.find(r => r.type === "spouse");
@@ -5955,7 +7645,7 @@ const events = [
       const sib = state.player.relationships.find(r => r.role === "Sibling" || r.id === "sibling");
       return `${sib?.name || "Your sibling"} needs ${money(randomInt(2000, 25000))}. They're in something. eviction / medical / debt / business.`;
     },
-    when: p => p.age >= 22 && p.relationships.some(r => r.id === "sibling") && p.money >= 3000 && chance(10),
+    when: p => p.age >= 22 && p.relationships.some(r => r.id === "sibling") && p.money >= 3000 && chance(2),
     choices: [
       { label: "Send it, no questions", run: () => {
         const sib = state.player.relationships.find(r => r.id === "sibling");
@@ -6030,7 +7720,7 @@ const events = [
   {
     title: "Diabetes Diagnosis",
     text: () => `Doctor's office. Type 2 diabetes. ${state.player.name}'s blood sugar was off the charts. Insulin, diet, the whole new life ahead.`,
-    when: p => p.age >= 40 && p.dietScore < 40 && !p.diabetic && chance(20),
+    when: p => p.age >= 40 && p.dietScore < 40 && !p.diabetic && chance(4),
     choices: [
       { label: "Full lifestyle overhaul", run: () => {
         state.player.diabetic = true;
@@ -6051,7 +7741,7 @@ const events = [
   {
     title: "Sober October → Year One",
     text: () => `${state.player.name} hasn't had a drink in 30 days. Friends are asking. It's the longest stretch since college.`,
-    when: p => p.age >= 22 && p.risksTaken >= 3 && !p.sober && chance(15),
+    when: p => p.age >= 22 && p.risksTaken >= 3 && !p.sober && chance(3),
     choices: [
       { label: "Keep going. make it a year", run: () => {
         state.player.sober = true;
@@ -6071,7 +7761,7 @@ const events = [
   {
     title: "Addiction Relapse",
     text: () => `${state.player.name} was clean. Then the stress hit. ${pick(["A coworker died", "A relationship ended", "A parent diagnosis", "A money crisis"])}. The bottle / pipe / pill is on the table.`,
-    when: p => p.age >= 22 && (p.sober || p.smokingLevel > 0) && p.stats.happiness < 30 && chance(20),
+    when: p => p.age >= 22 && (p.sober || p.smokingLevel > 0) && p.stats.happiness < 30 && chance(4),
     choices: [
       { label: "Call your sponsor / friend", run: () => {
         applyEffects(`You picked up the phone instead of the bottle. They came over. You didn't use that night.`, { karma: 12, discipline: 14, happiness: 10 }, "good");
@@ -6090,7 +7780,7 @@ const events = [
   {
     title: "Anxiety Attack at Work",
     text: () => `Mid-presentation, ${state.player.name}'s chest tightened. Heart racing. Couldn't catch breath. Excused yourself to the bathroom.`,
-    when: p => p.age >= 18 && p.stats.happiness < 50 && p.jobId !== "none" && !p.anxietyAcknowledged && chance(15),
+    when: p => p.age >= 18 && p.stats.happiness < 50 && p.jobId !== "none" && !p.anxietyAcknowledged && chance(3),
     choices: [
       { label: "Talk to a therapist", run: () => {
         state.player.anxietyAcknowledged = true;
@@ -6111,7 +7801,7 @@ const events = [
   {
     title: "Eating Disorder Confrontation",
     text: () => `A friend pulled ${state.player.name} aside. "Be honest with me. Are you okay?" They've been counting your skipped meals.`,
-    when: p => p.age >= 14 && p.age <= 35 && p.dietScore < 28 && !p.edAcknowledged && chance(12),
+    when: p => p.age >= 14 && p.age <= 35 && p.dietScore < 28 && !p.edAcknowledged && chance(3),
     choices: [
       { label: "Tell them the truth", run: () => {
         state.player.edAcknowledged = true;
@@ -6127,7 +7817,7 @@ const events = [
   {
     title: "Burnout Wall",
     text: () => `${state.player.name} can't focus. Three coffees, still can't read a paragraph. The body's announcing burnout.`,
-    when: p => p.age >= 25 && p.stats.discipline >= 70 && p.stats.happiness < 45 && !p.burnoutHit && chance(15),
+    when: p => p.age >= 25 && p.stats.discipline >= 70 && p.stats.happiness < 45 && !p.burnoutHit && chance(3),
     choices: [
       { label: "Take a 3-week sabbatical", run: () => {
         state.player.burnoutHit = true;
@@ -6154,7 +7844,7 @@ const events = [
       const pet = state.player.pets?.find(p => (p.years || 0) >= 12);
       return `${pet?.name || "Your pet"} can't get up the stairs anymore. The vet said it's time.`;
     },
-    when: p => p.pets?.some(pet => (pet.years || 0) >= 12) && chance(35),
+    when: p => p.pets?.some(pet => (pet.years || 0) >= 12) && chance(8),
     choices: [
       { label: "Hold them at the end", run: () => {
         const pet = state.player.pets?.find(p => (p.years || 0) >= 12);
@@ -6175,7 +7865,7 @@ const events = [
       const pet = state.player.pets?.[0];
       return `${pet?.name || "Your pet"} got out. Front door for 4 seconds. Hours of flyers, knocking on doors.`;
     },
-    when: p => p.pets?.length >= 1 && chance(8),
+    when: p => p.pets?.length >= 1 && chance(2),
     choices: [
       { label: "Search the whole neighborhood", run: () => {
         if (chance(60)) {
@@ -6207,7 +7897,7 @@ const events = [
       const fam = state.player.relationships.find(r => r.type === "family" && r.bond < 70);
       return `${fam?.name || "Family"} is in town. ${state.player.name} is ${state.player.age}. Time isn't infinite. The thing you've never said is sitting there.`;
     },
-    when: p => p.age >= 70 && p.relationships.some(r => r.type === "family") && !p.saidTheThing && chance(35),
+    when: p => p.age >= 70 && p.relationships.some(r => r.type === "family") && !p.saidTheThing && chance(8),
     choices: [
       { label: "Say it. All of it.", run: () => {
         state.player.saidTheThing = true;
@@ -6225,7 +7915,7 @@ const events = [
   {
     title: "Grandkid's First Visit",
     text: () => `Your grandkid is here. They're ${randomInt(2, 6)}. Sticky hands. Asking if you have any candy.`,
-    when: p => p.age >= 60 && p.children?.length >= 1 && chance(20),
+    when: p => p.age >= 60 && p.children?.length >= 1 && chance(4),
     choices: [
       { label: "Feed them candy, become favorite", run: () => applyEffects(`You broke every rule the parents set. Grandkid is YOURS now.`, { happiness: 22, karma: 8 }, "good") },
       { label: "Be the responsible one", run: () => applyEffects(`Apple slices instead. The parents thanked you. Kid still likes you, less.`, { happiness: 8, karma: 6, discipline: 6 }, "good") }
@@ -6237,7 +7927,7 @@ const events = [
       const spouse = state.player.relationships.find(r => r.type === "spouse");
       return spouse ? `${spouse.name} passed. ${state.player.name} is at the funeral.` : `Your partner of decades passed.`;
     },
-    when: p => p.age >= 70 && p.married && !p.widowed && chance(25),
+    when: p => p.age >= 70 && p.married && !p.widowed && chance(5),
     choices: [
       { label: "Speak at the service", run: () => {
         state.player.widowed = true;
@@ -6257,7 +7947,7 @@ const events = [
   {
     title: "Late-Life Romance",
     text: () => `Someone in ${state.player.name}'s building has been kind. Coffee at 9AM. Companionship at 75.`,
-    when: p => p.age >= 65 && p.widowed && !p.relationships.some(r => r.type === "partner") && chance(15),
+    when: p => p.age >= 65 && p.widowed && !p.relationships.some(r => r.type === "partner") && chance(3),
     choices: [
       { label: "Let yourself love again", run: () => {
         const name = pick(["Dolores", "Hank", "Marisol", "Eli", "Sylvia", "Frank"]);
@@ -6275,7 +7965,7 @@ const events = [
   {
     title: "Faith Crisis",
     text: () => `Something happened that ${state.player.religionLabel || "your faith tradition"} doesn't have an answer for. ${state.player.name} is starting to doubt.`,
-    when: p => p.age >= 16 && p.religion && p.religion !== "none" && p.religion !== "atheist" && !p.faithCrisis && chance(12),
+    when: p => p.age >= 16 && p.religion && p.religion !== "none" && p.religion !== "atheist" && !p.faithCrisis && chance(3),
     choices: [
       { label: "Lean deeper into the faith", run: () => {
         state.player.faithCrisis = "deepened";
@@ -6296,7 +7986,7 @@ const events = [
   {
     title: "Religious Awakening",
     text: () => `${state.player.name} stumbled into a service / sermon / meditation that hit different. ${pick(["A friend invited you", "You wandered in alone", "Something in your life broke open"])}.`,
-    when: p => p.age >= 18 && (p.religion === "none" || p.religion === "atheist") && p.stats.happiness < 50 && chance(8),
+    when: p => p.age >= 18 && (p.religion === "none" || p.religion === "atheist") && p.stats.happiness < 50 && chance(2),
     choices: [
       { label: "Convert, join the community", run: () => {
         const newFaith = pick(["christian", "muslim", "buddhist", "spiritual"]);
@@ -6311,7 +8001,7 @@ const events = [
   {
     title: "Religious Holiday at Home",
     text: () => `${pick(["Christmas", "Eid", "Diwali", "Passover", "Lunar New Year", "Easter"])} is here. Family expects you home.`,
-    when: p => p.age >= 18 && p.religion && p.religion !== "none" && p.religion !== "atheist" && chance(15),
+    when: p => p.age >= 18 && p.religion && p.religion !== "none" && p.religion !== "atheist" && chance(3),
     choices: [
       { label: "Fly home, full participation", run: () => {
         state.player.relationships.filter(r => r.type === "family").forEach(r => changeBond(r, 8));
@@ -6330,7 +8020,7 @@ const events = [
   {
     title: "California Wildfire",
     text: () => `Smoke for two weeks. Friends evacuating. ${state.player.name}'s sky has been orange since Tuesday.`,
-    when: p => (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles" || p.location === "Compton, CA" || p.location === "Skid Row, Los Angeles") && currentYear(p) >= 2017 && chance(10),
+    when: p => (p.location.includes("Los Angeles") || p.location === "Hollywood, Los Angeles" || p.location === "Compton, CA" || p.location === "Skid Row, Los Angeles") && currentYear(p) >= 2017 && chance(2),
     choices: [
       { label: "Evacuate", run: () => applyEffects(`You packed essentials, drove inland. Friend's couch for 11 days. Came back, house intact.`, { money: -randomInt(400, 2000), happiness: -8, karma: 4, smarts: 4 }) },
       { label: "Stay, hose down the roof", run: () => {
@@ -6345,7 +8035,7 @@ const events = [
   {
     title: "Hurricane Hits",
     text: () => `${pick(["Cat 4 hurricane", "Tropical storm", "100-year flood"])} hit ${originOf(state.player.location).short}. ${state.player.name}'s power is out. Water rising.`,
-    when: p => (p.location === "Miami, FL" || p.location === "Houston, TX" || p.location === "Atlanta, GA") && chance(10),
+    when: p => (p.location === "Miami, FL" || p.location === "Houston, TX" || p.location === "Atlanta, GA") && chance(2),
     choices: [
       { label: "Ride it out", run: () => applyEffects(`Three days no power. Generator died Tuesday. You ate canned food and listened to neighbors check on each other.`, { money: -randomInt(800, 4000), happiness: -6, karma: 4, health: -3 }) },
       { label: "Evacuate", run: () => applyEffects(`Family up north for a week. Pets at a shelter. Came back, house had 3 inches of water. Recovery year.`, { money: -randomInt(8000, 40000), happiness: -10, discipline: 4 }, "bad") }
@@ -6354,7 +8044,7 @@ const events = [
   {
     title: "Earthquake / Quake Aftermath",
     text: () => `The ground moved for 38 seconds. ${state.player.name}'s walls cracked. Phone won't connect. Neighbors are in the street.`,
-    when: p => (p.location.includes("Los Angeles") || p.location === "Mexico City, Mexico" || p.location === "Tokyo, Japan" || p.location === "Hollywood, Los Angeles") && chance(8),
+    when: p => (p.location.includes("Los Angeles") || p.location === "Mexico City, Mexico" || p.location === "Tokyo, Japan" || p.location === "Hollywood, Los Angeles") && chance(2),
     choices: [
       { label: "Check on every neighbor", run: () => {
         changeLocalRep(randomInt(5, 12));
@@ -6370,7 +8060,7 @@ const events = [
   {
     title: "Recruiter Comes to Your School",
     text: () => `A military recruiter sat down with ${state.player.name} at lunch. They offered ${pick(["college money", "a signing bonus", "a way out", "a guaranteed job"])}.`,
-    when: p => p.age >= 17 && p.age <= 19 && (p.spawnClass === "working" || p.spawnClass === "struggling" || p.spawnClass === "survival") && !p.military && chance(15),
+    when: p => p.age >= 17 && p.age <= 19 && (p.spawnClass === "working" || p.spawnClass === "struggling" || p.spawnClass === "survival") && !p.military && chance(3),
     choices: [
       { label: "Sign up", run: () => {
         state.player.military = { stage: "active" };
@@ -6383,7 +8073,7 @@ const events = [
   {
     title: "Deployment Orders",
     text: () => `Orders came in. ${pick(["Afghanistan", "Iraq", "Korea", "Germany", "Kuwait"])}. ${state.player.name} ships out in 6 weeks.`,
-    when: p => p.military?.stage === "active" && !p.military?.deployed && chance(45),
+    when: p => p.military?.stage === "active" && !p.military?.deployed && chance(12),
     choices: [
       { label: "Go", run: () => {
         state.player.military.deployed = true;
@@ -6412,7 +8102,7 @@ const events = [
   {
     title: "You Wrote a Will",
     text: () => `${state.player.name} is at the lawyer's office writing a will. Assets, beneficiaries, the kid clause.`,
-    when: p => p.age >= 50 && p.children?.length > 0 && !p.willWritten && chance(15),
+    when: p => p.age >= 50 && p.children?.length > 0 && !p.willWritten && chance(3),
     choices: [
       { label: "Split equally among kids", run: () => {
         state.player.willWritten = "equal";
@@ -6450,7 +8140,7 @@ const events = [
       };
       return `${p.name}: ${lines[p.voice] || `"hey"`}`;
     },
-    when: p => p.age >= 12 && p.relationships?.length > 0 && chance(15),
+    when: p => p.age >= 12 && p.relationships?.length > 0 && chance(3),
     choices: [
       { label: "Reply quick", run: () => {
         const p = pickActiveNpc();
@@ -6481,7 +8171,7 @@ const events = [
         ? `${p.name}: "${pick(["you alive?", "haven't heard from you in a min", "call your grandma", "auntie's having a thing saturday", "did you eat today"])}"`
         : "Family group chat just lit up. Forty-six new messages.";
     },
-    when: p => p.age >= 14 && p.relationships.some(r => r.type === "family") && chance(12),
+    when: p => p.age >= 14 && p.relationships.some(r => r.type === "family") && chance(3),
     choices: [
       { label: "Call right back", run: () => {
         const p = pickFamilyNpc();
@@ -6514,7 +8204,7 @@ const events = [
       const babyName = pick(["Sophie", "August", "Marlowe", "Theo", "Nora", "Cassius", "Wren", "Sage"]);
       return p ? `${p.name} just had a baby. They named ${pick(["her", "him", "the kid"])} ${babyName}.` : `Someone in your contacts just had a kid.`;
     },
-    when: p => p.age >= 22 && p.age <= 45 && p.relationships?.length >= 2 && chance(8),
+    when: p => p.age >= 22 && p.age <= 45 && p.relationships?.length >= 2 && chance(2),
     choices: [
       { label: "Fly in for the visit", run: () => {
         const p = pickActiveNpc();
@@ -6544,7 +8234,7 @@ const events = [
       const where = pick(["Tulum", "Charleston", "Italy", "the courthouse", "their backyard"]);
       return p ? `${p.name} is getting married. ${pick(["RSVP due Friday.", "It's destination. " + where + ".", "Just the courthouse + dinner."])}` : `Wedding invite came in the mail.`;
     },
-    when: p => p.age >= 22 && p.age <= 45 && p.relationships?.length >= 2 && chance(9),
+    when: p => p.age >= 22 && p.age <= 45 && p.relationships?.length >= 2 && chance(2),
     choices: [
       { label: "Go, all in", run: () => {
         const p = pickActiveNpc();
@@ -6573,7 +8263,7 @@ const events = [
       const p = pickActiveNpc();
       return p ? `${p.name} just closed on a house in ${pick(["the suburbs", "your old neighborhood", "Brooklyn", "Austin", "their mom's block"])}.` : `A friend just bought a house.`;
     },
-    when: p => p.age >= 26 && p.age <= 50 && p.relationships?.length >= 2 && chance(7),
+    when: p => p.age >= 26 && p.age <= 50 && p.relationships?.length >= 2 && chance(2),
     choices: [
       { label: "Help them move in", run: () => {
         const p = pickActiveNpc();
@@ -6709,7 +8399,7 @@ const events = [
       const line = p && lines[p.voice] ? lines[p.voice] : `"u up?"`;
       return p ? `${p.name} (${new Date().getHours() < 6 ? "2:14 AM" : "11:47 PM"}): ${line}` : `Late text from a contact: "u up?"`;
     },
-    when: p => p.age >= 16 && (p.relationships || []).filter(r => r.bond >= 25 && r.type !== "spouse").length >= 1 && chance(11),
+    when: p => p.age >= 16 && (p.relationships || []).filter(r => r.bond >= 25 && r.type !== "spouse").length >= 1 && chance(2),
     cooldown: 3,
     tags: ["drama", "romance"],
     choices: [
@@ -6742,7 +8432,7 @@ const events = [
       const memory = teaser ? ` She added: "saw what you said about ${teaser.split(".")[0].toLowerCase()}. proud of you."` : "";
       return mom ? `${mom.name}: "did you eat today. real food. not just coffee."${memory}` : `Mom: "did you eat today"`;
     },
-    when: p => p.age >= 12 && p.relationships.some(r => r.id === "guardian") && chance(13),
+    when: p => p.age >= 12 && p.relationships.some(r => r.id === "guardian") && chance(3),
     cooldown: 2,
     tags: ["family"],
     choices: [
@@ -6774,7 +8464,7 @@ const events = [
       const news = pick(["got the job", "broke up", "moving out", "back with their ex", "going on a date", "quit"]);
       return sib ? `${sib.name}: "GUESS WHAT 👀👀👀 i ${news}"` : `Sibling group chat blew up.`;
     },
-    when: p => p.age >= 14 && p.relationships.some(r => r.id === "sibling") && chance(12),
+    when: p => p.age >= 14 && p.relationships.some(r => r.id === "sibling") && chance(3),
     cooldown: 2,
     tags: ["family", "drama"],
     choices: [
@@ -6805,7 +8495,7 @@ const events = [
       const p = pickArcNpc("spiral");
       return p ? `${p.name}: "i need u. can u talk. dont judge me pls"` : `Someone close is crashing in your DMs at almost 3 AM.`;
     },
-    when: p => p.age >= 17 && p.relationships.some(r => r.arc === "spiral" && r.bond >= 30) && chance(10),
+    when: p => p.age >= 17 && p.relationships.some(r => r.arc === "spiral" && r.bond >= 30) && chance(2),
     cooldown: 3,
     tags: ["family", "drama"],
     choices: [
@@ -6836,7 +8526,7 @@ const events = [
       const p = pickArcNpc("snake");
       return p ? `${p.name}: "yo random q. what's the actual deal with [${pick(["that thing you posted", "your money situation", "you and " + (pickActiveNpc()?.name || "them"), "the new project"])}]?"` : `Someone's fishing for info.`;
     },
-    when: p => p.age >= 16 && p.relationships.some(r => r.arc === "snake" && r.bond >= 30) && chance(8),
+    when: p => p.age >= 16 && p.relationships.some(r => r.arc === "snake" && r.bond >= 30) && chance(2),
     cooldown: 4,
     tags: ["drama"],
     choices: [
@@ -6877,7 +8567,7 @@ const events = [
       const ask = pick(["need you at this thing tonight, last minute", "can you post about my drop", "drive me to the airport in like 2 hours", "bring [3] bottles to the spot, i'll cover you back"]);
       return p ? `${p.name}: "${ask}"` : `Your famous friend needs something.`;
     },
-    when: p => p.age >= 17 && p.relationships.some(r => r.arc === "star" && r.bond >= 30) && chance(9),
+    when: p => p.age >= 17 && p.relationships.some(r => r.arc === "star" && r.bond >= 30) && chance(2),
     cooldown: 3,
     tags: ["fame", "drama"],
     choices: [
@@ -6909,7 +8599,7 @@ const events = [
       const memory = recallCanon({ fallback: "the year you both quit talking" });
       return p ? `${p.name}: "long time. been thinking about ${memory.split(".")[0].toLowerCase()}. you good?"` : `Someone you lost contact with just messaged.`;
     },
-    when: p => p.age >= 19 && p.relationships.some(r => r.arc === "ghost" && r.ghosted) && chance(6),
+    when: p => p.age >= 19 && p.relationships.some(r => r.arc === "ghost" && r.ghosted) && chance(1),
     cooldown: 5,
     tags: ["family", "drama"],
     choices: [
@@ -6946,7 +8636,7 @@ const events = [
       const idea = pick(["a delivery thing for our city", "a content studio", "an app for our scene", "a pop-up shop, six weeks", "a podcast network"]);
       return p ? `${p.name}: "ok hear me out. ${idea}. need a partner. low equity to start. you in?"` : `Someone's pitching you a build.`;
     },
-    when: p => p.age >= 18 && p.relationships.some(r => r.arc === "builder") && chance(7),
+    when: p => p.age >= 18 && p.relationships.some(r => r.arc === "builder") && chance(2),
     cooldown: 5,
     tags: ["business", "money"],
     choices: [
@@ -6985,7 +8675,7 @@ const events = [
       const line = pick([`"i love you bro/sis im so seruoiis"`, `"PULL UP we're at the spot 🍻"`, `"we shouls hav done that thing in [2018]"`, `"miss u man fr"`]);
       return p ? `${p.name} (12:42 AM): ${line}` : `Drunk text from a day-one.`;
     },
-    when: p => p.age >= 19 && dayOneCount(p) >= 1 && chance(10),
+    when: p => p.age >= 19 && dayOneCount(p) >= 1 && chance(2),
     cooldown: 2,
     tags: ["family", "party"],
     choices: [
@@ -7014,7 +8704,7 @@ const events = [
       const subject = pick(friends);
       return subject ? `Group chat just lit up. Someone you all know is going through something heavy. ${subject.name} hasn't said anything yet.` : `Group chat just lit up with heavy news.`;
     },
-    when: p => p.age >= 18 && (p.relationships || []).filter(r => r.bond >= 30).length >= 3 && chance(6),
+    when: p => p.age >= 18 && (p.relationships || []).filter(r => r.bond >= 30).length >= 3 && chance(1),
     cooldown: 4,
     tags: ["family", "drama"],
     choices: [
@@ -7037,7 +8727,7 @@ const events = [
       const handle = pick(["someone from the party", "the bartender from Friday", "your ex's friend", "that DM you slid into in March"]);
       return `Random number: "yooo it's me from ${handle}. link tonight?"`;
     },
-    when: p => p.age >= 18 && !p.relationships.some(r => r.type === "spouse") && chance(7),
+    when: p => p.age >= 18 && !p.relationships.some(r => r.type === "spouse") && chance(2),
     cooldown: 3,
     tags: ["romance", "party"],
     choices: [
@@ -7059,7 +8749,7 @@ const events = [
       const memory = recallCanon({ tone: "good", fallback: "a moment from years ago" });
       return `Mom dropped a photo in the family chat from ${memory.split(".")[0].toLowerCase()}. The reactions are flying.`;
     },
-    when: p => p.age >= 14 && p.relationships.some(r => r.id === "guardian") && (p.canonEvents?.length || 0) >= 4 && chance(10),
+    when: p => p.age >= 14 && p.relationships.some(r => r.id === "guardian") && (p.canonEvents?.length || 0) >= 4 && chance(2),
     cooldown: 4,
     tags: ["family"],
     choices: [
@@ -7092,7 +8782,7 @@ const events = [
       const reason = pick(["went viral on the FYP", "got featured in a magazine", "signed with a real agency", "got cast in something", "got a big brand deal"]);
       return p ? `${p.name} ${reason}. Phone's blowing up. They're posting from the green room.` : `Someone in your circle just hit a different level.`;
     },
-    when: p => p.age >= 16 && p.age <= 60 && p.relationships?.length >= 2 && chance(6),
+    when: p => p.age >= 16 && p.age <= 60 && p.relationships?.length >= 2 && chance(1),
     tags: ["fame", "drama"],
     choices: [
       { label: "Hype them publicly", run: () => {
@@ -7237,7 +8927,7 @@ const events = [
       const p = pickActiveNpc();
       return p ? `${p.name}: "yo remember when ${memory.split(".")[0].toLowerCase()}? talk about that more."` : `Someone brought up an old chapter.`;
     },
-    when: p => p.age >= 16 && (p.canonEvents?.length || 0) >= 3 && p.relationships?.length >= 2 && chance(8),
+    when: p => p.age >= 16 && (p.canonEvents?.length || 0) >= 3 && p.relationships?.length >= 2 && chance(2),
     cooldown: 4,
     tags: ["family", "drama"],
     choices: [
@@ -7266,7 +8956,7 @@ const events = [
       const dark = recallCanon({ tone: "bad", fallback: "the rough stretch" });
       return mom ? `${mom.name} brought up ${dark.split(".")[0].toLowerCase()} over coffee. Quiet voice. Not lecturing. Just remembering.` : `Mom brought up a hard year.`;
     },
-    when: p => p.age >= 20 && p.relationships.some(r => r.id === "guardian") && (p.canonEvents?.some(c => c.tone === "bad")) && chance(6),
+    when: p => p.age >= 20 && p.relationships.some(r => r.id === "guardian") && (p.canonEvents?.some(c => c.tone === "bad")) && chance(1),
     cooldown: 6,
     tags: ["family", "drama"],
     choices: [
@@ -7294,7 +8984,7 @@ const events = [
       const memory = recallCanon({ fallback: "a year that changed things" });
       return `Phone reminder: it's been a year since ${memory.split(".")[0].toLowerCase()}. Calendar's politely waiting on you.`;
     },
-    when: p => p.age >= 18 && (p.canonEvents?.length || 0) >= 2 && chance(7),
+    when: p => p.age >= 18 && (p.canonEvents?.length || 0) >= 2 && chance(2),
     cooldown: 3,
     tags: ["drama"],
     choices: [
@@ -7316,7 +9006,7 @@ const events = [
       const street = recallCanon({ keyword: "crew", fallback: recallCanon({ keyword: "street", fallback: "the old days" }) });
       return `Caught eyes with someone from ${street.split(".")[0].toLowerCase()} at the gas station. They're holding the same cup of coffee they always held.`;
     },
-    when: p => p.age >= 20 && (p.streetRep > 0 || p.canonEvents?.some(c => c.text.toLowerCase().includes("crew") || c.text.toLowerCase().includes("street"))) && chance(7),
+    when: p => p.age >= 20 && (p.streetRep > 0 || p.canonEvents?.some(c => c.text.toLowerCase().includes("crew") || c.text.toLowerCase().includes("street"))) && chance(2),
     cooldown: 5,
     tags: ["street", "drama"],
     choices: [
@@ -7333,6 +9023,1278 @@ const events = [
   },
 
   // ============================================================
+  // ============================================================
+  // MENTOR EVENTS — older NPC takes you under their wing
+  // ============================================================
+  {
+    title: "Older head pulls you aside",
+    text: () => `An older man at the coffee shop saw you working and pulled up a chair. "What's the play?" Six minutes later he had your number and a meeting Friday.`,
+    when: p => p.age >= 16 && p.age <= 30 && !p.relationships.some(r => r.role && r.role.includes("Mentor")) && (p.stats.smarts >= 55 || p.stats.discipline >= 55) && chance(5),
+    cooldown: 8,
+    tags: ["family"],
+    choices: [
+      { label: "Show up Friday. Listen more than you talk.", run: () => {
+        const name = pick(["Mr. Harris", "Cliff", "Pops Reggie", "Leland", "Dr. Wade"]);
+        state.player.relationships.push({ id: `mentor-${Date.now()}`, name, role: "Mentor", bond: 60, type: "ally", arc: "anchor" });
+        addCanonEvent(`${name} took ${state.player.name} under their wing.`, "good");
+        applyEffects(`Two-hour breakfast. He told you what nobody told him at your age. You took notes on a napkin.`, { smarts: 6, discipline: 5, happiness: 6, karma: 4 }, "good");
+      } },
+      { label: "Show up but try to flip it. Sell HIM.", run: () => {
+        if (chance(30)) {
+          applyEffects(`He was amused, not insulted. Bought what you were selling. Wrote you a check on the spot.`, { money: randomInt(800, 4200), smarts: 3, fame: 2 }, "good");
+        } else {
+          applyEffects(`He read you in 30 seconds and walked. Lesson cost: a Friday morning.`, { discipline: 4, happiness: -3 }, "bad");
+        }
+      } },
+      { label: "Skip it. Mentors aren't your thing.", run: () => applyEffects(`You ghosted. Fine. Lonelier path though.`, { discipline: 2, happiness: -2 }) }
+    ]
+  },
+  {
+    title: () => {
+      const m = state.player.relationships.find(r => r.role && r.role.includes("Mentor"));
+      return m ? `${m.name} called` : "Mentor wants a word";
+    },
+    text: () => {
+      const m = state.player.relationships.find(r => r.role && r.role.includes("Mentor"));
+      return m ? `${m.name}: "I want you in a room. Tonight. Don't ask, just be there." Ten people you've never met. The room changes after you leave it.` : `Your mentor opened a door tonight.`;
+    },
+    when: p => p.age >= 18 && p.relationships.some(r => r.role && r.role.includes("Mentor")) && chance(2),
+    cooldown: 4,
+    tags: ["business", "fame"],
+    choices: [
+      { label: "Pull up clean. Carry yourself.", run: () => {
+        const m = state.player.relationships.find(r => r.role && r.role.includes("Mentor"));
+        if (m) changeBond(m, 12);
+        applyEffects(`You introduced yourself the right way. Two of the ten people followed up the next week.`, { fame: 6, businessReputation: 4, smarts: 3, money: randomInt(200, 1200) }, "good");
+      } },
+      { label: "Ask too much, take too little.", run: () => {
+        const m = state.player.relationships.find(r => r.role && r.role.includes("Mentor"));
+        if (m) changeBond(m, -10);
+        applyEffects(`You asked everyone for something. Mentor felt embarrassed. Bond cracked.`, { karma: -6, happiness: -4 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: () => {
+      const m = state.player.relationships.find(r => r.role && r.role.includes("Mentor"));
+      return m ? `${m.name}'s last lesson` : "Mentor's last lesson";
+    },
+    text: () => {
+      const m = state.player.relationships.find(r => r.role && r.role.includes("Mentor"));
+      return m ? `${m.name} got the diagnosis. Wants to talk to you before they can't anymore. Hospital. Sunday.` : `Your mentor doesn't have long.`;
+    },
+    when: p => p.age >= 30 && p.relationships.some(r => r.role && r.role.includes("Mentor") && r.bond >= 60) && chance(3),
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Sit by the bed all afternoon", run: () => {
+        const m = state.player.relationships.find(r => r.role && r.role.includes("Mentor"));
+        if (m) {
+          state.player.relationships = state.player.relationships.filter(r => r !== m);
+          addCanonEvent(`${m.name}, mentor, gave the last lesson and went.`, "bad");
+        }
+        applyEffects(`Three hours. He told you what mattered. You held his hand at the end. You're different now.`, { happiness: -18, karma: 18, smarts: 8, discipline: 8 }, "bad");
+      } },
+      { label: "Send a card. Stay busy.", run: () => {
+        const m = state.player.relationships.find(r => r.role && r.role.includes("Mentor"));
+        if (m) state.player.relationships = state.player.relationships.filter(r => r !== m);
+        applyEffects(`The card was nice. You think about it sometimes when you can't sleep.`, { happiness: -10, karma: -4, discipline: 2 }, "bad");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // RELIGIOUS / FAITH ARC — uses player.religion set at creation
+  // ============================================================
+  {
+    title: "Asked to lead the youth group",
+    text: () => `Pastor pulled you aside after service. "I see how you carry yourself. The kids would listen to you." Wednesdays at 6.`,
+    when: p => p.age >= 18 && p.age <= 45 && p.religion && p.religion !== "none" && p.religion !== "atheist" && p.stats.discipline >= 55 && chance(5),
+    cooldown: 6,
+    tags: ["family"],
+    choices: [
+      { label: "Yes. Show up every Wednesday.", run: () => {
+        addCanonEvent(`${state.player.name} started leading the youth group at the local congregation.`, "good");
+        applyEffects(`The kids noticed. So did the parents. Local rep up. You learned more than you taught.`, { karma: 14, discipline: 6, happiness: 8, fame: 3 }, "good");
+        if (typeof changeLocalRep === "function") changeLocalRep(4);
+      } },
+      { label: "Yes but only for a season", run: () => {
+        applyEffects(`You did three months. The kids remembered.`, { karma: 8, happiness: 5, discipline: 3 }, "good");
+      } },
+      { label: "No. Not your lane.", run: () => {
+        applyEffects(`Pastor understood. He asked someone else.`, { discipline: 2 });
+      } }
+    ]
+  },
+  {
+    title: "Faith Crisis",
+    text: () => {
+      const memory = recallCanon({ tone: "bad", fallback: "everything that happened" });
+      return `Lost it for a week. Couldn't pray. Couldn't show up. ${memory.split(".")[0]}. The God-shaped silence got loud.`;
+    },
+    when: p => p.age >= 18 && p.religion && p.religion !== "none" && p.religion !== "atheist" && (p.canonEvents?.some(c => c.tone === "bad")) && chance(4),
+    cooldown: 8,
+    tags: ["drama", "family"],
+    choices: [
+      { label: "Stay through the doubt", run: () => {
+        applyEffects(`You kept showing up even when you didn't feel anything. Six months later something settled. Different kind of faith now.`, { happiness: 8, karma: 8, smarts: 6, discipline: 6 }, "good");
+      } },
+      { label: "Walk out for good", run: () => {
+        const old = state.player.religion;
+        state.player.religion = "none";
+        addCanonEvent(`${state.player.name} stopped believing.`, "bad");
+        applyEffects(`You stopped going. Felt freer for a year. Then heavier.`, { happiness: -4, smarts: 4, karma: -4 });
+      } },
+      { label: "Switch lanes entirely", run: () => {
+        const others = ["spiritual", "buddhist", "atheist"];
+        state.player.religion = pick(others.filter(r => r !== state.player.religion));
+        addCanonEvent(`${state.player.name} found a different kind of faith.`, "good");
+        applyEffects(`Different practice, different community. Took a year to feel like home.`, { happiness: 6, karma: 4, smarts: 3 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Mission trip invite",
+    text: () => `Your community is going somewhere — building, teaching, serving for two weeks. Your name's on the list. Bring $${randomInt(800, 2200)}.`,
+    when: p => p.age >= 17 && p.age <= 50 && p.religion && p.religion !== "none" && p.religion !== "atheist" && p.money >= 800 && chance(5),
+    cooldown: 6,
+    tags: ["travel", "family"],
+    choices: [
+      { label: "Sign up. Two weeks of work.", run: () => {
+        addCanonEvent(`${state.player.name} went on a mission trip.`, "good");
+        applyEffects(`You came back changed. Saw what nobody at home wanted to see. Slept different.`, { money: -randomInt(800, 2200), karma: 18, happiness: 10, smarts: 8, looks: -2 }, "good");
+        state.player.trips = state.player.trips || [];
+        state.player.trips.push("mission trip");
+      } },
+      { label: "Donate. Stay home.", run: () => {
+        applyEffects(`You wrote the check. Felt good about it for a day.`, { money: -randomInt(150, 600), karma: 6, happiness: 2 });
+      } },
+      { label: "Pass entirely", run: () => applyEffects(`You stayed in your week. Fine.`, { discipline: 1 }) }
+    ]
+  },
+
+  // ============================================================
+  // ============================================================
+  // MILITARY ARC — recruit, boot, deploy, vet
+  // ============================================================
+  {
+    title: "Recruiter on the corner",
+    text: () => `Marine recruiter at the strip mall pulled you in. "Sign before 19 and we'll cover school after. Health, brotherhood, real money." His pitch is tight.`,
+    when: p => p.age >= 17 && p.age <= 22 && !p.military && p.jobId === "none" && (p.educationRank <= 3 || p.dropout) && chance(2),
+    cooldown: 99,
+    tags: ["drama"],
+    choices: [
+      { label: "Sign the papers. Boot camp in 6 weeks.", run: () => {
+        state.player.military = { branch: pick(["Marines", "Army", "Navy", "Air Force"]), rank: "E-1", deployments: 0, deployed: false };
+        addCanonEvent(`${state.player.name} enlisted in the ${state.player.military.branch}.`, "good");
+        applyEffects(`Boot was harder than anything you'd done. You came back 14 lbs of muscle and 3 inches of jaw. Different person.`, { health: 12, discipline: 18, looks: 4, money: randomInt(1200, 3200), happiness: -4 }, "good");
+      } },
+      { label: "Take the brochure. Decide later.", run: () => applyEffects(`You said you'd think about it. You didn't.`, { discipline: 1 }) },
+      { label: "Walk off mid-pitch", run: () => applyEffects(`Not your road.`, { discipline: 2, karma: 1 }) }
+    ]
+  },
+  {
+    title: () => state.player.military ? `${state.player.military.branch} sends you out` : "Deployment orders",
+    text: () => `Orders came down. ${pick(["Iraq.", "Afghanistan.", "Korean DMZ.", "Diego Garcia.", "Djibouti.", "Eastern Europe."])} Eighteen months. Mom is on the phone trying not to cry.`,
+    when: p => p.military && !p.military.deployed && p.age >= 19 && chance(2),
+    cooldown: 5,
+    tags: ["drama", "family"],
+    choices: [
+      { label: "Go. This is what you signed up for.", run: () => {
+        state.player.military.deployed = true;
+        state.player.military.deployments += 1;
+        addCanonEvent(`${state.player.name} deployed for the first time.`, "bad");
+        if (chance(20)) {
+          applyEffects(`You came home with a Purple Heart and things that don't unsee. The base counselor was useful. So was the bourbon.`, { discipline: 8, fame: 5, money: randomInt(8000, 24000), health: -8, happiness: -16, karma: 6 }, "bad");
+          state.player.quirks = state.player.quirks || {};
+          state.player.quirks.ptsd = true;
+        } else {
+          applyEffects(`Eighteen months. Got back in one piece. Cash in the bank. Memory bank a little quieter than before.`, { discipline: 10, fame: 2, money: randomInt(12000, 32000), health: -2, happiness: -6 }, "good");
+        }
+        state.player.military.deployed = false;
+      } },
+      { label: "Apply for compassionate exemption", run: () => {
+        if (chance(25)) {
+          applyEffects(`They granted it. Quiet relief. Some people will hold it against you.`, { karma: -2, happiness: 2, fame: -2 });
+        } else {
+          applyEffects(`Denied. Same orders, less peace.`, { happiness: -4 }, "bad");
+          state.player.military.deployed = true;
+        }
+      } }
+    ]
+  },
+  {
+    title: "Vet life",
+    text: () => `Five years out. Job market doesn't translate the way the recruiter said. The VA waitlist is real. Your old crew don't get it.`,
+    when: p => p.military && p.military.deployments >= 1 && p.age >= 25 && chance(1),
+    cooldown: 6,
+    tags: ["drama", "family"],
+    choices: [
+      { label: "Get into VA care. Find a vet group.", run: () => {
+        state.player.quirks = state.player.quirks || {};
+        delete state.player.quirks.ptsd;
+        applyEffects(`The group helped more than the meds. So did showing up to the meeting every Tuesday for a year.`, { happiness: 12, discipline: 6, karma: 8, health: 6 }, "good");
+      } },
+      { label: "Use the GI Bill. Go back to school.", run: () => {
+        if (state.player.educationRank < 4) state.player.educationRank = Math.min(5, state.player.educationRank + 2);
+        applyEffects(`Two years of paid school. Different brain than 18-year-old you brought.`, { smarts: 12, discipline: 8, money: randomInt(2000, 8000), happiness: 6 }, "good");
+      } },
+      { label: "Bury it. Work. Drink.", run: () => {
+        state.player.smokingLevel = Math.min(100, (state.player.smokingLevel || 0) + 30);
+        applyEffects(`Years happen this way. Then a wall.`, { happiness: -10, health: -8, karma: -4 }, "bad");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // THERAPY / MENTAL HEALTH CHAIN
+  // ============================================================
+  {
+    title: "First therapy session",
+    text: () => `Office. Couch. Plants. They asked one question and you talked for 47 minutes without stopping. Surprised yourself.`,
+    when: p => p.age >= 18 && !p.inTherapy && (p.stats.happiness < 50 || p.canonEvents?.some(c => c.tone === "bad")) && p.money >= 200 && chance(2),
+    cooldown: 4,
+    tags: ["drama", "family"],
+    choices: [
+      { label: "Book weekly. Show up every time.", run: () => {
+        state.player.inTherapy = true;
+        addCanonEvent(`${state.player.name} started therapy.`, "good");
+        applyEffects(`Six months in you can name things you couldn't name before. Slow, real progress.`, { money: -randomInt(2400, 7200), happiness: 14, smarts: 8, discipline: 6, karma: 4 }, "good");
+      } },
+      { label: "Try a few sessions, see", run: () => {
+        applyEffects(`You went 4 times. Got something. Wasn't ready for the rest yet.`, { money: -randomInt(400, 1200), happiness: 4, smarts: 2 });
+      } },
+      { label: "Walk out at the 50-minute mark", run: () => {
+        applyEffects(`You said it wasn't for you. Sat in the parking lot for 20 minutes after.`, { happiness: -2, discipline: 1 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Therapy breakthrough",
+    text: () => `Today the thing you've been circling for months finally cracked open. You cried in front of someone for the first time since you were a kid.`,
+    when: p => p.inTherapy && p.age >= 19 && chance(2),
+    cooldown: 4,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Sit with it. Don't try to fix it yet.", run: () => {
+        addCanonEvent(`${state.player.name} cracked something open in therapy.`, "good");
+        applyEffects(`A weight came off. People around you noticed before you did.`, { happiness: 18, smarts: 8, karma: 8, looks: 2 }, "good");
+      } },
+      { label: "Tell the people in your life", run: () => {
+        applyEffects(`The conversations were hard. Two relationships got closer. One ended.`, { happiness: 10, karma: 8, smarts: 6 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Therapy plateau",
+    text: () => `Six months of nothing happening in sessions. You wonder if it's still doing anything. The bill comes monthly either way.`,
+    when: p => p.inTherapy && p.age >= 20 && chance(1),
+    cooldown: 5,
+    tags: ["drama"],
+    choices: [
+      { label: "Stay the course", run: () => applyEffects(`You stayed. Three months later something moved.`, { discipline: 5, happiness: 4, money: -randomInt(800, 2400) }) },
+      { label: "Switch therapists", run: () => applyEffects(`New therapist saw what the last one missed. Fresh angle.`, { happiness: 6, smarts: 4, money: -randomInt(400, 1200) }, "good") },
+      { label: "Pause for a year", run: () => {
+        state.player.inTherapy = false;
+        applyEffects(`You took the break. Saved money. Felt fine for 8 months. Then it came back.`, { happiness: -2 });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // REAL ESTATE ARC. first flip then portfolio then developer
+  // ============================================================
+  {
+    title: "First flip opportunity",
+    text: () => `Auction house. Foreclosed property at $${randomInt(45, 95)}K. Needs work. Cousin's a contractor and owes you a favor.`,
+    when: p => p.age >= 22 && p.money >= 50000 && (!p.realEstate || p.realEstate.flips === 0) && chance(5),
+    cooldown: 6,
+    tags: ["business", "money"],
+    choices: [
+      { label: "Buy it. Renovate. Flip in 6 months.", run: () => {
+        state.player.realEstate = state.player.realEstate || { flips: 0, units: 0 };
+        state.player.realEstate.flips += 1;
+        const cost = randomInt(45000, 95000);
+        const reno = randomInt(15000, 30000);
+        const sold = chance(60 + Math.floor(state.player.stats.smarts / 8)) ? cost + reno + randomInt(20000, 80000) : cost + reno - randomInt(8000, 22000);
+        const profit = sold - cost - reno;
+        addCanonEvent(`${state.player.name} flipped a house for ${profit >= 0 ? "$" + profit.toLocaleString() : "a loss of $" + Math.abs(profit).toLocaleString()}.`, profit >= 0 ? "good" : "bad");
+        applyEffects(`Six months of stress. ${profit >= 0 ? "Cleared $" + profit.toLocaleString() + ". Already looking at the next one." : "Lost money. Cousin's still owed."}`, { money: profit, smarts: 6, discipline: 4, businessReputation: profit >= 0 ? 4 : -2 }, profit >= 0 ? "good" : "bad");
+      } },
+      { label: "Pass. Stay liquid.", run: () => applyEffects(`Cash stayed where it was. Comfortable.`, { discipline: 3 }) }
+    ]
+  },
+  {
+    title: "Build a small portfolio",
+    text: () => `Two flips deep. Bank likes your numbers. You can leverage into 4 rental units this year if you move fast.`,
+    when: p => p.realEstate && p.realEstate.flips >= 2 && p.money >= 80000 && p.realEstate.units < 4 && chance(2),
+    cooldown: 6,
+    tags: ["business", "money"],
+    choices: [
+      { label: "Buy 4 units. Start renting.", run: () => {
+        state.player.realEstate.units = (state.player.realEstate.units || 0) + 4;
+        addCanonEvent(`${state.player.name} became a small-time landlord.`, "good");
+        const rentMonthly = randomInt(2400, 4800);
+        applyEffects(`Closed all 4 by Q3. Mortgages eat half. Net $${rentMonthly}/mo passive after expenses. The income compounds different than a paycheck.`, { money: -randomInt(80000, 180000), businessReputation: 8, discipline: 6, smarts: 6 }, "good");
+      } },
+      { label: "Keep flipping. No tenants.", run: () => {
+        state.player.realEstate.flips += 1;
+        applyEffects(`Skipped the rental headaches. Kept the simpler money.`, { money: randomInt(30000, 90000), smarts: 4 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Developer scale",
+    text: () => `An old factory lot opened up. 32 units worth of zoning. The play needs partners and 18 months. Could be the move.`,
+    when: p => p.realEstate && p.realEstate.units >= 4 && p.money >= 200000 && chance(5),
+    cooldown: 8,
+    tags: ["business", "money"],
+    choices: [
+      { label: "Run it. Bring in two partners.", run: () => {
+        if (chance(48 + Math.floor(state.player.stats.smarts / 6))) {
+          const haul = randomInt(800000, 2400000);
+          state.player.realEstate.units += 32;
+          addCanonEvent(`${state.player.name} closed a 32-unit development.`, "good");
+          applyEffects(`You sweated 18 months. Sold 24 units, kept 8 as long-term hold. Cleared $${haul.toLocaleString()} after the partner split.`, { money: haul, fame: 12, businessReputation: 22, discipline: 10, smarts: 8 }, "good");
+        } else {
+          applyEffects(`Permitting died in city council. Sunk $180K. Partners blamed you. Quietly humbling.`, { money: -180000, happiness: -16, businessReputation: -8 }, "bad");
+        }
+      } },
+      { label: "Stay small. Keep flipping.", run: () => applyEffects(`Discipline. The empire stays modest, the sleep stays good.`, { discipline: 6, money: randomInt(20000, 80000) }, "good") }
+    ]
+  },
+
+  // ============================================================
+  // ATHLETICS / PRO SPORTS ARC
+  // ============================================================
+  {
+    title: "Varsity tryout",
+    text: () => `Coach has been watching you in PE. Wants you at varsity tryout Friday. School parking lot, 6am.`,
+    when: p => p.age >= 14 && p.age <= 17 && p.stats.health >= 60 && !p.athleticPath && chance(2),
+    cooldown: 99,
+    tags: ["school"],
+    choices: [
+      { label: "Show up. Run through the drills.", run: () => {
+        if (chance(50 + Math.floor(state.player.stats.health / 8))) {
+          state.player.athleticPath = "varsity";
+          addCanonEvent(`${state.player.name} made varsity.`, "good");
+          applyEffects(`You made the team. Locker room politics, pre-game nerves, the bus rides. all of it.`, { fame: 6, health: 8, discipline: 6, looks: 3, happiness: 8 }, "good");
+        } else {
+          applyEffects(`Got cut at the second round. Coach said work on conditioning.`, { health: 4, discipline: 4, happiness: -6 }, "bad");
+        }
+      } },
+      { label: "Sleep in", run: () => applyEffects(`You slept. Coach didn't ask twice.`, { happiness: 2 }) }
+    ]
+  },
+  {
+    title: "College recruitment letter",
+    text: () => `D1 program sent a scout to your last game. Letter came Tuesday. Full ride if your senior season holds.`,
+    when: p => p.athleticPath === "varsity" && p.age >= 16 && p.age <= 18 && chance(3),
+    cooldown: 99,
+    tags: ["school", "fame"],
+    choices: [
+      { label: "Sign. Go play college ball.", run: () => {
+        state.player.athleticPath = "college";
+        state.player.educationRank = Math.max(state.player.educationRank, 4);
+        addCanonEvent(`${state.player.name} signed a D1 scholarship.`, "good");
+        applyEffects(`Free ride. Three games into the season the campus knew your name.`, { fame: 18, happiness: 14, discipline: 8, looks: 4 }, "good");
+      } },
+      { label: "Stay home. Junior college.", run: () => {
+        state.player.athleticPath = "juco";
+        applyEffects(`You stayed close. Played for the JC. Kept it real.`, { fame: 4, happiness: 4, discipline: 4 });
+      } }
+    ]
+  },
+  {
+    title: "Pro draft day",
+    text: () => `Draft night. Your name pops up in a mock at the bottom of the second round. Ten teams have called your agent.`,
+    when: p => p.athleticPath === "college" && p.age >= 20 && p.age <= 23 && chance(4),
+    cooldown: 99,
+    tags: ["fame", "money"],
+    choices: [
+      { label: "Declare. Take whatever team picks.", run: () => {
+        if (chance(45 + Math.floor(state.player.fame / 5))) {
+          state.player.athleticPath = "pro";
+          state.player.jobId = "athlete";
+          state.player.salaryBonus = (state.player.salaryBonus || 0) + 600000;
+          addCanonEvent(`${state.player.name} got drafted to the pros.`, "good");
+          applyEffects(`Round 2, Pick 47. Rookie contract was $${randomInt(800, 1800)}K guaranteed. Family flew out.`, { money: randomInt(400000, 900000), fame: 35, happiness: 22, looks: 4 }, "good");
+        } else {
+          applyEffects(`You went undrafted. Got a training camp invite. The dream got smaller and more honest.`, { fame: 8, happiness: -12, discipline: 6 }, "bad");
+        }
+      } },
+      { label: "Stay in school. Try again next year.", run: () => {
+        applyEffects(`Senior year you were better. Whether the pros saw it is another story.`, { discipline: 5, smarts: 4 });
+      } }
+    ]
+  },
+  {
+    title: "Career-ending injury",
+    text: () => `Knee blew out in the third quarter. ACL, MCL, meniscus. Surgery scheduled. Doctor said 14 months. Your career said something quieter.`,
+    when: p => (p.athleticPath === "pro" || p.athleticPath === "college") && p.age >= 21 && chance(4),
+    cooldown: 99,
+    tags: ["drama", "fame"],
+    choices: [
+      { label: "Rehab back. Return next season.", run: () => {
+        if (chance(30)) {
+          applyEffects(`14 months of work. You came back, played 3 more seasons. Less explosive but smarter.`, { discipline: 12, happiness: 6, health: -6, money: randomInt(200000, 800000) }, "good");
+        } else {
+          applyEffects(`The knee never came back. Pre-season cut. Career over at ${state.player.age}.`, { fame: -10, happiness: -22, health: -10 }, "bad");
+          state.player.athleticPath = "retired";
+          state.player.jobId = "none";
+        }
+      } },
+      { label: "Retire. Pivot to broadcasting.", run: () => {
+        state.player.athleticPath = "retired";
+        applyEffects(`You hung 'em up. Broadcasting booked you within 6 months. Different camera, same uniform.`, { fame: 6, happiness: 8, discipline: 4, money: randomInt(40000, 180000) }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // MUSIC INDUSTRY CHAIN — bedroom to grammy
+  // ============================================================
+  {
+    title: "First bedroom recording",
+    text: () => `You stayed up to 3am with a $${randomInt(80, 300)} mic and a free DAW. The first take wasn\'t it. The fifteenth take was.`,
+    when: p => p.age >= 14 && !p.musicPath && (hasClassTrack && hasClassTrack("music") || (p.interests || {}).music || p.stats.smarts >= 50) && chance(7),
+    cooldown: 99,
+    tags: ["music", "fame"],
+    choices: [
+      { label: "Drop it on streaming. Whatever happens.", run: () => {
+        state.player.musicPath = "bedroom";
+        addCanonEvent(`${state.player.name} dropped their first track.`, "good");
+        const streams = randomInt(120, 4800);
+        applyEffects(`${streams.toLocaleString()} streams in week one. Three people you\'ve never met DM\'d you about it.`, { fame: 4, happiness: 8, money: Math.floor(streams * 0.003), money: Math.max(1, Math.floor(streams * 0.003)) }, "good");
+      } },
+      { label: "Sit on it. Make it perfect.", run: () => applyEffects(`You polished it for 6 months. By the time you released it, the moment had passed.`, { discipline: 4, happiness: -2 }) }
+    ]
+  },
+  {
+    title: "First open-mic show",
+    text: () => `Tuesday night at the cafe. 12 people, half of them are the other performers. You go on at 9:47pm.`,
+    when: p => (p.musicPath === "bedroom" || (hasClassTrack && hasClassTrack("music"))) && p.age >= 15 && chance(10),
+    cooldown: 4,
+    tags: ["music", "fame"],
+    choices: [
+      { label: "Play the song you wrote last night", run: () => {
+        if (chance(50 + Math.floor(state.player.stats.discipline / 8))) {
+          state.player.musicPath = "performing";
+          applyEffects(`A booker was in the back. Gave you her card. Said come back next month.`, { fame: 8, happiness: 12, looks: 2 }, "good");
+        } else {
+          applyEffects(`You forgot the second verse. Nobody noticed except you. Wrote four better songs that week.`, { discipline: 5, happiness: 4, smarts: 3 });
+        }
+      } },
+      { label: "Play the cover everyone knows", run: () => applyEffects(`Safe choice. The room sang along. You felt the high.`, { fame: 3, happiness: 8 }, "good") }
+    ]
+  },
+  {
+    title: "Demo gets passed around",
+    text: () => `An A&R from a real label heard your demo at a party. They want a meeting. Coffee in three days.`,
+    when: p => p.musicPath === "performing" && p.age >= 17 && p.fame >= 12 && chance(8),
+    cooldown: 99,
+    tags: ["music", "business", "fame"],
+    choices: [
+      { label: "Take the major-label deal", run: () => {
+        state.player.musicPath = "signed";
+        const advance = randomInt(40000, 180000);
+        addCanonEvent(`${state.player.name} signed a record deal.`, "good");
+        applyEffects(`Advance hit the account. Lawyer said the publishing split was rough but you signed anyway. Studio time booked for fall.`, { money: advance, fame: 22, happiness: 14, businessReputation: 6 }, "good");
+      } },
+      { label: "Stay independent. Keep the masters.", run: () => {
+        state.player.musicPath = "indie";
+        applyEffects(`You said no to the advance. You own everything you make. Slower road, cleaner cap table.`, { discipline: 8, smarts: 6, fame: 4 }, "good");
+      } },
+      { label: "Pass entirely. Wait for a better offer.", run: () => applyEffects(`Nothing came. The window closed.`, { discipline: 2, happiness: -8 }, "bad") }
+    ]
+  },
+  {
+    title: "Debut album drops",
+    text: () => `Release day. Promo run is done. The 12 tracks are out. You stare at your phone all morning watching the streams climb (or not).`,
+    when: p => (p.musicPath === "signed" || p.musicPath === "indie") && p.age >= 18 && chance(12),
+    cooldown: 99,
+    tags: ["music", "fame"],
+    choices: [
+      { label: "Tour the album. 40 cities, 12 months.", run: () => {
+        const success = chance(45 + Math.floor(state.player.fame / 4) + Math.floor(state.player.stats.discipline / 8));
+        if (success) {
+          state.player.musicPath = "touring";
+          state.player.viralHits = (state.player.viralHits || 0) + 2;
+          addCanonEvent(`${state.player.name}\'s debut album popped.`, "good");
+          applyEffects(`The album charted. Tour sold out 30 of 40 dates. Your face on a billboard somewhere you\'ve never been.`, { money: randomInt(180000, 800000), fame: 38, happiness: 20, looks: 4, health: -6 }, "good");
+        } else {
+          applyEffects(`The album didn\'t pop. Tour was half-empty rooms. Label called the next day talking about \"the next project.\"`, { fame: 4, happiness: -14, money: randomInt(8000, 40000), discipline: 6 }, "bad");
+          state.player.musicPath = "signed";
+        }
+      } },
+      { label: "Stay home. Let the music do the work.", run: () => applyEffects(`Numbers came in slow but steady. No tour means more for the next record.`, { discipline: 6, happiness: 4, money: randomInt(20000, 90000), fame: 8 }) }
+    ]
+  },
+  {
+    title: "Grammy nomination",
+    text: () => `Your name is on the list. Best New Artist. Or Album of the Year. The morning announcement came in at 5:47am Pacific.`,
+    when: p => p.musicPath === "touring" && p.age >= 19 && p.fame >= 50 && chance(8),
+    cooldown: 99,
+    tags: ["music", "fame"],
+    choices: [
+      { label: "Show up. Stylist, speech, the whole thing.", run: () => {
+        if (chance(35)) {
+          addCanonEvent(`${state.player.name} won a Grammy.`, "good");
+          state.player.achievements = state.player.achievements || [];
+          if (!state.player.achievements.includes("grammy")) state.player.achievements.push("grammy");
+          applyEffects(`You won. The speech was 90 seconds and you remembered to thank your mom. Career-defining night.`, { fame: 30, happiness: 26, money: randomInt(80000, 400000), looks: 3 }, "good");
+        } else {
+          applyEffects(`The cameras caught you smiling when they read someone else\'s name. Ten more nominations to go.`, { fame: 14, happiness: 4, money: randomInt(20000, 90000) }, "good");
+        }
+      } },
+      { label: "Skip the ceremony. Stay home.", run: () => applyEffects(`Caught flak online. Won the next year. The story wrote itself.`, { fame: 8, discipline: 6, happiness: 6 }) }
+    ]
+  },
+
+  // ============================================================
+  // INFLUENCER LADDER — viral hit through cancellation
+  // ============================================================
+  {
+    title: "First viral video",
+    text: () => `Random clip you posted at midnight has 400K views by morning. Comments are wild. Notification stack won\'t stop.`,
+    when: p => p.age >= 14 && p.socialPage && (p.followers || 0) < 50000 && !p.influencerPath && chance(8),
+    cooldown: 99,
+    tags: ["fame", "drama"],
+    choices: [
+      { label: "Lean in. Post the next one same day.", run: () => {
+        state.player.influencerPath = "rising";
+        state.player.viralHits = (state.player.viralHits || 0) + 1;
+        addCanonEvent(`${state.player.name} hit their first viral moment.`, "good");
+        applyEffects(`Followers jumped 80K in 48 hours. Three brands DM\'d you. The algorithm caught feelings.`, { fame: 16, followers: randomInt(40000, 120000), happiness: 14, smarts: 2 }, "good");
+      } },
+      { label: "Read the comments for two hours, post nothing.", run: () => {
+        applyEffects(`You read 800 comments. 12 hurt. The momentum cooled by Tuesday.`, { followers: randomInt(8000, 22000), fame: 4, happiness: -4 });
+      } }
+    ]
+  },
+  {
+    title: "First brand sponsorship",
+    text: () => `${pick(["Vital Proteins", "Manscaped", "BetterHelp", "Athletic Greens", "Stripe", "Ridge Wallet"])} reached out. Flat fee for one post + a code. Five-figure check.`,
+    when: p => p.influencerPath === "rising" && (p.followers || 0) >= 30000 && chance(12),
+    cooldown: 4,
+    tags: ["fame", "money", "business"],
+    choices: [
+      { label: "Take the deal. Post it tasteful.", run: () => {
+        const fee = randomInt(2000, 18000);
+        applyEffects(`Brand was happy. Audience didn\'t mind. The next deal came in by Friday.`, { money: fee, fame: 4, businessReputation: 4, happiness: 6 }, "good");
+      } },
+      { label: "Counter for 3x. Walk if they say no.", run: () => {
+        if (chance(35 + Math.floor(state.player.fame / 5))) {
+          const fee = randomInt(8000, 60000);
+          applyEffects(`They paid up. Your rate just went up for everyone after.`, { money: fee, fame: 8, businessReputation: 8, smarts: 5 }, "good");
+        } else {
+          applyEffects(`They walked. Word spread. Two other brands ghosted you that week.`, { fame: -2, happiness: -4 }, "bad");
+        }
+      } },
+      { label: "Pass. Keep the feed clean.", run: () => applyEffects(`You stayed unsponsored. The audience trusted you more.`, { fame: 6, karma: 4, discipline: 3 }, "good") }
+    ]
+  },
+  {
+    title: "Brand portfolio",
+    text: () => `Three months in, you\'ve got 8 active codes, a podcast pitching merch, and a manager taking 15%. The income is real. So is the schedule.`,
+    when: p => p.influencerPath === "rising" && (p.followers || 0) >= 100000 && chance(10),
+    cooldown: 6,
+    tags: ["fame", "money", "business"],
+    choices: [
+      { label: "Sign with a real management firm", run: () => {
+        state.player.influencerPath = "managed";
+        const monthly = randomInt(20000, 90000);
+        addCanonEvent(`${state.player.name} signed with a real management firm.`, "good");
+        applyEffects(`They cleaned up the deals. Take-home went up 40%. You\'re a small business now.`, { money: monthly, businessReputation: 12, fame: 8, discipline: 4 }, "good");
+      } },
+      { label: "Stay solo. Hire a part-time editor.", run: () => {
+        applyEffects(`You kept the bigger cut. Burned a little more. Slept worse.`, { money: randomInt(12000, 50000), happiness: -2, discipline: 3 });
+      } }
+    ]
+  },
+  {
+    title: "Cancellation moment",
+    text: () => `An old post resurfaced. Or a new clip got clipped wrong. Either way, your @ is the trending topic by 2pm. ${randomInt(8000, 80000)} unfollows in 24 hours.`,
+    when: p => p.influencerPath && (p.followers || 0) >= 50000 && chance(5),
+    cooldown: 8,
+    tags: ["fame", "drama"],
+    choices: [
+      { label: "Post a real apology video", run: () => {
+        if (chance(40 + Math.floor(state.player.stats.smarts / 8))) {
+          applyEffects(`The apology landed. Sponsors stayed. The base came back over six months.`, { fame: -4, followers: -randomInt(8000, 30000), happiness: -10, karma: 8, businessReputation: 4 });
+        } else {
+          applyEffects(`The apology came off scripted. The follow-up hit pieces ran. Sponsors paused.`, { fame: -18, followers: -randomInt(60000, 200000), money: -randomInt(8000, 40000), happiness: -22 }, "bad");
+        }
+      } },
+      { label: "Go silent for 90 days", run: () => {
+        applyEffects(`You logged off. Came back to a smaller, quieter audience. Saner days.`, { followers: -randomInt(40000, 120000), fame: -10, happiness: 6, discipline: 8, karma: 4 });
+      } },
+      { label: "Double down. Pick a fight.", run: () => {
+        applyEffects(`You got louder. Half the audience left, half got more loyal. The brand deals dried up.`, { followers: -randomInt(60000, 180000), fame: 4, money: -randomInt(20000, 80000), karma: -10, happiness: -14 }, "bad");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // CHILDREN EVENTS — now that kids have stats, fire choices about them
+  // ============================================================
+  {
+    title: () => {
+      const kid = (state.player.children || [])[0];
+      return kid ? `${kid.name}\'s first recital` : "Your kid\'s first recital";
+    },
+    text: () => {
+      const kid = (state.player.children || [])[0];
+      return kid ? `${kid.name} (${kid.age}) is performing tonight. School auditorium. Bring a camera.` : `Your kid is performing tonight.`;
+    },
+    when: p => (p.children || []).some(c => c.age >= 5 && c.age <= 10) && chance(10),
+    cooldown: 4,
+    tags: ["family"],
+    choices: [
+      { label: "Front row. Cry a little.", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 5 && c.age <= 10);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.happiness = (kid.stats.happiness || 60) + 8; kid.stats.discipline = (kid.stats.discipline || 50) + 4; }
+        applyEffects(`They saw you. They\'ll remember it. So will you.`, { happiness: 12, karma: 6, discipline: 2 }, "good");
+      } },
+      { label: "Show up halfway through", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 5 && c.age <= 10);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.happiness = (kid.stats.happiness || 60) - 2; }
+        applyEffects(`You made it for the last 15 minutes. They noticed.`, { happiness: 2 });
+      } },
+      { label: "Miss it for work", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 5 && c.age <= 10);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.happiness = (kid.stats.happiness || 60) - 8; kid.stats.discipline = (kid.stats.discipline || 50) - 2; }
+        applyEffects(`Money came in. The chair stayed empty.`, { money: randomInt(400, 2000), happiness: -8, karma: -6 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: () => {
+      const kid = (state.player.children || []).find(c => c.age >= 12 && c.age <= 17);
+      return kid ? `${kid.name}\'s report card` : "Teen report card";
+    },
+    text: () => {
+      const kid = (state.player.children || []).find(c => c.age >= 12 && c.age <= 17);
+      const grade = kid && kid.stats?.smarts > 65 ? "honor roll" : kid && kid.stats?.smarts > 45 ? "passing" : "barely passing";
+      return kid ? `${kid.name} brought home a ${grade} report. ${kid.stats?.smarts > 65 ? "Top of the class in math." : "Two D\'s in science."}` : `Your teen\'s report card came in.`;
+    },
+    when: p => (p.children || []).some(c => c.age >= 12 && c.age <= 17) && chance(8),
+    cooldown: 3,
+    tags: ["family", "school"],
+    choices: [
+      { label: "Sit at the table. Talk it through.", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 12 && c.age <= 17);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.smarts = clamp((kid.stats.smarts || 50) + 6); kid.stats.discipline = clamp((kid.stats.discipline || 50) + 4); }
+        applyEffects(`You asked about the subjects, not the grades. They opened up.`, { happiness: 8, karma: 8, smarts: 2 }, "good");
+      } },
+      { label: "Hire a tutor. $$$.", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 12 && c.age <= 17);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.smarts = clamp((kid.stats.smarts || 50) + 12); }
+        applyEffects(`Tutor came twice a week for a year. Grades climbed. Your kid felt seen.`, { money: -randomInt(2400, 9000), happiness: 4, karma: 4 }, "good");
+      } },
+      { label: "Yell. Ground them.", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 12 && c.age <= 17);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.happiness = clamp((kid.stats.happiness || 60) - 14); kid.stats.smarts = clamp((kid.stats.smarts || 50) - 2); }
+        applyEffects(`They went quiet for three weeks. Grades stayed the same.`, { happiness: -6, karma: -6 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: () => {
+      const kid = (state.player.children || []).find(c => c.age >= 14 && c.age <= 18);
+      return kid ? `${kid.name} is acting out` : "Teen rebellion";
+    },
+    text: () => {
+      const kid = (state.player.children || []).find(c => c.age >= 14 && c.age <= 18);
+      const action = pick(["snuck out at 2am", "got caught vaping at school", "totaled the car", "got suspended for a fight", "started seeing someone you don\'t trust"]);
+      return kid ? `${kid.name} ${action}. School called. Your spouse is looking at you.` : `Your teen is in trouble.`;
+    },
+    when: p => (p.children || []).some(c => c.age >= 14 && c.age <= 18) && chance(7),
+    cooldown: 3,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Sit them down. Listen first.", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 14 && c.age <= 18);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.happiness = clamp((kid.stats.happiness || 60) + 8); kid.stats.discipline = clamp((kid.stats.discipline || 50) + 6); }
+        applyEffects(`Two-hour conversation. They felt heard. The behavior shifted by month\'s end.`, { happiness: 6, karma: 8, smarts: 4 }, "good");
+      } },
+      { label: "Take the phone. Boot camp threats.", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 14 && c.age <= 18);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.happiness = clamp((kid.stats.happiness || 60) - 16); }
+        applyEffects(`They went underground. The behavior didn\'t stop, you just stopped seeing it.`, { happiness: -10, karma: -8, discipline: 2 }, "bad");
+      } },
+      { label: "Family therapy", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 14 && c.age <= 18);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.happiness = clamp((kid.stats.happiness || 60) + 12); kid.stats.smarts = clamp((kid.stats.smarts || 50) + 6); }
+        applyEffects(`Six months in something cracked open for everybody. Worth every dollar.`, { money: -randomInt(3000, 9000), happiness: 12, karma: 10, smarts: 6 }, "good");
+      } }
+    ]
+  },
+  {
+    title: () => {
+      const kid = (state.player.children || []).find(c => c.age >= 17 && c.age <= 20);
+      return kid ? `${kid.name} got into college` : "Your kid got into college";
+    },
+    text: () => {
+      const kid = (state.player.children || []).find(c => c.age >= 17 && c.age <= 20);
+      const tier = kid && kid.stats?.smarts > 75 ? "an Ivy" : kid && kid.stats?.smarts > 60 ? "a top state school" : "a community college";
+      return kid ? `${kid.name} got into ${tier}. Tuition is $${randomInt(8, 60)}K/year. Acceptance letter is on the kitchen counter.` : `Your kid got into college.`;
+    },
+    when: p => (p.children || []).some(c => c.age >= 17 && c.age <= 20) && chance(12),
+    cooldown: 99,
+    tags: ["family", "school", "money"],
+    choices: [
+      { label: "Pay tuition in full", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 17 && c.age <= 20);
+        const cost = randomInt(32000, 240000);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.smarts = clamp((kid.stats.smarts || 50) + 12); kid.stats.happiness = clamp((kid.stats.happiness || 60) + 12); kid.collegeFunded = true; }
+        addCanonEvent(`${state.player.name} put ${kid?.name || "their kid"} through college.`, "good");
+        applyEffects(`Four years debt-free for them. The bill landed hard.`, { money: -cost, happiness: 14, karma: 16, businessReputation: 3 }, "good");
+      } },
+      { label: "Co-sign loans", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 17 && c.age <= 20);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.smarts = clamp((kid.stats.smarts || 50) + 8); }
+        applyEffects(`They go. The debt sits on both of you.`, { debt: randomInt(40000, 120000), happiness: 6, karma: 4 });
+      } },
+      { label: "Tell them to go to community college", run: () => {
+        const kid = (state.player.children || []).find(c => c.age >= 17 && c.age <= 20);
+        if (kid) { kid.stats = kid.stats || {}; kid.stats.happiness = clamp((kid.stats.happiness || 60) - 10); }
+        applyEffects(`Practical move. They\'ll resent it for a few years.`, { happiness: -4, karma: -4, discipline: 4 });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // ROMANCE ARC DEPTH — first kiss through midlife
+  // ============================================================
+  {
+    title: "First real kiss",
+    text: () => `${pick(["Behind the bleachers", "On the porch after prom", "In the parking lot at 2am", "At the bonfire", "Outside the bowling alley"])}. Your hand was sweating. Theirs was too.`,
+    when: p => p.age >= 13 && p.age <= 19 && !p.firstKissDone && (p.relationships || []).some(r => r.type === "friend" && r.bond >= 50) && chance(12),
+    cooldown: 99,
+    tags: ["romance"],
+    choices: [
+      { label: "Lean in", run: () => {
+        state.player.firstKissDone = true;
+        addCanonEvent(`${state.player.name}\'s first real kiss.`, "good");
+        applyEffects(`You\'ll remember it forever. Your stomach was a wreck for a week.`, { happiness: 14, looks: 2, karma: 2 }, "good");
+      } },
+      { label: "Pull back. Not yet.", run: () => {
+        applyEffects(`You said sorry. They said it\'s okay. The friendship survived. The moment didn\'t.`, { discipline: 4, happiness: -4, karma: 2 });
+      } }
+    ]
+  },
+  {
+    title: () => {
+      const partner = (state.player.relationships || []).find(r => r.type === "partner");
+      return partner ? `Moving in with ${partner.name}` : "Moving in together";
+    },
+    text: () => {
+      const partner = (state.player.relationships || []).find(r => r.type === "partner");
+      return partner ? `${partner.name} brought up the lease together. Two cities of stuff in one apartment. The argument about the couch lasted four weekends.` : `Your partner brought up moving in.`;
+    },
+    when: p => p.age >= 19 && (p.relationships || []).some(r => r.type === "partner" && r.bond >= 60) && !p.movedInTogether && chance(10),
+    cooldown: 6,
+    tags: ["romance", "family"],
+    choices: [
+      { label: "Sign the lease together", run: () => {
+        state.player.movedInTogether = true;
+        const partner = (state.player.relationships || []).find(r => r.type === "partner");
+        if (partner) changeBond(partner, 18);
+        addCanonEvent(`${state.player.name} moved in with ${partner?.name || "their partner"}.`, "good");
+        applyEffects(`First night you both ate pizza on the floor. Second night you fought about the dish soap. By month two it felt like home.`, { money: -randomInt(2000, 8000), happiness: 16, karma: 6, discipline: 4 }, "good");
+      } },
+      { label: "Slow it down. Keep separate places.", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "partner");
+        if (partner) changeBond(partner, -4);
+        applyEffects(`They didn\'t love it. You both stayed comfortable. The relationship plateaued.`, { discipline: 4, happiness: 2 });
+      } }
+    ]
+  },
+  {
+    title: "5-year anniversary",
+    text: () => {
+      const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+      return partner ? `Five years with ${partner.name}. They left a card on the kitchen counter that made you sit down.` : `Five-year anniversary.`;
+    },
+    when: p => p.age >= 22 && (p.relationships || []).some(r => (r.type === "partner" || r.type === "spouse") && r.bond >= 50) && chance(8),
+    cooldown: 4,
+    tags: ["romance", "family"],
+    choices: [
+      { label: "Plan a trip. Surprise them.", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+        if (partner) changeBond(partner, 16);
+        applyEffects(`You took them somewhere they\'d been talking about for years. They cried at the airport.`, { money: -randomInt(2000, 9000), happiness: 18, karma: 8 }, "good");
+      } },
+      { label: "Cook the meal you cooked the first night you met", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+        if (partner) changeBond(partner, 14);
+        applyEffects(`Cheaper, sharper. They appreciated the memory more than any reservation.`, { happiness: 14, karma: 6, money: -randomInt(60, 220) }, "good");
+      } },
+      { label: "Forget. Apologize next morning.", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+        if (partner) changeBond(partner, -16);
+        applyEffects(`They said it was fine. It wasn\'t. The quiet hung for two weeks.`, { happiness: -10, karma: -10 }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Midlife marriage check",
+    text: () => {
+      const partner = (state.player.relationships || []).find(r => r.type === "spouse");
+      return partner ? `Fifteen years in. ${partner.name} sat you down. "Are we still actually married, or just roommates?"` : `Long marriage at a crossroads.`;
+    },
+    when: p => p.age >= 38 && p.married && (p.relationships || []).some(r => r.type === "spouse") && chance(5),
+    cooldown: 8,
+    tags: ["romance", "family", "drama"],
+    choices: [
+      { label: "Couples therapy. Real work.", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "spouse");
+        if (partner) changeBond(partner, 18);
+        applyEffects(`Six months of weekly sessions. Year two felt like dating again.`, { money: -randomInt(4000, 12000), happiness: 14, karma: 10, smarts: 6 }, "good");
+      } },
+      { label: "Reset. Date night every Friday for a year.", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "spouse");
+        if (partner) changeBond(partner, 12);
+        applyEffects(`The discipline of showing up rebuilt the muscle.`, { happiness: 10, karma: 6, discipline: 6 }, "good");
+      } },
+      { label: "Quietly start looking for an exit", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "spouse");
+        if (partner) changeBond(partner, -22);
+        applyEffects(`You started a separate bank account. They felt the shift. The end was already happening, just slowly.`, { happiness: -16, karma: -8, discipline: 4 }, "bad");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // RIVALS — designate an enemy, events fire about them
+  // ============================================================
+  {
+    title: () => {
+      const r = (state.player.relationships || []).find(p => p.bond <= 20 && !p.rival && p.type !== "family");
+      return r ? `${r.name} crossed the line` : "Someone crossed the line";
+    },
+    text: () => {
+      const r = (state.player.relationships || []).find(p => p.bond <= 20 && !p.rival && p.type !== "family");
+      const what = pick(["Stole your client.", "Talked behind your back.", "Slept with your ex.", "Took the credit for your work.", "Made you the punchline.", "Snitched on the wrong thing."]);
+      return r ? `${r.name}: ${what} You can\'t un-know it.` : `Someone crossed a line.`;
+    },
+    when: p => (p.relationships || []).some(r => r.bond <= 20 && !r.rival && r.type !== "family") && chance(7),
+    cooldown: 5,
+    tags: ["drama"],
+    choices: [
+      { label: "Mark them. They\'re a rival now.", run: () => {
+        const r = (state.player.relationships || []).find(p => p.bond <= 20 && !p.rival && p.type !== "family");
+        if (r) {
+          r.rival = true;
+          r.role = `${r.role} (rival)`;
+          addCanonEvent(`${state.player.name} marked ${r.name} as a rival.`, "bad");
+        }
+        applyEffects(`You stopped pretending. Energy went into beating them, not befriending them.`, { discipline: 6, smarts: 4, karma: -2 });
+      } },
+      { label: "Confront them in person", run: () => {
+        const r = (state.player.relationships || []).find(p => p.bond <= 20 && !p.rival && p.type !== "family");
+        if (r) {
+          if (chance(45)) { changeBond(r, 18); applyEffects(`Real conversation. Both of you walked away differently. Maybe even closer.`, { karma: 8, happiness: 4 }, "good"); }
+          else { r.rival = true; r.role = `${r.role} (rival)`; applyEffects(`The conversation went sideways. They denied everything. Now you both know.`, { karma: -4, happiness: -4 }, "bad"); }
+        }
+      } },
+      { label: "Let it slide", run: () => applyEffects(`You stayed polite at parties for years. The thing under it didn\'t go anywhere.`, { discipline: 4, happiness: -4, karma: 2 }) }
+    ]
+  },
+  {
+    title: () => {
+      const r = (state.player.relationships || []).find(p => p.rival);
+      return r ? `${r.name} is up` : "Your rival is winning";
+    },
+    text: () => {
+      const r = (state.player.relationships || []).find(p => p.rival);
+      const win = pick(["got the promotion you wanted", "is dating who you wanted", "just got the press feature", "moved into the building you couldn\'t afford", "is dating your ex"]);
+      return r ? `${r.name} ${win}. The notification hit at 11:42pm.` : `Your rival is winning.`;
+    },
+    when: p => (p.relationships || []).some(r => r.rival) && chance(8),
+    cooldown: 4,
+    tags: ["drama"],
+    choices: [
+      { label: "Use it. Train harder. Outwork it.", run: () => {
+        applyEffects(`You sat with the burn. Then you turned it into 4am alarms. Six months later something shifted.`, { discipline: 14, smarts: 6, looks: 2, happiness: -4 }, "good");
+      } },
+      { label: "Drink about it", run: () => {
+        applyEffects(`You stayed up too late. Said things you didn\'t mean. Felt heavier in the morning.`, { health: -6, happiness: -8, karma: -2 }, "bad");
+      } },
+      { label: "Mute them. Move on for real.", run: () => {
+        applyEffects(`Out of sight, out of feed. The rivalry leaked out of you over months.`, { happiness: 8, discipline: 6, karma: 4 }, "good");
+      } }
+    ]
+  },
+  {
+    title: () => {
+      const r = (state.player.relationships || []).find(p => p.rival);
+      return r ? `${r.name} fell off` : "Your rival fell off";
+    },
+    text: () => {
+      const r = (state.player.relationships || []).find(p => p.rival);
+      const what = pick(["got fired publicly", "got cancelled", "filed bankruptcy", "got divorced messy", "had a public meltdown"]);
+      return r ? `${r.name} ${what}. The schadenfreude hit before you could stop it.` : `Your rival just lost.`;
+    },
+    when: p => (p.relationships || []).some(r => r.rival) && chance(4),
+    cooldown: 8,
+    tags: ["drama"],
+    choices: [
+      { label: "Reach out. Be the bigger person.", run: () => {
+        const r = (state.player.relationships || []).find(p => p.rival);
+        if (r) { r.rival = false; r.role = r.role.replace(" (rival)", ""); changeBond(r, 26); }
+        addCanonEvent(`${state.player.name} forgave a rival.`, "good");
+        applyEffects(`The text said \"hope you\'re doing okay\". Six months later you were friends again.`, { karma: 18, happiness: 12, smarts: 6 }, "good");
+      } },
+      { label: "Post about it cryptically", run: () => {
+        applyEffects(`Three of your followers DM\'d to ask if you were ok. You felt small after.`, { fame: 2, karma: -8, happiness: -4 });
+      } },
+      { label: "Nothing. Just enjoy it.", run: () => {
+        applyEffects(`You let yourself feel it for a day. Then you went back to your work.`, { happiness: 4, discipline: 2, karma: -2 });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // ACTING CAREER — audition through oscar
+  // ============================================================
+  {
+    title: "First serious audition",
+    text: () => `Casting director\'s office in ${pick(["Burbank", "Hollywood", "Brooklyn"])}. Three pages of sides. Five other people in the lobby.`,
+    when: p => p.age >= 16 && p.age <= 35 && !p.actingPath && (p.stats.looks >= 60 || hasClassTrack && hasClassTrack("theater") || (p.interests || {}).fame) && chance(7),
+    cooldown: 4,
+    tags: ["fame"],
+    choices: [
+      { label: "Crush the read. Walk out confident.", run: () => {
+        if (chance(45 + Math.floor(state.player.stats.looks / 6))) {
+          state.player.actingPath = "booked";
+          addCanonEvent(`${state.player.name} booked their first speaking role.`, "good");
+          applyEffects(`Got the call back same day. Two-line role on a procedural. Speaking part on your reel.`, { fame: 8, money: randomInt(800, 4200), happiness: 12, looks: 2 }, "good");
+        } else {
+          applyEffects(`They said \"thanks for coming in.\" You drove home rehearsing what you should\'ve done differently.`, { discipline: 4, happiness: -4, smarts: 2 }, "bad");
+        }
+      } },
+      { label: "Hire an acting coach first", run: () => {
+        applyEffects(`Six months of weekly sessions. Different actor at the next audition.`, { money: -randomInt(2400, 7200), looks: 2, smarts: 4, discipline: 5 });
+      } }
+    ]
+  },
+  {
+    title: "Series regular offer",
+    text: () => `${pick(["HBO", "Netflix", "Showtime", "FX", "AMC"])} series. Five-year contract. $${randomInt(15, 80)}K per episode if it gets picked up.`,
+    when: p => p.actingPath === "booked" && p.age >= 18 && p.fame >= 14 && chance(8),
+    cooldown: 99,
+    tags: ["fame", "money"],
+    choices: [
+      { label: "Sign. Move to LA full-time.", run: () => {
+        state.player.actingPath = "series";
+        state.player.location = state.player.location.includes("Los Angeles") ? state.player.location : "Los Angeles, CA";
+        state.player.jobId = "actor";
+        const annual = randomInt(180000, 800000);
+        addCanonEvent(`${state.player.name} landed a series regular role.`, "good");
+        applyEffects(`Show shoots 22 episodes a year. You\'re recognized at coffee shops within six months.`, { money: annual, fame: 30, happiness: 18, looks: 4 }, "good");
+      } },
+      { label: "Take the indie film instead", run: () => {
+        state.player.actingPath = "indie";
+        applyEffects(`Smaller paycheck, sharper script. Sundance loved you. Critics noticed.`, { money: randomInt(20000, 80000), fame: 12, smarts: 6, happiness: 8 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "A-list breakout role",
+    text: () => `Studio offered you the lead in a $200M franchise. Three-picture deal. Globally promoted. The trailer drops in 8 months.`,
+    when: p => (p.actingPath === "series" || p.actingPath === "indie") && p.age >= 22 && p.fame >= 50 && chance(6),
+    cooldown: 99,
+    tags: ["fame", "money"],
+    choices: [
+      { label: "Take the franchise. Cash the check.", run: () => {
+        state.player.actingPath = "a-list";
+        const fee = randomInt(2000000, 12000000);
+        addCanonEvent(`${state.player.name} hit A-list status.`, "good");
+        applyEffects(`Press tour in 14 cities. Your face on bus stops in countries you can\'t pronounce.`, { money: fee, fame: 60, happiness: 16, looks: 4, health: -4 }, "good");
+      } },
+      { label: "Pass. Take the auteur drama.", run: () => {
+        state.player.actingPath = "prestige";
+        applyEffects(`The drama got you the kind of attention the franchise couldn\'t buy. Awards season noticed.`, { money: randomInt(800000, 3000000), fame: 28, smarts: 8, businessReputation: 8 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Oscar nomination",
+    text: () => `5:32am announcement. Best Actor. Or Best Supporting. Either way, your phone won\'t stop.`,
+    when: p => (p.actingPath === "a-list" || p.actingPath === "prestige") && p.age >= 25 && p.fame >= 70 && chance(8),
+    cooldown: 99,
+    tags: ["fame"],
+    choices: [
+      { label: "Show up. Real speech written.", run: () => {
+        if (chance(30)) {
+          addCanonEvent(`${state.player.name} won the Oscar.`, "good");
+          state.player.achievements = state.player.achievements || [];
+          if (!state.player.achievements.includes("oscar")) state.player.achievements.push("oscar");
+          applyEffects(`You won. Cried during the speech in a way that read real, not performed.`, { fame: 40, happiness: 30, money: randomInt(800000, 4000000), looks: 4 }, "good");
+        } else {
+          applyEffects(`The camera cut to your face. You smiled for them. Your manager started planning the next campaign before midnight.`, { fame: 18, happiness: 6, money: randomInt(200000, 800000) }, "good");
+        }
+      } },
+      { label: "Skip the ceremony", run: () => applyEffects(`Caught flak in the press. Mystique grew. Won the next year.`, { fame: 14, discipline: 6, happiness: 4 }) }
+    ]
+  },
+
+  // ============================================================
+  // TECH FOUNDER LADDER — beyond the existing business lane
+  // ============================================================
+  {
+    title: "Hackathon weekend",
+    text: () => `48 hours. Free pizza. ${randomInt(40, 200)} other teams. Your idea is half-baked but the demo could land.`,
+    when: p => p.age >= 17 && p.age <= 35 && p.stats.smarts >= 60 && !p.techPath && (hasClassTrack && hasClassTrack("coding") || (p.interests || {}).business) && chance(7),
+    cooldown: 4,
+    tags: ["business"],
+    choices: [
+      { label: "Stay up. Ship the demo.", run: () => {
+        if (chance(40 + Math.floor(state.player.stats.smarts / 6))) {
+          state.player.techPath = "hacker";
+          const placed = pick(["First place", "Best Use of API", "Crowd Favorite"]);
+          applyEffects(`${placed}. A judge gave you their card. Said come pitch when you\'re ready.`, { money: randomInt(2000, 8000), smarts: 6, fame: 4, businessReputation: 5 }, "good");
+        } else {
+          applyEffects(`Demo crashed during the judging round. You learned more than the winners.`, { smarts: 8, discipline: 4 });
+        }
+      } },
+      { label: "Sleep at hour 18", run: () => applyEffects(`Slept through the demo. Got a free shirt and a hangover.`, { health: 2, happiness: -2 }) }
+    ]
+  },
+  {
+    title: "Y Combinator interview",
+    text: () => `10-minute slot. Mountain View. They\'ll grill you on the unit economics and the growth model. Sequoia and a16z are watching the demo days after.`,
+    when: p => p.techPath === "hacker" && p.age >= 19 && p.stats.smarts >= 70 && chance(8),
+    cooldown: 99,
+    tags: ["business", "money"],
+    choices: [
+      { label: "Pitch hard. Take the $500K SAFE.", run: () => {
+        if (chance(35 + Math.floor(state.player.stats.smarts / 5))) {
+          state.player.techPath = "yc";
+          state.player.company = state.player.company || { name: state.player.companyName || "Startup", stage: 1, valuation: 5000000, equity: 90, runway: 500000, employees: 2, morale: 75, launches: 0, product: "MVP", sector: "tech" };
+          addCanonEvent(`${state.player.name} got into YC.`, "good");
+          applyEffects(`In. Three months in San Francisco. Your batch group chat lights up at 2am with cracked engineers debating compilers.`, { money: 500000, fame: 8, smarts: 8, businessReputation: 14, happiness: 16 }, "good");
+        } else {
+          applyEffects(`They passed. Said the market wasn\'t big enough. Six months later you raised $5M anyway.`, { discipline: 8, smarts: 6, happiness: -6 });
+        }
+      } },
+      { label: "Bootstrap instead. No outside money.", run: () => {
+        state.player.techPath = "bootstrap";
+        applyEffects(`You stayed lean. Profitable in month seven. Different game, different stress.`, { money: randomInt(40000, 180000), discipline: 12, smarts: 8 }, "good");
+      } }
+    ]
+  },
+  {
+    title: "$1M ARR moment",
+    text: () => `Stripe dashboard hit it on a Tuesday. You opened it three times that morning to make sure. The team noticed before you said anything.`,
+    when: p => (p.techPath === "yc" || p.techPath === "bootstrap") && p.company && p.age >= 21 && chance(10),
+    cooldown: 99,
+    tags: ["business", "money", "fame"],
+    choices: [
+      { label: "Quiet team-only celebration", run: () => {
+        if (state.player.company) state.player.company.valuation = (state.player.company.valuation || 0) + randomInt(8000000, 30000000);
+        addCanonEvent(`${state.player.company?.name || "Their company"} crossed $1M ARR.`, "good");
+        applyEffects(`Steak and champagne in the office at 8pm. Felt earned.`, { money: randomInt(50000, 200000), fame: 8, businessReputation: 16, happiness: 18 }, "good");
+      } },
+      { label: "Tweet about it. Get loud.", run: () => {
+        applyEffects(`Founders QT\'d. Three VCs slid into your DMs the next morning.`, { fame: 20, businessReputation: 10, money: randomInt(20000, 80000) }, "good");
+      } }
+    ]
+  },
+  {
+    title: "Acquisition offer",
+    text: () => `${pick(["Stripe", "Figma", "Salesforce", "Microsoft", "Notion"])} sent term sheet. $${randomInt(40, 240)}M cash + stock. Founder vests over 4 years.`,
+    when: p => p.techPath && p.company && p.company.valuation >= 5000000 && p.age >= 22 && chance(6),
+    cooldown: 99,
+    tags: ["business", "money"],
+    choices: [
+      { label: "Take the exit. Build something next.", run: () => {
+        const cash = randomInt(40000000, 200000000);
+        addCanonEvent(`${state.player.name} sold ${state.player.company?.name || "the startup"} for $${(cash / 1000000).toFixed(0)}M.`, "good");
+        applyEffects(`Wire hit Tuesday. You called your mom. You called your day-ones. Then you sat with it for a month before you knew what to do next.`, { money: cash, fame: 30, happiness: 20, businessReputation: 30 }, "good");
+        state.player.company = null;
+        state.player.techPath = "exited";
+      } },
+      { label: "Reject. Keep building toward IPO.", run: () => {
+        if (state.player.company) {
+          state.player.company.valuation += randomInt(20000000, 100000000);
+          state.player.company.stage = Math.min(4, state.player.company.stage + 1);
+        }
+        applyEffects(`Two years later valuation tripled. Or didn\'t. Either way you owned the choice.`, { businessReputation: 14, discipline: 10, happiness: 6 }, "good");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // POLYAMORY / OPEN RELATIONSHIPS
+  // ============================================================
+  {
+    title: "Open relationship conversation",
+    text: () => {
+      const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+      return partner ? `You and ${partner.name} have been together a long time. Sex life feels closer to roommate territory. The thought\'s been there. You finally said it out loud.` : `You floated the idea of opening things up.`;
+    },
+    when: p => p.age >= 24 && (p.relationships || []).some(r => (r.type === "partner" || r.type === "spouse") && r.bond >= 55) && !p.openRelationship && chance(5),
+    cooldown: 6,
+    tags: ["romance", "drama"],
+    choices: [
+      { label: "Open it up. Both of you in.", run: () => {
+        state.player.openRelationship = true;
+        const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+        addCanonEvent(`${state.player.name} and ${partner?.name || "their partner"} opened the relationship.`, "good");
+        applyEffects(`First few months were jarring. Then it settled into a different shape that worked for you both.`, { happiness: 8, smarts: 6, karma: 4, looks: 2 });
+      } },
+      { label: "Back off. Stay monogamous.", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+        if (partner) changeBond(partner, -6);
+        applyEffects(`Conversation didn\'t land where you wanted. Distance grew quietly for a year.`, { happiness: -4, discipline: 4 });
+      } },
+      { label: "Suggest a one-time experiment", run: () => {
+        applyEffects(`A weekend. A specific person. Both of you talked through it for hours after.`, { happiness: 6, smarts: 8, karma: 2 });
+      } }
+    ]
+  },
+  {
+    title: "First time they slept with someone else",
+    text: () => {
+      const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+      return partner ? `${partner.name} got home at 2am. Smiled at you. The first time still hit different than you thought it would.` : `Your partner came home from a date.`;
+    },
+    when: p => p.openRelationship && (p.relationships || []).some(r => r.type === "partner" || r.type === "spouse") && chance(15),
+    cooldown: 4,
+    tags: ["romance", "drama"],
+    choices: [
+      { label: "Sit with it. Talk through what came up.", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+        if (partner) changeBond(partner, 14);
+        applyEffects(`The conversation went later than you planned. You knew yourselves better by morning.`, { happiness: 8, smarts: 8, karma: 6 }, "good");
+      } },
+      { label: "Pretend it\'s fine, secretly seethe", run: () => {
+        const partner = (state.player.relationships || []).find(r => r.type === "partner" || r.type === "spouse");
+        if (partner) changeBond(partner, -16);
+        applyEffects(`The silence between you got physical. The structure cracked under the weight you wouldn\'t name.`, { happiness: -16, karma: -4 }, "bad");
+      } },
+      { label: "Close the relationship back up", run: () => {
+        state.player.openRelationship = false;
+        applyEffects(`You both agreed it was an experiment that ran its course. Stronger for having tried.`, { happiness: 6, smarts: 6, karma: 4 });
+      } }
+    ]
+  },
+
+  // ============================================================
+  // AGING-PARENT CARETAKER CHAIN
+  // ============================================================
+  {
+    title: () => {
+      const mom = (state.player.relationships || []).find(r => r.id === "guardian");
+      return mom ? `${mom.name} can\'t live alone anymore` : "Aging parent needs help";
+    },
+    text: () => {
+      const mom = (state.player.relationships || []).find(r => r.id === "guardian");
+      const issue = pick(["a fall in the kitchen", "the early signs of dementia", "she forgot to eat for three days", "a hospital visit", "the bills got behind"]);
+      return mom ? `${mom.name} had ${issue}. The doctor said she needs daily care. The family chat is talking options.` : `A parent needs daily care.`;
+    },
+    when: p => p.age >= 35 && (p.relationships || []).some(r => r.id === "guardian") && !p.caretakerMode && chance(5),
+    cooldown: 6,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Move them in. You\'re the caretaker now.", run: () => {
+        state.player.caretakerMode = true;
+        const mom = (state.player.relationships || []).find(r => r.id === "guardian");
+        if (mom) changeBond(mom, 14);
+        addCanonEvent(`${state.player.name} moved their mom in to take care of her.`, "good");
+        applyEffects(`Spare room becomes her room. Your weekends are different now. Your bond gets deeper. So does the exhaustion.`, { karma: 18, happiness: 4, discipline: 8, money: -randomInt(800, 3000), health: -4 }, "good");
+      } },
+      { label: "Hire in-home care. $$$.", run: () => {
+        const mom = (state.player.relationships || []).find(r => r.id === "guardian");
+        if (mom) changeBond(mom, 8);
+        applyEffects(`Caregiver three days a week. Mom kept her independence. You kept your sleep. The bills came monthly.`, { karma: 8, happiness: 4, money: -randomInt(18000, 60000) });
+      } },
+      { label: "Put them in a facility", run: () => {
+        const mom = (state.player.relationships || []).find(r => r.id === "guardian");
+        if (mom) changeBond(mom, -14);
+        applyEffects(`Best facility you could find. She didn\'t want to go. Visits felt heavier than they used to.`, { karma: -8, happiness: -10, money: -randomInt(48000, 160000) }, "bad");
+      } }
+    ]
+  },
+  {
+    title: "Caretaker burnout",
+    text: () => `Two years in. You haven\'t slept eight hours straight in months. You snapped at her this morning over a glass of water. Cried in the car after.`,
+    when: p => p.caretakerMode && p.age >= 37 && chance(10),
+    cooldown: 4,
+    tags: ["family", "drama"],
+    choices: [
+      { label: "Get a respite caregiver. Take a real break.", run: () => {
+        applyEffects(`Two weeks off changed everything. You came back able to be present again.`, { money: -randomInt(2000, 8000), happiness: 14, health: 8, karma: 6, discipline: 4 }, "good");
+      } },
+      { label: "Move them to a facility", run: () => {
+        state.player.caretakerMode = false;
+        const mom = (state.player.relationships || []).find(r => r.id === "guardian");
+        if (mom) changeBond(mom, -10);
+        applyEffects(`The right call, even though it didn\'t feel like it. Guilt arrives in waves for years.`, { happiness: -8, karma: -2, money: -randomInt(40000, 120000), health: 6 });
+      } },
+      { label: "Push through. Don\'t admit you\'re fried.", run: () => {
+        applyEffects(`You powered through. Your health, marriage, and patience all paid the bill quietly.`, { health: -14, happiness: -16, discipline: 4, karma: 4 }, "bad");
+      } }
+    ]
+  },
+
+  // ============================================================
+  // DATING APPS — separate from "ask out"
+  // ============================================================
+  {
+    title: "First dating-app profile",
+    text: () => `${pick(["Hinge", "Tinder", "Raya", "Feeld", "The League", "Bumble"])}. Six photos. Three prompts. You spent 40 minutes picking the bio.`,
+    when: p => p.age >= 18 && !p.usesDatingApps && !(p.relationships || []).some(r => r.type === "spouse") && chance(8),
+    cooldown: 4,
+    tags: ["romance"],
+    choices: [
+      { label: "Post it. Start swiping.", run: () => {
+        state.player.usesDatingApps = true;
+        const matches = randomInt(0, 40) + Math.floor(state.player.stats.looks / 3);
+        applyEffects(`${matches} matches in 48 hours. Your phone buzzed all night. Most went nowhere. Some went somewhere.`, { fame: 1, happiness: 6, looks: 1 }, "good");
+      } },
+      { label: "Make the profile. Don\'t post it.", run: () => applyEffects(`You stared at it for a week. Deleted the app. Maybe later.`, { discipline: 2, happiness: -2 }) }
+    ]
+  },
+  {
+    title: "The match that lasted",
+    text: () => `${pick(["Coffee on a Sunday", "Drinks on a Tuesday", "Lunch in the park", "Wine bar at 8pm", "Bookstore meetup"])}. They were on time. The conversation hit. You stayed three hours.`,
+    when: p => p.usesDatingApps && p.age >= 19 && !(p.relationships || []).some(r => r.type === "partner") && chance(12),
+    cooldown: 4,
+    tags: ["romance"],
+    choices: [
+      { label: "Ask them out again. Make it real.", run: () => {
+        const name = (typeof localPerson === "function") ? localPerson().name : pick(["Jordan", "Sam", "Casey", "Avery", "Riley"]);
+        state.player.relationships.push({ id: `partner-${Date.now()}`, name, role: "Partner (from the apps)", bond: randomInt(60, 80), type: "partner" });
+        addCanonEvent(`${state.player.name} matched with ${name} and made it real.`, "good");
+        applyEffects(`Three months in you both deleted the apps. Different kind of attention to give now.`, { happiness: 16, looks: 2, karma: 4 }, "good");
+      } },
+      { label: "Hook up. Keep swiping.", run: () => applyEffects(`Fun for a month. You both moved on.`, { happiness: 8, karma: -2, looks: 1 }) },
+      { label: "Ghost", run: () => applyEffects(`No reason. Just easier than the conversation. They felt it.`, { happiness: -4, karma: -6, discipline: -2 }, "bad") }
+    ]
+  },
+  {
+    title: "Dating app fatigue",
+    text: () => `Your thumb hurts. The matches blend together. You\'ve had the same opening conversation 80 times this year.`,
+    when: p => p.usesDatingApps && p.age >= 22 && chance(6),
+    cooldown: 6,
+    tags: ["romance", "drama"],
+    choices: [
+      { label: "Delete the apps. Try meeting people in person.", run: () => {
+        state.player.usesDatingApps = false;
+        applyEffects(`Got harder before it got better. Met someone at a friend\'s thing six months later.`, { happiness: 4, discipline: 6, karma: 2 });
+      } },
+      { label: "Pay for the premium tier", run: () => {
+        applyEffects(`Better matches in theory. Same swipe motion in practice.`, { money: -randomInt(120, 480), happiness: 2 });
+      } },
+      { label: "Take a break for 3 months", run: () => {
+        applyEffects(`The break helped. You came back with a different energy.`, { happiness: 6, discipline: 4 });
+      } }
+    ]
+  },
+
   // DAY-ONE / CREW EVENTS. fire when ≥2 day-ones designated
   // ============================================================
   {
@@ -7342,7 +10304,7 @@ const events = [
       const names = ones.slice(0, 3).map(r => r.name).join(", ");
       return `${names} are pulling up. ${pick(["Vegas weekend.", "House rental in Joshua Tree.", "Cabin in the woods.", "Yacht weekend if anyone fronts."])} Group chat is loud.`;
     },
-    when: p => dayOneCount(p) >= 2 && p.age >= 18 && p.money >= 800 && chance(15),
+    when: p => dayOneCount(p) >= 2 && p.age >= 18 && p.money >= 800 && chance(3),
     choices: [
       { label: "Book it, full crew", run: () => {
         const ones = state.player.relationships.filter(r => r.dayOne);
@@ -7364,7 +10326,7 @@ const events = [
       const one = ones[0];
       return one ? `${one.name} called at 2AM. They need you. ${pick(["Going through it.", "Breakup just happened.", "Got fired.", "Family stuff."])}` : `A close friend needs you.`;
     },
-    when: p => dayOneCount(p) >= 1 && chance(12),
+    when: p => dayOneCount(p) >= 1 && chance(3),
     choices: [
       { label: "Drive over right now", run: () => {
         const one = state.player.relationships.filter(r => r.dayOne)[0];
@@ -7391,7 +10353,7 @@ const events = [
       const one = ones[0];
       return one ? `${one.name} is getting married. The text says: "u know you're standing next to me right? not askin." Suit fitting is Saturday.` : `One of your day-ones is tying the knot.`;
     },
-    when: p => dayOneCount(p) >= 1 && p.age >= 22 && p.age <= 45 && chance(8),
+    when: p => dayOneCount(p) >= 1 && p.age >= 22 && p.age <= 45 && chance(2),
     cooldown: 6,
     tags: ["family", "romance"],
     choices: [
@@ -7424,7 +10386,7 @@ const events = [
       const a = ones[0]; const b = ones[1];
       return a && b ? `${a.name} and ${b.name} got into it bad. Group chat is silent. Both of them are texting you separately. You're the bridge.` : `The crew is feuding. You're stuck in the middle.`;
     },
-    when: p => dayOneCount(p) >= 2 && chance(7),
+    when: p => dayOneCount(p) >= 2 && chance(2),
     cooldown: 5,
     tags: ["family", "drama"],
     choices: [
@@ -7459,7 +10421,7 @@ const events = [
       const one = ones[0];
       return one ? `${one.name} turns ${pick(["25", "30", "35", "40"])} this month. The whole crew is planning the surprise. You're the one with the keys to the rental.` : `It's a milestone birthday for one of the crew.`;
     },
-    when: p => dayOneCount(p) >= 2 && p.age >= 21 && p.money >= 400 && chance(10),
+    when: p => dayOneCount(p) >= 2 && p.age >= 21 && p.money >= 400 && chance(2),
     cooldown: 4,
     tags: ["family", "party"],
     choices: [
@@ -9848,11 +12810,7 @@ function createSocialPage() {
   }
   if (!player.handle) {
     const suggested = `@${player.name.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
-    let chosen = null;
-    try {
-      chosen = window.prompt("Pick a handle for your page (no spaces).", suggested);
-    } catch (e) { chosen = suggested; }
-    player.handle = normalizeHandle(chosen || suggested, player.name);
+    player.handle = normalizeHandle(suggested, player.name);
   }
   player.socialPage = true;
   rememberInterest("content", 3);
@@ -10486,6 +13444,14 @@ function citySpecificRun() {
       rememberInterest("music", 2);
       return applyEffects("You sat in on an Atlanta studio session. Hooks, business talk, and somebody's manager asking your handle.", { fame: 5, followers: randomInt(80, 900), happiness: 4 }, "good");
     },
+    "Nashville, TN": () => {
+      rememberInterest("music", 2);
+      return applyEffects("You walked Broadway, sat in on a writers' round on Music Row, traded numbers with a session bassist.", { fame: 4, followers: randomInt(60, 700), happiness: 5, smarts: 2 }, "good");
+    },
+    "Hermitage, Nashville": () => {
+      rememberInterest("community", 2);
+      return applyEffects("You ran errands at the Kurdish grocer, watched a soccer game in somebody's backyard, ate baklava off a paper plate.", { karma: 4, happiness: 6, smarts: 2 }, "good");
+    },
     "Miami, FL": () => {
       rememberInterest("nightlife", 1);
       return applyEffects("You worked a Miami beach day into a night connect. Sun, tips, and expensive temptation.", { money: randomInt(120, 1100), looks: 2, happiness: 4, discipline: -2 }, "good");
@@ -10526,6 +13492,8 @@ function localFoodSpot() {
     "Chicago, IL": "Italian beef counter",
     "South Side, Chicago": "fish and chicken spot",
     "Atlanta, GA": "wing spot",
+    "Nashville, TN": "hot-chicken counter",
+    "Hermitage, Nashville": "Kurdish bakery",
     "Miami, FL": "Cuban cafe",
     "Houston, TX": "barbecue truck",
     "London, UK": "chicken shop",
@@ -10589,6 +13557,8 @@ function localFestival() {
     "New York City, NY": "a Bushwick rooftop fest",
     "Brooklyn, NY": "the Afropunk weekend",
     "Atlanta, GA": "a A3C music fest",
+    "Nashville, TN": "Bonnaroo weekend",
+    "Hermitage, Nashville": "the Kurdish New Year (Newroz) block party",
     "Miami, FL": "an Art Basel side party",
     "Chicago, IL": "the Pitchfork stage",
     "Houston, TX": "a slab show",
@@ -13540,6 +16510,8 @@ function scamCityBonus(loc) {
     "New York City, NY": 10,
     "Brooklyn, NY": 8,
     "Atlanta, GA": 10,
+    "Nashville, TN": 4,
+    "Hermitage, Nashville": 2,
     "Houston, TX": 6,
     "Dubai, UAE": -6,
     "Tokyo, Japan": -10,
@@ -14094,12 +17066,35 @@ function render() {
   });
 
   renderMeters();
+  renderBucketLive();
   renderTabs();
   renderCanonEvents();
   renderTimeline();
   renderActivities();
   renderAssets();
   renderPeople();
+}
+
+function renderBucketLive() {
+  const player = state.player;
+  if (!player || !player.bucketList) return;
+  let host = document.querySelector("#bucketLive");
+  if (!host) {
+    // Inject into the character panel below mini-stats on first render
+    const after = el.miniStats || document.querySelector("#miniStats");
+    if (!after) return;
+    host = document.createElement("section");
+    host.id = "bucketLive";
+    host.className = "bucket-live";
+    after.parentNode.insertBefore(host, after.nextSibling);
+  }
+  const fulfilled = player.bucketList.filter(d => d.fulfilled).length;
+  host.innerHTML = `
+    <p class="bucket-live-kicker">Dreams ${fulfilled}/${player.bucketList.length}</p>
+    <div class="bucket-live-list">
+      ${player.bucketList.map(d => `<span class="${d.fulfilled ? "done" : "pending"}">${d.label}</span>`).join("")}
+    </div>
+  `;
 }
 
 const statTooltips = {
@@ -14146,6 +17141,8 @@ const hometownLookBias = {
   "Chicago, IL":          { skins: ["skin-2","skin-3"],          hairs: ["fade","curls","bob"],  hairColors: ["#1a1210","#251927"] },
   "South Side, Chicago":  { skins: ["skin-2","skin-3"],          hairs: ["fade","locs"],         hairColors: ["#1a1210","#251927"] },
   "Atlanta, GA":          { skins: ["skin-2","skin-3"],          hairs: ["fade","locs","curls"], hairColors: ["#1a1210","#251927"] },
+  "Nashville, TN":        { skins: ["skin-1","skin-4","skin-3"],  hairs: ["waves","fade","bob"],  hairColors: ["#6b3f28","#c8923e","#251927"] },
+  "Hermitage, Nashville": { skins: ["skin-3","skin-5"],           hairs: ["curls","fade","waves"], hairColors: ["#1a1210","#251927"] },
   "Miami, FL":            { skins: ["skin-3","skin-5"],          hairs: ["waves","curls","fade"],hairColors: ["#1a1210","#251927","#6b3f28"] },
   "Houston, TX":          { skins: ["skin-2","skin-3","skin-5"], hairs: ["fade","curls","locs"], hairColors: ["#1a1210","#251927"] },
   "Las Vegas, NV":        { skins: ["skin-1","skin-3","skin-5"], hairs: ["fade","curls","bob"],  hairColors: ["#1a1210","#251927","#c8923e"] },
@@ -14333,7 +17330,7 @@ function ageAwareAvatar(player = state.player) {
   if (quirks.cancer) { out._topOverride = "BALD"; out._facialHair = null; out._mouthOverride = "frown"; out._eyesOverride = "open"; }
   if (quirks.bald) out._topOverride = "BALD";
   if (quirks.crazyHair || ((player.fame || 0) > 70 && age >= 16 && !quirks.bald && !quirks.cancer)) {
-    out._topOverride = pick(["froBand", "fro", "miaWallace", "curvy", "dreads"]);
+    out._topOverride = pick(["mohawk", "curlyHighTop", "bunUndercut", "extraLong", "sideShave", "pigtails"]);
   }
   if (quirks.tattoos && age >= 16) out._eyesOverride = "sunglasses";
   if ((player.fame || 0) > 60 && age >= 16) out._eyesOverride = "sunglasses";
@@ -15120,6 +18117,8 @@ function normalizePlayer(player) {
   player.relationships ??= [];
   player.history ??= [];
   player.canonEvents ??= [];
+  player.quirks ??= {};
+  player.bucketList ??= (typeof rollBucketList === "function" ? rollBucketList() : []);
   return player;
 }
 
@@ -15293,6 +18292,12 @@ const presetCharacters = [
     label: "East Coast Poet",
     blurb: "Brooklyn. Struggling. Spiritual mom, absent dad.",
     form: { name: "Pac", home: "Brooklyn, NY", identity: "Guy", classInput: "struggling", focusInput: "looks", religionInput: "spiritual", heritageInput: "black", momJobInput: "artist", dadJobInput: "absent", skinInput: "skin-2", hairInput: "buzz", hairColorInput: "#1a1210", outfitInput: "streetwear", expressionInput: "serious" }
+  },
+  {
+    id: "lar",
+    label: "Lar (Hermitage)",
+    blurb: "Kurdish kid from Hermitage TN. Working family. Big personality.",
+    form: { name: "Lar", home: "Hermitage, Nashville", identity: "Guy", classInput: "working", focusInput: "happiness", religionInput: "muslim", heritageInput: "middle-eastern", momJobInput: "service", dadJobInput: "laborer", skinInput: "skin-3", hairInput: "curls", hairColorInput: "#1a1210", outfitInput: "streetwear", expressionInput: "smile" }
   }
 ];
 
@@ -15474,6 +18479,8 @@ const cityAudio = {
   "Chicago, IL":            { base: 90,  harmony: [120, 180], filter: 700,  gain: 0.04  },
   "South Side, Chicago":    { base: 70,  harmony: [100, 140], filter: 500,  gain: 0.05  },
   "Atlanta, GA":            { base: 55,  harmony: [82,  110], filter: 450,  gain: 0.055 },
+  "Nashville, TN":          { base: 82,  harmony: [123, 165], filter: 720,  gain: 0.04  },
+  "Hermitage, Nashville":   { base: 64,  harmony: [96,  128], filter: 540,  gain: 0.038 },
   "Miami, FL":              { base: 140, harmony: [210, 280], filter: 1200, gain: 0.04  },
   "Houston, TX":            { base: 75,  harmony: [112, 150], filter: 600,  gain: 0.04  },
   "Las Vegas, NV":          { base: 100, harmony: [150, 300], filter: 1300, gain: 0.04  },
@@ -16023,11 +19030,72 @@ if (el.recapNewLife) {
 }
 const recapContinueLineBtn = document.querySelector("#recapContinueLine");
 if (recapContinueLineBtn) {
-  recapContinueLineBtn.addEventListener("click", () => {
+  recapContinueLineBtn.addEventListener("click", () => { if (typeof openChildChooser === "function") { openChildChooser(); return; }
     continueFamilyLine();
     el.lifeRecapDialog.close();
   });
 }
+
+function openChildChooser() {
+  const player = state.player;
+  if (!player || !player.children?.length) return;
+  if (player.children.length === 1) {
+    pickChildAndContinue(player.children[0]);
+    return;
+  }
+  const dlg = document.querySelector("#childChooserDialog");
+  const list = document.querySelector("#childChooserList");
+  if (!dlg || !list) {
+    // Fallback: eldest
+    const eldest = player.children.reduce((a, b) => (a.age || 0) > (b.age || 0) ? a : b);
+    pickChildAndContinue(eldest);
+    return;
+  }
+  list.innerHTML = "";
+  player.children.forEach(c => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ghost wide child-pick";
+    btn.innerHTML = `<strong>${c.name}</strong><span>age ${c.age || 0} · ${c.stats?.smarts || "?"} smarts · ${c.personality || "calm"}</span>`;
+    btn.addEventListener("click", () => {
+      try { dlg.close(); } catch (e) {}
+      pickChildAndContinue(c);
+    });
+    list.append(btn);
+  });
+  try { dlg.showModal(); } catch (e) {}
+}
+
+function pickChildAndContinue(chosen) {
+  const parent = state.player;
+  if (!parent || !chosen) return;
+  const inheritance = parent.willWritten === "favorite" ? Math.floor(parent.money * 0.8)
+    : parent.willWritten === "donated" ? 0
+    : Math.floor(parent.money / Math.max(1, parent.children.length));
+  pendingSeedSpawn = {
+    location: parent.location,
+    spawnClass: inheritance >= 200000 ? "nepo" : inheritance >= 30000 ? "comfortable" : parent.spawnClass,
+    personality: chosen.personality || rollPersonality(),
+    birthYear: currentYear(parent) - (chosen.age || 0),
+    skin: parent.avatar?.skin,
+    hair: parent.avatar?.hair,
+    outfit: parent.avatar?.outfit,
+    focus: parent.focus,
+    fromName: parent.name,
+    inheritedSmarts: chosen.stats?.smarts,
+    inheritedLooks: chosen.stats?.looks,
+    inheritedDiscipline: chosen.stats?.discipline
+  };
+  if (el.nameInput) el.nameInput.value = chosen.name;
+  if (el.homeInput) el.homeInput.value = parent.location;
+  if (el.heritageInput) el.heritageInput.value = parent.heritage || "mixed";
+  if (el.religionInput) el.religionInput.value = parent.religion || "none";
+  resetGame();
+  const sub = document.querySelector(".creator-sub");
+  if (sub) sub.innerHTML = `<strong style="color: var(--orange-2);">Family line:</strong> ${chosen.name}, child of ${parent.name}. Inherits ${money(inheritance)} when they hit 18.`;
+  pendingInheritance = inheritance;
+}
+
 
 function continueFamilyLine() {
   const parent = state.player;
@@ -16126,6 +19194,143 @@ if (el.recapScreenshot) {
 
 loadGame();
 render();
+
+// ============================================================
+// MOBILE TABS — single-panel swipe at <720px
+// ============================================================
+(function wireMobileTabs() {
+  const tabs = document.querySelectorAll(".mobile-tab");
+  if (!tabs.length) return;
+  const setTab = (name) => {
+    document.body.setAttribute("data-mobile-tab", name);
+    tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+    try { localStorage.setItem("rib_mobileTab", name); } catch (e) {}
+  };
+  const stored = (() => { try { return localStorage.getItem("rib_mobileTab"); } catch (e) { return null; } })();
+  setTab(stored || "command");
+  tabs.forEach(t => t.addEventListener("click", () => setTab(t.dataset.tab)));
+  const navEl = document.querySelector("#mobileTabs");
+  const refresh = () => { if (navEl) navEl.hidden = !state.player; };
+  refresh();
+  const origRender = window.render || render;
+  window.render = function() { origRender.apply(this, arguments); refresh(); };
+})();
+
+// ============================================================
+// IG STORY CARD EXPORT — 1080x1920 portrait, native-share or save
+// ============================================================
+function escapeHtml(s) {
+  return String(s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" })[c]);
+}
+
+function buildIGCardDOM(player) {
+  const root = document.querySelector("#igCardRoot");
+  if (!root) return null;
+  root.innerHTML = "";
+  const o = (typeof originOf === "function") ? originOf(player.origin || player.location) : { short: player.location };
+  const spineText = player.spineEvent?.text || "A quiet life.";
+  const spineAge = player.spineEvent?.age;
+  const card = document.createElement("div");
+  card.className = "ig-card";
+  card.innerHTML = `
+    <svg class="ig-card-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="100" cy="100" r="92" fill="none" stroke="#e07a3a" stroke-width="6" />
+      <circle cx="100" cy="100" r="70" fill="none" stroke="#e07a3a" stroke-width="3" opacity="0.45" />
+      <path d="M 60 130 L 100 60 L 140 130 Z" fill="none" stroke="#e07a3a" stroke-width="6" stroke-linejoin="round" />
+      <circle cx="100" cy="100" r="10" fill="#e07a3a" />
+    </svg>
+    <p class="ig-card-kicker">In Memory Of</p>
+    <h1 class="ig-card-name">${escapeHtml(player.name)}</h1>
+    <p class="ig-card-sub">${escapeHtml(o.short)} · ${player.deathAge || player.age} years${player.lifeNumber ? ` · Life #${player.lifeNumber}` : ""}</p>
+    <div class="ig-card-spine">
+      <div class="ig-card-spine-label">This life was about</div>
+      <div class="ig-card-spine-text">"${escapeHtml(spineText)}"${spineAge ? ` <span style="font-size:30px;color:rgba(255,255,255,0.55);display:block;margin-top:14px;">at ${spineAge}</span>` : ""}</div>
+    </div>
+    <div class="ig-card-stats">
+      <div class="ig-card-stat"><div class="ig-card-stat-label">Cause</div><div class="ig-card-stat-value" style="font-size:28px">${escapeHtml((player.causeOfDeath || "Cause unknown").substring(0, 60))}</div></div>
+      <div class="ig-card-stat"><div class="ig-card-stat-label">Net Worth</div><div class="ig-card-stat-value">${typeof money === "function" ? money(typeof netWorth === "function" ? netWorth() : 0) : "—"}</div></div>
+      <div class="ig-card-stat"><div class="ig-card-stat-label">Fame</div><div class="ig-card-stat-value">${(player.fame || 0).toLocaleString()}</div></div>
+      <div class="ig-card-stat"><div class="ig-card-stat-label">Karma</div><div class="ig-card-stat-value">${player.karma || 0}/100</div></div>
+    </div>
+    <p class="ig-card-footer">Run It Back · run-it-back-omega.vercel.app</p>
+  `;
+  root.appendChild(card);
+  return card;
+}
+
+function buildHeadline(player) {
+  const cause = (player.causeOfDeath || "").toLowerCase();
+  const age = player.deathAge || player.age;
+  if (/state funeral/.test(cause)) return `Died as President at ${age}. Flag at half-staff.`;
+  if (/jackpot|helicopter|extradition|disappeared/.test(cause)) return `Lived wild. Died wilder. Age ${age}.`;
+  if (/old age|true love|peaceful|garden/.test(cause)) return `${age} years. Mostly peaceful.`;
+  if (/overdose|narcan|suicide/.test(cause)) return `Lived ${age} years. Cause: rough.`;
+  if (/crossfire|gang|killed|prison/.test(cause)) return `${age} years on the block.`;
+  if (player.spineEvent?.text) return `${age} years. ${player.spineEvent.text.split(".")[0]}.`;
+  return `Lived ${age} years.`;
+}
+
+const recapShareIGBtn = document.querySelector("#recapShareIG");
+if (recapShareIGBtn) {
+  recapShareIGBtn.addEventListener("click", async () => {
+    const btn = recapShareIGBtn;
+    const player = state.player;
+    if (!player) return;
+    btn.textContent = "Generating…";
+    btn.disabled = true;
+    try {
+      const card = buildIGCardDOM(player);
+      if (!card) throw new Error("Card build failed");
+      if (typeof html2canvas !== "function") throw new Error("html2canvas not loaded");
+      await new Promise(r => requestAnimationFrame(r));
+      const canvas = await html2canvas(card, { backgroundColor: "#0d1014", useCORS: true, scale: 1, logging: false, width: 1080, height: 1920 });
+      const safeName = (player.name || "life").replace(/[^a-z0-9]/gi, "_");
+      const fileName = `run-it-back-${safeName}-story.png`;
+      const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+      const file = blob ? new File([blob], fileName, { type: "image/png" }) : null;
+      const headline = buildHeadline(player);
+      const shareData = file ? { files: [file], title: "Run It Back", text: `${headline} run-it-back-omega.vercel.app` } : null;
+      if (file && navigator.canShare && navigator.canShare(shareData)) {
+        try { await navigator.share(shareData); btn.textContent = "Shared ✓"; return; }
+        catch (e) { /* fall through */ }
+      }
+      const dataUrl = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.download = fileName;
+      a.href = dataUrl;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      btn.textContent = "Saved ✓ post to story";
+    } catch (err) {
+      console.error(err);
+      btn.textContent = "Failed. try the other one";
+    }
+    setTimeout(() => {
+      btn.textContent = "Share to IG Story (1080×1920)";
+      btn.disabled = false;
+    }, 2800);
+  });
+}
+
+const recapChallengeBtn = document.querySelector("#recapChallenge");
+if (recapChallengeBtn) {
+  recapChallengeBtn.addEventListener("click", async () => {
+    const player = state.player;
+    if (!player) return;
+    const seedUrl = (typeof buildShareSeedURL === "function" ? buildShareSeedURL() : window.location.href);
+    const headline = buildHeadline(player);
+    const challenge = `${headline} You try this seed: ${seedUrl}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "Run It Back challenge", text: challenge }); recapChallengeBtn.textContent = "Sent ✓"; }
+      catch (e) { /* fall through */ }
+    } else if (navigator.clipboard) {
+      try { await navigator.clipboard.writeText(challenge); recapChallengeBtn.textContent = "Copied ✓. send it"; }
+      catch (e) { recapChallengeBtn.textContent = "Failed"; }
+    }
+    setTimeout(() => { recapChallengeBtn.textContent = "Challenge a friend with this seed"; }, 2500);
+  });
+}
 
 // Mature content header toggle (added 2026-05-11)
 (function wireMatureToggle() {
@@ -16309,5 +19514,84 @@ function renderSharedLife(life) {
       btn.textContent = "Copy failed";
     }
     setTimeout(() => { btn.textContent = "Copy this life link"; }, 2500);
+  });
+})();
+
+// ============================================================
+// SPEED MODE — fast-forward to age 18/30/50 with random choices
+// ============================================================
+function speedToAge(targetAge) {
+  if (!state.player) return;
+  let safety = 200; // max iterations
+  while (state.player.alive && state.player.age < targetAge && safety-- > 0) {
+    // Spend remaining moves randomly
+    let moveSafety = 12;
+    while (state.player.moves > 0 && moveSafety-- > 0) {
+      const cats = (typeof activityCategories !== "undefined" ? activityCategories : []).filter(c => typeof categoryAvailable === "function" ? categoryAvailable(c, state.player) : true);
+      const cat = pick(cats);
+      if (!cat) break;
+      const actions = cat.actions.filter(a => a.available && a.available(state.player));
+      const action = pick(actions);
+      if (!action) break;
+      try { runAction(action); } catch (e) { break; }
+    }
+    try { ageUp(); } catch (e) { break; }
+    // Auto-resolve the event dialog if it opened
+    const dlg = document.querySelector("#choiceDialog");
+    if (dlg && dlg.open) {
+      const choices = Array.from(dlg.querySelectorAll(".choice-list button"));
+      if (choices.length) pick(choices).click();
+    }
+  }
+  if (typeof render === "function") render();
+}
+
+// ============================================================
+// DAILY CHALLENGE — derive a deterministic seed from today\'s date
+// ============================================================
+function todaysDailySeed() {
+  const d = new Date();
+  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+}
+
+function applyDailyChallenge() {
+  const seed = todaysDailySeed();
+  // Hash the seed string into pickable indices
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const cities = ["Los Angeles, CA","Skid Row, Los Angeles","Compton, CA","New York City, NY","Brooklyn, NY","The Bronx, NY","Chicago, IL","Atlanta, GA","Miami, FL","Houston, TX","Las Vegas, NV","Mexico City, Mexico","Medellín, Colombia","Rio de Janeiro, Brazil","London, UK","Paris, France","Tokyo, Japan","Seoul, South Korea","Dubai, UAE"];
+  const classes = ["random","nepo","comfortable","working","struggling","survival"];
+  const focuses = ["smarts","happiness","health","looks","discipline"];
+  const idents = ["Guy","Girl","Trans guy","Trans girl","Nonbinary","Genderfluid","Figuring it out"];
+  const homeIdx = h % cities.length;
+  const classIdx = (h >> 4) % classes.length;
+  const focusIdx = (h >> 8) % focuses.length;
+  const identIdx = (h >> 12) % idents.length;
+
+  if (el.homeInput) el.homeInput.value = cities[homeIdx];
+  if (el.classInput) el.classInput.value = classes[classIdx];
+  if (el.focusInput) el.focusInput.value = focuses[focusIdx];
+  if (el.identityInput) el.identityInput.value = idents[identIdx];
+  if (el.nameInput) el.nameInput.value = `Daily ${seed.slice(5)}`;
+
+  // Trigger the hometown auto-lean look update
+  if (el.homeInput) el.homeInput.dispatchEvent(new Event("change"));
+
+  return seed;
+}
+
+// Wire speed/daily buttons (added in settings dialog)
+(function wireSpeedDaily() {
+  const speed18 = document.querySelector("#speed18");
+  const speed30 = document.querySelector("#speed30");
+  const speed50 = document.querySelector("#speed50");
+  const dailyBtn = document.querySelector("#dailyBtn");
+  if (speed18) speed18.addEventListener("click", () => { document.querySelector("#settingsDialog")?.close(); speedToAge(18); });
+  if (speed30) speed30.addEventListener("click", () => { document.querySelector("#settingsDialog")?.close(); speedToAge(30); });
+  if (speed50) speed50.addEventListener("click", () => { document.querySelector("#settingsDialog")?.close(); speedToAge(50); });
+  if (dailyBtn) dailyBtn.addEventListener("click", () => {
+    const seed = applyDailyChallenge();
+    dailyBtn.textContent = `Daily: ${seed.slice(5)} ✓`;
+    setTimeout(() => { dailyBtn.textContent = "Today's Daily Seed"; }, 2200);
   });
 })();
