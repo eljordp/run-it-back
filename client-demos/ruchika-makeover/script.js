@@ -32,3 +32,32 @@ dmLink.addEventListener("click", async () => {
 });
 
 updateDmLink();
+
+const soundButtons = document.querySelectorAll("[data-sound-toggle]");
+
+soundButtons.forEach((button) => {
+  const mediaCard = button.closest(".hero-post, .hero-feature-card, .insta-card");
+  const video = mediaCard?.querySelector("video");
+
+  if (!video) return;
+
+  button.addEventListener("click", () => {
+    const shouldUnmute = video.muted;
+
+    document.querySelectorAll("video").forEach((item) => {
+      item.muted = true;
+    });
+
+    document.querySelectorAll("[data-sound-toggle]").forEach((item) => {
+      item.classList.remove("is-on");
+      item.textContent = "Sound";
+      item.setAttribute("aria-label", "Turn sound on");
+    });
+
+    video.muted = !shouldUnmute;
+    button.classList.toggle("is-on", shouldUnmute);
+    button.textContent = shouldUnmute ? "Mute" : "Sound";
+    button.setAttribute("aria-label", shouldUnmute ? "Mute video" : "Turn sound on");
+    video.play().catch(() => {});
+  });
+});
