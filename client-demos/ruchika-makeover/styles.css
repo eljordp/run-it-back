@@ -542,6 +542,74 @@ nav a:hover {
   color: rgba(255, 248, 243, 0.72);
 }
 
+.value-guide {
+  background: #fffdfb;
+}
+
+.value-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.64fr) minmax(0, 1.36fr);
+  gap: 16px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.value-main,
+.example-grid article {
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.value-main {
+  display: grid;
+  align-content: end;
+  gap: 18px;
+  min-height: 420px;
+  padding: 30px;
+}
+
+.value-main p,
+.example-grid p {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.value-main p:first-child {
+  color: var(--ink);
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.7rem, 3vw, 2.7rem);
+  line-height: 1.1;
+}
+
+.example-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.example-grid article {
+  min-height: 260px;
+  padding: 24px;
+}
+
+.example-grid span {
+  color: var(--rose);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.example-grid h3 {
+  margin-top: 54px;
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.example-grid p {
+  margin-top: 14px;
+}
+
 .timeline {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -697,7 +765,12 @@ textarea {
   }
 
   .service-grid,
+  .value-layout,
   .timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .example-grid {
     grid-template-columns: 1fr;
   }
 
