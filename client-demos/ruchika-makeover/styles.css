@@ -840,15 +840,27 @@ textarea {
   }
 
   .hero-content {
+    display: flex;
+    flex-direction: column;
     width: 100%;
-    padding: 116px 18px 310px;
+    padding: 104px 18px 20px;
+  }
+
+  .hero-copy {
+    margin-top: 18px;
+  }
+
+  .hero-actions {
+    order: 4;
+    margin-top: 22px;
   }
 
   .hero-feature-card {
     position: relative;
+    order: 5;
     display: block;
-    height: 330px;
-    margin-top: 20px;
+    height: 300px;
+    margin-top: 18px;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background: #0d0b0b;
@@ -882,12 +894,69 @@ textarea {
     bottom: 12px;
   }
 
+  .hero-panel {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: auto;
+    margin: 18px;
+  }
+
+  .hero-panel div {
+    padding: 15px 18px;
+  }
+
   .hero h1 {
-    font-size: clamp(3.5rem, 22vw, 5.7rem);
+    font-size: clamp(3.2rem, 18vw, 4.8rem);
   }
 
   .hero-actions {
     display: grid;
+  }
+
+  .work.section {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .work .section-head,
+  .work .image-note {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .insta-grid {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 0 18px 12px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .insta-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .insta-card {
+    flex: 0 0 min(82vw, 360px);
+    min-height: 560px;
+    scroll-snap-align: start;
+  }
+
+  .value-main {
+    min-height: auto;
+    padding: 24px;
+  }
+
+  .example-grid article {
+    min-height: auto;
+    padding: 22px;
+  }
+
+  .example-grid h3 {
+    margin-top: 32px;
   }
 
   .section-head {
