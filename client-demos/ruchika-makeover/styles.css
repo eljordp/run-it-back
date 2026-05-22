@@ -191,6 +191,17 @@ nav a:hover {
   box-shadow: 0 28px 70px rgba(118, 66, 45, 0.18);
 }
 
+.hero-post::after,
+.hero-feature-card::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(180deg, rgba(126, 31, 45, 0.03), transparent 38%, rgba(45, 25, 18, 0.06)),
+    radial-gradient(circle at 50% 10%, rgba(234, 212, 168, 0.1), transparent 18rem);
+  pointer-events: none;
+}
+
 .hero-post-main {
   transform: translateY(28px);
 }
@@ -874,10 +885,11 @@ textarea {
 
   .hero-feature-card {
     position: relative;
-    order: 5;
+    order: 3;
     display: block;
-    height: 300px;
-    margin-top: 18px;
+    min-height: 340px;
+    height: min(55svh, 430px);
+    margin-top: 20px;
     overflow: hidden;
     border: 1px solid rgba(185, 137, 69, 0.26);
     background: #fffdfb;
@@ -889,26 +901,6 @@ textarea {
     height: 100%;
     object-fit: cover;
     object-position: center 32%;
-  }
-
-  .hero-feature-card a {
-    position: absolute;
-    left: 14px;
-    bottom: 12px;
-    z-index: 2;
-    border-radius: 999px;
-    background: rgba(126, 31, 45, 0.9);
-    color: #fff8f3;
-    padding: 9px 12px;
-    font-size: 0.78rem;
-    font-weight: 900;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .hero-feature-card .sound-toggle {
-    right: 12px;
-    bottom: 12px;
   }
 
   .hero-panel {
