@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#121417" />
+    <title>Publiquity | Liquidation Deals, Mystery Boxes & Wholesale</title>
+    <meta
+      name="description"
+      content="Publiquity is a liquidation marketplace for viral deals, mystery boxes, bulk lots, and wholesale resale inventory."
+    />
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css?v=publiquity-3" />
+  </head>
+  <body>
+    <div class="deal-strip">
+      <span>Publiquity live drop</span>
+      <strong>Today only: free pickup on orders $75+ and bulk quote replies within 1 hour.</strong>
+    </div>
+
+    <header class="site-header">
+      <div class="topbar">
+        <a class="brand" href="#top" aria-label="Publiquity home">
+          <span class="brand-mark">P</span>
+          <span>
+            <strong>Publiquity</strong>
+            <small>Liquidation Hub</small>
+          </span>
+        </a>
+
+        <button class="icon-btn nav-toggle" type="button" aria-label="Open menu" data-nav-toggle>
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <form class="search" role="search">
+          <select aria-label="Search category" id="categorySelect">
+            <option value="all">All</option>
+            <option value="electronics">Electronics</option>
+            <option value="home">Home</option>
+            <option value="beauty">Beauty</option>
+            <option value="bulk">Bulk</option>
+          </select>
+          <input id="searchInput" type="search" placeholder="Search deals, pallets, TikTok finds..." />
+          <button type="submit" aria-label="Search">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m21 21-4.3-4.3m1.3-5.2a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+            </svg>
+          </button>
+        </form>
+
+        <div class="header-actions">
+          <a class="mini-link" href="#wholesale">
+            <span>Resellers</span>
+            <strong>Wholesale</strong>
+          </a>
+          <button class="cart-button" type="button" data-cart-open>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6.5 6h15l-2 8.5H8.2L6.5 3H3" />
+              <path d="M9 20a1.2 1.2 0 1 0 0-2.4A1.2 1.2 0 0 0 9 20Zm9 0a1.2 1.2 0 1 0 0-2.4A1.2 1.2 0 0 0 18 20Z" />
+            </svg>
+            <span>Cart</span>
+            <strong id="cartCount">0</strong>
+          </button>
+        </div>
+      </div>
+
+      <nav class="category-nav" data-nav>
+        <a href="#deals">Daily Deals</a>
+        <a href="#categories">Categories</a>
+        <a href="#bulk">Bulk & Pallets</a>
+        <a href="#mystery">Mystery Boxes</a>
+        <a href="#tiktok">TikTok Shop</a>
+        <a href="#support">Support</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <img
+          src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1800&q=82"
+          alt="Warehouse shelves with stacked shipping boxes"
+        />
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+          <p class="eyebrow">Overstock, returns, closeouts</p>
+          <h1>Amazon-style shopping for liquidation deals.</h1>
+          <p>
+            Publiquity turns the TikTok deal hunt into a real storefront: quick-buy viral finds,
+            mystery boxes, manifested pallets, and wholesale inventory for resellers.
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#deals">Shop today's deals</a>
+            <a class="btn secondary" href="#wholesale">Apply for wholesale</a>
+          </div>
+          <div class="hero-metrics" aria-label="Publiquity marketplace highlights">
+            <span><strong>300+</strong> weekly items</span>
+            <span><strong>24h</strong> deal drops</span>
+            <span><strong>4.8</strong> live seller rating</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="promise-bar" aria-label="Shopping promises">
+        <div>
+          <strong>Local pickup</strong>
+          <span>Same-day pickup windows after payment.</span>
+        </div>
+        <div>
+          <strong>Manifested bulk</strong>
+          <span>Clear item counts, condition notes, and photos.</span>
+        </div>
+        <div>
+          <strong>TikTok tested</strong>
+          <span>Products matched to what is already moving online.</span>
+        </div>
+        <div>
+          <strong>Reseller friendly</strong>
+          <span>Bundle pricing, pallet quotes, and repeat buyer perks.</span>
+        </div>
+      </section>
+
+      <section class="section shell" id="categories">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Shop like Amazon, source like a reseller</p>
+            <h2>Fast lanes for every buyer.</h2>
+          </div>
+          <a class="text-link" href="#deals">View all inventory</a>
+        </div>
+        <div class="category-grid">
+          <a class="category-card" href="#deals" data-filter-link="electronics">
+            <img src="https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=900&q=80" alt="Assorted electronics on a desk" />
+            <span>Electronics</span>
+            <strong>Headphones, consoles, speakers</strong>
+          </a>
+          <a class="category-card" href="#bulk" data-filter-link="bulk">
+            <img src="https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=900&q=80" alt="Boxes and packages ready for shipment" />
+            <span>Bulk Lots</span>
+            <strong>Cases, gaylords, pallets</strong>
+          </a>
+          <a class="category-card" href="#deals" data-filter-link="home">
+            <img src="https://images.unsplash.com/photo-1556912173-3bb406ef7e77?auto=format&fit=crop&w=900&q=80" alt="Modern kitchen counter with appliances" />
+            <span>Home</span>
+            <strong>Kitchen, cleaning, decor</strong>
+          </a>
+          <a class="category-card" href="#deals" data-filter-link="beauty">
+            <img src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=900&q=80" alt="Beauty and cosmetic products on a counter" />
+            <span>Beauty</span>
+            <strong>Viral care and gift bundles</strong>
+          </a>
+        </div>
+      </section>
+
+      <section class="section inventory-shell" id="deals">
+        <aside class="filters" aria-label="Inventory filters">
+          <div class="filter-head">
+            <strong>Filters</strong>
+            <button type="button" data-clear-filters>Reset</button>
+          </div>
+          <label>
+            Condition
+            <select id="conditionFilter">
+              <option value="all">Any condition</option>
+              <option value="new">New</option>
+              <option value="open-box">Open box</option>
+              <option value="returns">Customer returns</option>
+              <option value="mixed">Mixed</option>
+            </select>
+          </label>
+          <label>
+            Max price
+            <input id="priceFilter" type="range" min="25" max="1500" value="1500" step="25" />
+            <span id="priceLabel">$1,500</span>
+          </label>
+          <div>
+            <span class="filter-label">Fulfillment</span>
+            <label class="check"><input type="checkbox" value="pickup" class="fulfillment-filter" /> Pickup</label>
+            <label class="check"><input type="checkbox" value="shipping" class="fulfillment-filter" /> Shipping</label>
+          </div>
+        </aside>
+
+        <div class="inventory">
+          <div class="section-head compact">
+            <div>
+              <p class="eyebrow">Today's deal wall</p>
+              <h2>Publiquity picks</h2>
+            </div>
+            <div class="sort-row">
+              <span id="resultCount">0 items</span>
+              <select id="sortSelect" aria-label="Sort products">
+                <option value="featured">Featured</option>
+                <option value="price-low">Price low to high</option>
+                <option value="price-high">Price high to low</option>
+                <option value="margin">Best resale margin</option>
+              </select>
+            </div>
+          </div>
+          <div class="product-grid" id="productGrid"></div>
+        </div>
+      </section>
+
+      <section class="section split-section" id="bulk">
+        <div class="split-copy">
+          <p class="eyebrow">Bulk & pallets</p>
+          <h2>Buy the shelf, not just the item.</h2>
+          <p>
+            Resellers can source manifested pallets, category cases, and weekly truckload slots.
+            Use Publiquity as the front door for everything you are already moving through TikTok.
+          </p>
+          <div class="bulk-stats">
+            <span><strong>35-70%</strong> below retail</span>
+            <span><strong>PDF</strong> manifests</span>
+            <span><strong>Net</strong> terms eligible</span>
+          </div>
+          <button class="btn primary" type="button" data-wholesale-open>Request pallet quote</button>
+        </div>
+        <div class="bulk-board">
+          <img src="https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=1300&q=82" alt="Warehouse boxes ready for bulk shipment" />
+          <div class="manifest-card">
+            <span>Manifest preview</span>
+            <strong>Home + Kitchen Pallet</strong>
+            <p>82 units, 13 categories, estimated retail $4,860</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section social-proof" id="tiktok">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Built from social demand</p>
+            <h2>TikTok is the engine. The site closes the sale.</h2>
+          </div>
+        </div>
+        <div class="proof-grid">
+          <article>
+            <span>01</span>
+            <strong>Drop live on TikTok</strong>
+            <p>Pin the product, answer comments, then send buyers to a clean listing.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <strong>Bundle the winners</strong>
+            <p>Turn viral items into mystery boxes, starter kits, and repeatable bundles.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <strong>Graduate buyers to wholesale</strong>
+            <p>Capture resellers with pallet pricing, manifests, and quote requests.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section membership" id="mystery">
+        <div>
+          <p class="eyebrow">Publiquity Insider</p>
+          <h2>Early drops, better bundles, first shot at bulk.</h2>
+          <p>
+            Add a simple membership lane for your best TikTok buyers: drop alerts, member pricing,
+            mystery box priority, and reseller-only lots.
+          </p>
+        </div>
+        <a class="btn secondary" href="#deals">Shop mystery boxes</a>
+      </section>
+
+      <section class="section wholesale" id="wholesale">
+        <div class="wholesale-copy">
+          <p class="eyebrow">Wholesale application</p>
+          <h2>Need repeat inventory?</h2>
+          <p>Tell Publiquity what you move and how often. The team can quote pallets, cases, or custom bundles.</p>
+        </div>
+        <form class="quote-form">
+          <label>
+            Business name
+            <input type="text" placeholder="Your resale business" />
+          </label>
+          <label>
+            Monthly buying budget
+            <select>
+              <option>$500-$1,000</option>
+              <option>$1,000-$5,000</option>
+              <option>$5,000-$15,000</option>
+              <option>$15,000+</option>
+            </select>
+          </label>
+          <label>
+            What do you sell?
+            <textarea placeholder="Electronics, beauty, home goods, TikTok bundles..."></textarea>
+          </label>
+          <button class="btn primary" type="button" data-wholesale-open>Start wholesale request</button>
+        </form>
+      </section>
+    </main>
+
+    <footer class="footer" id="support">
+      <div class="brand compact-brand">
+        <span class="brand-mark">P</span>
+        <span>
+          <strong>Publiquity</strong>
+          <small>Liquidation Hub</small>
+        </span>
+      </div>
+      <div>
+        <strong>Support</strong>
+        <a href="mailto:deals@publiquity.com">deals@publiquity.com</a>
+        <a href="tel:+13125550190">(312) 555-0190</a>
+      </div>
+      <div>
+        <strong>Buyer info</strong>
+        <a href="#deals">Condition guide</a>
+        <a href="#bulk">Shipping & pickup</a>
+      </div>
+      <div>
+        <strong>Channels</strong>
+        <a href="#tiktok">TikTok Shop</a>
+        <a href="#wholesale">Wholesale</a>
+      </div>
+    </footer>
+
+    <div class="drawer-backdrop" data-cart-close></div>
+    <aside class="cart-drawer" aria-label="Shopping cart" aria-hidden="true" data-cart>
+      <div class="drawer-head">
+        <div>
+          <span>Your cart</span>
+          <strong id="cartTitle">0 items</strong>
+        </div>
+        <button class="icon-btn" type="button" aria-label="Close cart" data-cart-close>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <div class="cart-lines" id="cartLines"></div>
+      <div class="cart-total">
+        <span>Estimated total</span>
+        <strong id="cartTotal">$0</strong>
+      </div>
+      <button class="btn primary full" type="button">Continue to checkout</button>
+      <p class="cart-note">Demo checkout only. Next step is connecting Stripe, Shopify, or TikTok Shop sync.</p>
+    </aside>
+
+    <dialog class="quick-view" id="quickView">
+      <button class="icon-btn modal-close" type="button" aria-label="Close product view" data-modal-close>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
+      <div id="quickViewBody"></div>
+    </dialog>
+
+    <dialog class="quote-modal" id="quoteModal">
+      <button class="icon-btn modal-close" type="button" aria-label="Close wholesale request" data-quote-close>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
+      <p class="eyebrow">Wholesale request</p>
+      <h2>Quote request queued</h2>
+      <p>
+        In a real build this would submit to Publiquity's CRM, email, or SMS workflow. For now,
+        the storefront proves the buyer journey and the quote capture moment.
+      </p>
+      <button class="btn primary full" type="button" data-quote-close>Got it</button>
+    </dialog>
+
+    <script src="script.js?v=publiquity-3"></script>
+  </body>
+</html>
