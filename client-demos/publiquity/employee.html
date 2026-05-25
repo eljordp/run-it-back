@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0d0f" />
+    <title>Publiquity Employee Portal | Task Tracking</title>
+    <meta name="description" content="Publiquity employee portal for task ownership and activity tracking." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css?v=publiquity-5" />
+  </head>
+  <body data-ops-page="employee">
+    <header class="site-header ops-header">
+      <div class="topbar">
+        <a class="brand" href="index.html" aria-label="Publiquity home">
+          <span class="brand-mark"><img src="assets/publiquity-coin.webp" alt="" /></span>
+          <span>
+            <strong>Publiquity</strong>
+            <small>Employee Portal</small>
+          </span>
+        </a>
+        <nav class="ops-nav" aria-label="Employee navigation">
+          <a href="index.html">Storefront</a>
+          <a href="admin.html">Inventory Admin</a>
+          <a class="is-active" href="employee.html">Employee Portal</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="ops-page">
+      <section class="ops-hero">
+        <div>
+          <p class="eyebrow">Who did what</p>
+          <h1>Track assignments, handoffs, and accountability.</h1>
+          <p>
+            Every intake, photo, listing, pack, and customer support task can have an owner,
+            status, and visible activity trail.
+          </p>
+        </div>
+        <div class="ops-stat-grid" aria-label="Employee task summary">
+          <article>
+            <span>Open tasks</span>
+            <strong id="employeeOpenTasks">0</strong>
+          </article>
+          <article>
+            <span>In progress</span>
+            <strong id="employeeProgressTasks">0</strong>
+          </article>
+          <article>
+            <span>Completed</span>
+            <strong id="employeeDoneTasks">0</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="ops-layout employee-layout">
+        <form class="ops-panel" id="taskForm">
+          <div class="ops-panel-head">
+            <div>
+              <p class="eyebrow">Create task</p>
+              <h2>Assign work</h2>
+            </div>
+          </div>
+          <div class="ops-form-grid">
+            <label>
+              Created by
+              <select name="createdBy">
+                <option>JP</option>
+                <option>Maya</option>
+                <option>Chris</option>
+                <option>Sam</option>
+              </select>
+            </label>
+            <label>
+              Assigned to
+              <select name="owner">
+                <option>Maya</option>
+                <option>Chris</option>
+                <option>Sam</option>
+                <option>JP</option>
+              </select>
+            </label>
+            <label class="wide">
+              Task
+              <input name="title" placeholder="Photograph PUB-EL-1009 and mark condition" required />
+            </label>
+            <label>
+              Work type
+              <select name="type">
+                <option>Inventory intake</option>
+                <option>Product photos</option>
+                <option>Listing copy</option>
+                <option>Packing</option>
+                <option>Customer support</option>
+                <option>Wholesale quote</option>
+              </select>
+            </label>
+            <label>
+              Priority
+              <select name="priority">
+                <option>Normal</option>
+                <option>High</option>
+                <option>Urgent</option>
+              </select>
+            </label>
+            <label class="wide">
+              Related SKU or order
+              <input name="subject" placeholder="PUB-EL-1009, Order #1042, Wholesale lead" />
+            </label>
+          </div>
+          <button class="btn primary full" type="submit">Create task</button>
+        </form>
+
+        <section class="ops-panel">
+          <div class="ops-panel-head">
+            <div>
+              <p class="eyebrow">Team board</p>
+              <h2>Current workload</h2>
+            </div>
+            <select id="employeeFilter" aria-label="Filter by employee">
+              <option value="all">All employees</option>
+              <option>JP</option>
+              <option>Maya</option>
+              <option>Chris</option>
+              <option>Sam</option>
+            </select>
+          </div>
+          <div class="team-load" id="teamLoad"></div>
+        </section>
+      </section>
+
+      <section class="task-board" aria-label="Employee tasks">
+        <section class="task-column">
+          <h2>To do</h2>
+          <div id="todoTasks"></div>
+        </section>
+        <section class="task-column">
+          <h2>In progress</h2>
+          <div id="progressTasks"></div>
+        </section>
+        <section class="task-column">
+          <h2>Done</h2>
+          <div id="doneTasks"></div>
+        </section>
+      </section>
+
+      <section class="ops-panel">
+        <div class="ops-panel-head">
+          <div>
+            <p class="eyebrow">Activity log</p>
+            <h2>Recent employee activity</h2>
+          </div>
+          <button class="btn secondary small" type="button" id="resetDemoTasks">Reset demo tasks</button>
+        </div>
+        <div class="activity-list" id="employeeActivityList"></div>
+      </section>
+    </main>
+
+    <script src="ops.js?v=publiquity-1"></script>
+  </body>
+</html>

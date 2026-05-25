@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0d0f" />
+    <title>Publiquity Admin | Inventory Upload</title>
+    <meta name="description" content="Publiquity admin inventory upload and publishing dashboard." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css?v=publiquity-5" />
+  </head>
+  <body data-ops-page="admin">
+    <header class="site-header ops-header">
+      <div class="topbar">
+        <a class="brand" href="index.html" aria-label="Publiquity home">
+          <span class="brand-mark"><img src="assets/publiquity-coin.webp" alt="" /></span>
+          <span>
+            <strong>Publiquity</strong>
+            <small>Admin Console</small>
+          </span>
+        </a>
+        <nav class="ops-nav" aria-label="Admin navigation">
+          <a href="index.html">Storefront</a>
+          <a class="is-active" href="admin.html">Inventory Admin</a>
+          <a href="employee.html">Employee Portal</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="ops-page">
+      <section class="ops-hero">
+        <div>
+          <p class="eyebrow">Inventory command center</p>
+          <h1>Upload, price, and publish Publiquity inventory.</h1>
+          <p>
+            Intake new pallets, upload CSV rows, assign ownership, and keep a clean activity trail
+            of who touched each item.
+          </p>
+        </div>
+        <div class="ops-stat-grid" aria-label="Inventory summary">
+          <article>
+            <span>Total SKUs</span>
+            <strong id="adminTotalSkus">0</strong>
+          </article>
+          <article>
+            <span>Ready to publish</span>
+            <strong id="adminReadyCount">0</strong>
+          </article>
+          <article>
+            <span>Needs work</span>
+            <strong id="adminNeedsWorkCount">0</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="ops-layout">
+        <form class="ops-panel" id="manualInventoryForm">
+          <div class="ops-panel-head">
+            <div>
+              <p class="eyebrow">Manual upload</p>
+              <h2>Add one item</h2>
+            </div>
+          </div>
+          <div class="ops-form-grid">
+            <label>
+              Employee
+              <select name="employee">
+                <option>JP</option>
+                <option>Maya</option>
+                <option>Chris</option>
+                <option>Sam</option>
+              </select>
+            </label>
+            <label>
+              SKU
+              <input name="sku" placeholder="PUB-EL-1009" required />
+            </label>
+            <label class="wide">
+              Product title
+              <input name="title" placeholder="Premium Audio Returns Bundle" required />
+            </label>
+            <label>
+              Category
+              <select name="category">
+                <option>Electronics</option>
+                <option>Home</option>
+                <option>Beauty</option>
+                <option>Bulk</option>
+                <option>Apparel</option>
+              </select>
+            </label>
+            <label>
+              Condition
+              <select name="condition">
+                <option>Open box</option>
+                <option>New</option>
+                <option>Returns</option>
+                <option>Mixed</option>
+              </select>
+            </label>
+            <label>
+              Quantity
+              <input name="quantity" type="number" min="1" value="1" />
+            </label>
+            <label>
+              Cost
+              <input name="cost" type="number" min="0" step="1" placeholder="45" />
+            </label>
+            <label>
+              Price
+              <input name="price" type="number" min="0" step="1" placeholder="149" required />
+            </label>
+            <label>
+              Location
+              <input name="location" placeholder="Aisle B / Bin 14" />
+            </label>
+            <label>
+              Status
+              <select name="status">
+                <option>Needs photos</option>
+                <option>Ready to publish</option>
+                <option>Published</option>
+                <option>Hold</option>
+              </select>
+            </label>
+            <label class="wide">
+              Notes
+              <textarea name="notes" placeholder="Manifest notes, defects, platform fit, bundle ideas..."></textarea>
+            </label>
+          </div>
+          <button class="btn primary full" type="submit">Add inventory item</button>
+        </form>
+
+        <section class="ops-panel">
+          <div class="ops-panel-head">
+            <div>
+              <p class="eyebrow">CSV batch upload</p>
+              <h2>Paste pallet manifest rows</h2>
+            </div>
+          </div>
+          <textarea
+            class="csv-box"
+            id="csvInput"
+            spellcheck="false"
+          >sku,title,category,condition,quantity,cost,price,location,status
+PUB-BULK-2201,Small Electronics Case Pack,Electronics,Mixed,48,210,399,Aisle C,Ready to publish
+PUB-HOME-1180,Home Reset Cleaning Case,Home,New,24,38,84,Aisle A,Needs photos</textarea>
+          <div class="ops-actions">
+            <select id="csvEmployee" aria-label="Employee importing CSV">
+              <option>JP</option>
+              <option>Maya</option>
+              <option>Chris</option>
+              <option>Sam</option>
+            </select>
+            <button class="btn primary" type="button" id="importCsvBtn">Import rows</button>
+          </div>
+        </section>
+      </section>
+
+      <section class="ops-panel inventory-panel">
+        <div class="ops-panel-head">
+          <div>
+            <p class="eyebrow">Inventory table</p>
+            <h2>Current working inventory</h2>
+          </div>
+          <button class="btn secondary small" type="button" id="resetDemoInventory">Reset demo data</button>
+        </div>
+        <div class="ops-table-wrap">
+          <table class="ops-table">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>Owner</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="ops-panel">
+        <div class="ops-panel-head">
+          <div>
+            <p class="eyebrow">Audit trail</p>
+            <h2>Recent inventory activity</h2>
+          </div>
+        </div>
+        <div class="activity-list" id="adminActivityList"></div>
+      </section>
+    </main>
+
+    <script src="ops.js?v=publiquity-1"></script>
+  </body>
+</html>
